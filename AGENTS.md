@@ -26,12 +26,13 @@ If two of these contradict each other, or something you need is not written anyw
 8. Never put tokens, passwords or exam answers in `localStorage` or `sessionStorage`. The only exceptions: the autosave queue (IndexedDB via idb-keyval) and the dev-only key `mock_session_user_id`.
 9. Every task ends with `npm run check` passing. Paste its output in your report.
 10. Do not modify anything under `docs/` unless the task card says so. Docs are written by someone else.
+11. Never read, patch, copy or edit files inside `node_modules` or the npm/npx cache to work around a failing tool or to understand how it works. If a tool fails, report it (section 11).
 
 ## 2. Stack (locked)
 
 - Node 24 (LTS), npm only. Do not use pnpm or yarn. Do not create other lockfiles.
 - Vite, React 19, TypeScript 5 (strict + `noUncheckedIndexedAccess`)
-- Tailwind CSS v4, shadcn/ui (new-york, neutral, CSS variables), lucide-react, sonner
+- Tailwind CSS v4, shadcn/ui (radix base, preset Nova = style `radix-nova`, neutral, CSS variables, Geist font), lucide-react, sonner, clsx + tailwind-merge (for the `cn` helper)
 - React Router v7, library mode: `createBrowserRouter`; import from `react-router`, `RouterProvider` from `react-router/dom`. No framework mode. No route loaders for data.
 - TanStack Query v5 (server state), Zustand v5 (auth store and exam UI flags only)
 - React Hook Form v7 + Zod + `@hookform/resolvers`
@@ -39,7 +40,7 @@ If two of these contradict each other, or something you need is not written anyw
 - Tests: Vitest, jsdom, Testing Library, user-event, MSW v2, fake-indexeddb, Playwright (Chromium only)
 - Exact installed versions are recorded in `docs/VERSIONS.md`. Do not change them.
 
-Forbidden: Redux, MobX, XState, SWR, Formik, Moment, Lodash, any other UI kit, CSS-in-JS, CSS modules, Next.js, Storybook, Husky, any analytics or telemetry.
+Forbidden: Redux, MobX, XState, SWR, Formik, Moment, Lodash, any other UI kit, CSS-in-JS, CSS modules, Next.js, Storybook, Husky, any analytics or telemetry, the npm package `cn`, and `@rollup/wasm-node` or any other workaround for a blocked native binary.
 
 ## 3. Structure and naming
 
@@ -66,12 +67,12 @@ tests/e2e/          Playwright specs
 - Types come from `docs/types.ts` (copied to `src/types/domain.ts`). Zod schemas live in `schemas.ts`; derive types with `z.infer`.
 - `api.ts`: plain async functions, typed input and output, using the shared `apiClient`. `hooks.ts`: `useQuery` / `useMutation` wrappers. Each feature exports a query key factory, for example `questionKeys.list(params)`.
 - Mutations invalidate by query key and show a sonner toast on success and on error. Error text comes from `ApiError.message`. Field errors come from `ApiError.details` and are set on the form with `setError`.
-- Forms: React Hook Form + `zodResolver`. Inline field errors. Submit button disabled while pending. Use `FormField` from `components/shared`.
+- Forms: React Hook Form + `zodResolver`. Inline field errors. Submit button disabled while pending. Use `FormField` from `components/shared`. The shadcn `form` component does not exist in this preset; do not try to add it.
 - Every data screen implements four states: loading (Skeleton), empty (EmptyState), error (message and a retry button), success. A screen that lacks one is not finished.
 - Destructive actions go through `ConfirmDialog`.
 - Dates are ISO 8601 UTC strings in data. Display with date-fns in the user's local time through helpers in `lib/format.ts`. Date and time inputs are native `datetime-local`.
 - Styling: Tailwind classes only. No inline `style` except for values computed at runtime. Use the `cn` helper from `lib/utils.ts`.
-- Role accent color comes from the `data-role` attribute and the `--accent` CSS variable. Do not hard-code role colors in components.
+- Role accent color comes from the `data-role` attribute on the `<html>` element, which overrides the shadcn `--primary` tokens in `src/index.css`. Do not hard-code role colors in components. Do not use the shadcn `--accent` token for roles.
 - No `console.log` in committed code. No commented-out code. Comments only explain why, never what.
 - No data fetching or derived state inside `useEffect`. Every listener, interval and timeout you create is cleaned up.
 - Accessibility: every input has a label, buttons are real `<button>` elements, dialogs come from shadcn.
@@ -136,6 +137,7 @@ Stop immediately, change nothing further, and report, if:
 - a required acceptance check cannot pass without breaking another rule in this file
 - `npm run check` fails and your second fix attempt also fails
 - you are about to touch a file the card does not allow
+- Windows blocks a native binary ('An Application Control policy has blocked this file'): do not work around it, report it
 
 Report format:
 
