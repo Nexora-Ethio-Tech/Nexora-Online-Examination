@@ -29,7 +29,7 @@ If two of these contradict each other, or something you need is not written anyw
 
 ## 2. Stack (locked)
 
-- Node 22, npm only. Do not use pnpm or yarn. Do not create other lockfiles.
+- Node 24 (LTS), npm only. Do not use pnpm or yarn. Do not create other lockfiles.
 - Vite, React 19, TypeScript 5 (strict + `noUncheckedIndexedAccess`)
 - Tailwind CSS v4, shadcn/ui (new-york, neutral, CSS variables), lucide-react, sonner
 - React Router v7, library mode: `createBrowserRouter`; import from `react-router`, `RouterProvider` from `react-router/dom`. No framework mode. No route loaders for data.
