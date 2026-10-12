@@ -1,7 +1,5 @@
+import { DesignPreview } from '@/app/DesignPreview';
+
 export function App() {
-  return (
-    <main>
-      <h1>Exam Platform</h1>
-    </main>
-  );
+  return <DesignPreview />;
 }
