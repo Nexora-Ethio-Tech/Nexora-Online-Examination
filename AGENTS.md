@@ -73,6 +73,7 @@ tests/e2e/          Playwright specs
 - Dates are ISO 8601 UTC strings in data. Display with date-fns in the user's local time through helpers in `lib/format.ts`. Date and time inputs are native `datetime-local`.
 - Styling: Tailwind classes only. No inline `style` except for values computed at runtime. Use the `cn` helper from `lib/utils.ts`.
 - Role accent color comes from the `data-role` attribute on the `<html>` element, which overrides the shadcn `--primary` tokens in `src/index.css`. Do not hard-code role colors in components. Do not use the shadcn `--accent` token for roles.
+- Generated shadcn components import `cn` from the module name `cn`. That name is an alias for `src/lib/utils.ts`, set in `tsconfig.app.json` and `vite.config.ts`. Never install the npm package `cn` and never remove the alias.
 - No `console.log` in committed code. No commented-out code. Comments only explain why, never what.
 - No data fetching or derived state inside `useEffect`. Every listener, interval and timeout you create is cleaned up.
 - Accessibility: every input has a label, buttons are real `<button>` elements, dialogs come from shadcn.
