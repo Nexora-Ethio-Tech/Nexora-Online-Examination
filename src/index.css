@@ -3,6 +3,37 @@
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
 
+@media print {
+  body:has(.results-print) header,
+  body:has(.results-print) aside {
+    display: none !important;
+  }
+  body:has(.results-print) #main-content {
+    width: 100%;
+  }
+  body:has(.results-print) .lg\:grid-cols-\[200px_1fr\] {
+    display: block;
+  }
+  .results-print {
+    color: #000;
+    background: #fff;
+    font-size: 10pt;
+  }
+  .results-print section {
+    border: 0;
+    padding: 8pt 0;
+  }
+  .results-print tr {
+    break-inside: avoid;
+  }
+  .results-print thead {
+    display: table-header-group;
+  }
+  .results-print .overflow-x-auto {
+    overflow: visible;
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

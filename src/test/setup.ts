@@ -1,8 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { webcrypto } from 'node:crypto';
 
-if (typeof window.matchMedia !== 'function') {
+if (!globalThis.crypto?.subtle)
+  Object.defineProperty(globalThis, 'crypto', { configurable: true, value: webcrypto });
+
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
@@ -19,5 +23,5 @@ if (typeof window.matchMedia !== 'function') {
 }
 
 afterEach(() => {
-  cleanup();
+  if (typeof window !== 'undefined') cleanup();
 });
