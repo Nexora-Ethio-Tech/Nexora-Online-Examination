@@ -1,5 +1,7 @@
 # Backend handoff: MVP implementation increments
 
+Scheduling/reload update (15 October): send [backend-scheduling-reload-verification.md](backend-scheduling-reload-verification.md) and [scheduling-reload-testing.md](scheduling-reload-testing.md). Frontend EAT guidance and cold-reload recovery entry are implemented. No wire changes: backend must verify existing BE-02/BE-04 rules and return the specified integration evidence. This does not supply the still-pending F-05/F-06 contracts.
+
 Frontend-only update (15 October): collapsible student navigation and preparation phase feedback are implemented; see [student-navigation-progress.md](student-navigation-progress.md). No backend change or new document implementation is required for this slice. Progress is local to the browser and does not supply the future F-06 readiness acknowledgement. Continue v0.10 and the audit coordination requirements.
 
 Audit update (15 October): read [the master-plan audit](master-plan-audit.md), including its backend coordination section. BE-09/v0.10 remains the latest issued executable interface. Accommodation configuration and verified preparation acknowledgement need owner-issued addenda before implementation; their precise payloads are not yet specified. Continue existing contracts and provide staging integration evidence. This audit does not change wire formats.

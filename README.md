@@ -22,6 +22,8 @@ Rules for contributors and coding agents are in `AGENTS.md`.
 
 ## Current completion status
 
+Scheduling now displays current EAT with field-specific errors and a stale-clock refresh. Offline attempt reloads show recovery guidance, with same-student return after sign-in. Follow [the scheduling/reload testing guide](docs/scheduling-reload-testing.md) and send its companion backend verification note for real integration checks.
+
 Student exams now have collapsible question navigation and explicit preparation steps. See [the testing guide](docs/student-navigation-progress.md). No backend contract changes are required for this increment.
 
 See the [master-plan audit](docs/master-plan-audit.md) for requirement evidence, confirmed gaps and ordered remaining tasks. The main frontend workflows exist, but frontend completion and real-backend release acceptance are not established. The `e2e` script is still a placeholder.

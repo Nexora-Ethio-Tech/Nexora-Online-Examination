@@ -9,7 +9,7 @@ import { FormField } from '@/components/shared/FormField';
 import { useAuth } from './AuthProvider';
 import { loginSchema, type LoginInput } from './schemas';
 import { ApiError, errorMessage } from '@/lib/api-client';
-import { roleHome } from './role-home';
+import { authenticatedDestination } from './attempt-resume';
 
 export function LoginPage() {
   const auth = useAuth();
@@ -19,7 +19,7 @@ export function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: { loginId: '', password: '' },
   });
-  if (auth.session) return <Navigate to={roleHome[auth.session.user.role]} replace />;
+  if (auth.session) return <Navigate to={authenticatedDestination(auth.session)} replace />;
   if (auth.challenge) return <Navigate to="/mfa" replace />;
 
   async function submit(input: LoginInput) {

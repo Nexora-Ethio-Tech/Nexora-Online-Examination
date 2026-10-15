@@ -4,6 +4,8 @@ Audit date: 15 October 2026. Code baseline: `55c4891` on `main` (includes `f6731
 
 ## Conclusion and evidence limits
 
+Follow-up: F-03 EAT scheduling guidance and F-04 cold-reload recovery entry are now implemented. See [scheduling-reload-testing.md](scheduling-reload-testing.md) for the precise behavior and evidence limits. Production-shell offline guidance was browser-tested; real API/Android acceptance remains outstanding under F-07. F-05, F-06, F-08 and F-09 remain open.
+
 Follow-up (15 October): F-01 collapsible navigation and F-02 preparation phase feedback are now implemented; see [student-navigation-progress.md](student-navigation-progress.md) for tests and browser evidence. The matrix below preserves the original `55c4891` audit baseline. Real Android/production acceptance remains open under F-07. F-03 through F-09 are unchanged.
 
 All eleven screen categories in section 6.1 have frontend routes or controls, but that is not proof that every required behavior is complete. There are confirmed frontend gaps, missing operational workflows and unverified integration/release requirements. Do not call the frontend finished or describe the project as only waiting for a backend connection. No defensible completion percentage is assigned.

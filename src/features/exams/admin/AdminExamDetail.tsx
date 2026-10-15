@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -16,17 +16,29 @@ import {
   type Sitting,
 } from './schemas';
 
-function ScheduleForm({
+export function ScheduleForm({
   detail,
   initial,
   pending,
   onSave,
+  onRefresh,
 }: {
-  detail: AdminDetail;
+  detail: AdminDetail & { clockReceivedAt: number };
   initial?: Sitting;
   pending: boolean;
   onSave: (preparationVisibleAt: string, resultsReleaseAt: string, reason: string) => void;
+  onRefresh: () => void;
 }) {
+  const id = useId();
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const elapsed = () => Math.max(0, performance.now() - detail.clockReceivedAt);
+  const now = () => Date.parse(detail.serverNow) + elapsed();
+  const stale = elapsed() >= 60_000;
+  const locked = !!initial && now() >= Date.parse(initial.preparationVisibleAt);
   const suggested = new Date(
     Math.ceil((Date.parse(detail.serverNow) + 120000) / 60000) * 60000,
   ).toISOString();
@@ -44,22 +56,39 @@ function ScheduleForm({
   const [error, setError] = useState('');
   const iso = parseEatInput(prep);
   const times = iso ? scheduleTimes(iso, detail.exam.durationMinutes) : null;
+  const result = parseEatInput(release);
+  const prepError = !iso
+    ? 'Enter a valid preparation date and time in EAT.'
+    : Date.parse(iso) <= now()
+      ? 'Preparation must be later than the current EAT time shown above.'
+      : '';
+  const releaseError = !result
+    ? 'Enter a valid planned results date and time in EAT.'
+    : times && Date.parse(result) < Date.parse(times.endsAt)
+      ? 'Planned results must be at or after the common end shown below. The server also checks approved extra time.'
+      : '';
   return (
     <form
       className={`${panel} space-y-4`}
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        const result = parseEatInput(release);
+        if (elapsed() >= 60_000) {
+          setError('Refresh server time before confirming this schedule.');
+          return;
+        }
+        if (initial && now() >= Date.parse(initial.preparationVisibleAt)) {
+          setError('Preparation has opened. This schedule can no longer be changed.');
+          return;
+        }
         if (
           !iso ||
           !times ||
           !result ||
-          Date.parse(iso) <= Date.parse(detail.serverNow) ||
+          Date.parse(iso) <= now() ||
           Date.parse(result) < Date.parse(times.endsAt)
         ) {
-          setError(
-            'Choose a future preparation time and a planned result time at or after the exam ends.',
-          );
+          setError('Correct the highlighted scheduling fields before confirming.');
           return;
         }
         if (initial && !reason.trim()) {
@@ -77,30 +106,71 @@ function ScheduleForm({
         Enter all dates and times in East Africa Time (EAT, UTC+3). The full ten-minute preparation
         period applies, including in the demo.
       </p>
+      <p className="text-sm">
+        Current EAT time (server estimate):{' '}
+        <strong>{eatTime(new Date(now()).toISOString())}</strong>
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Your computer clock may use another timezone. Enter EAT here. The server makes the final
+        timing check.
+      </p>
+      {stale && <p role="alert">Server time needs refreshing. Your entered dates are kept.</p>}
+      {locked && (
+        <p role="alert">Preparation has opened. This schedule can no longer be changed.</p>
+      )}
+      <Button
+        type="button"
+        variant="outline"
+        className="min-h-11"
+        disabled={pending}
+        onClick={() => {
+          setConfirmed(false);
+          setError('');
+          onRefresh();
+        }}
+      >
+        Refresh server time
+      </Button>
       <fieldset disabled={pending} className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-2">
           Preparation date and time (EAT)
           <Input
             type="datetime-local"
+            aria-label="Preparation date and time (EAT)"
             required
+            aria-invalid={!!prepError}
+            aria-describedby={prepError ? `${id}-prep-error` : undefined}
             value={prep}
             onChange={(e) => {
               setPrep(e.target.value);
               setConfirmed(false);
             }}
           />
+          {prepError && (
+            <span id={`${id}-prep-error`} className="block text-sm text-destructive">
+              {prepError}
+            </span>
+          )}
         </label>
         <label className="space-y-2">
           Planned results date and time (EAT)
           <Input
             type="datetime-local"
+            aria-label="Planned results date and time (EAT)"
             required
+            aria-invalid={!!releaseError}
+            aria-describedby={releaseError ? `${id}-release-error` : undefined}
             value={release}
             onChange={(e) => {
               setRelease(e.target.value);
               setConfirmed(false);
             }}
           />
+          {releaseError && (
+            <span id={`${id}-release-error`} className="block text-sm text-destructive">
+              {releaseError}
+            </span>
+          )}
         </label>
         {initial && (
           <label className="space-y-2 sm:col-span-2">
@@ -145,7 +215,7 @@ function ScheduleForm({
           {error}
         </p>
       )}
-      <Button disabled={pending || !confirmed} className="min-h-11">
+      <Button disabled={pending || !confirmed || stale || locked} className="min-h-11">
         {pending ? 'Saving schedule…' : initial ? 'Save schedule change' : 'Confirm schedule'}
       </Button>
     </form>
@@ -160,7 +230,10 @@ export function AdminExamDetail() {
   const queryKey = ['admin-exam', ...scope, examId];
   const query = useQuery({
     queryKey,
-    queryFn: ({ signal }) => api.get(examId, signal),
+    queryFn: async ({ signal }) => ({
+      ...(await api.get(examId, signal)),
+      clockReceivedAt: performance.now(),
+    }),
     refetchOnWindowFocus: false,
     refetchInterval: (q) => (q.state.data?.packageState === 'pending' ? 2000 : false),
   });
@@ -181,7 +254,10 @@ export function AdminExamDetail() {
   const mutation = useMutation({
     mutationFn: (run: () => Promise<AdminDetail>) => run(),
     onSuccess: (data) => {
-      qc.setQueryData(queryKey, data);
+      // Idempotent mutation replays may contain an old serverNow. Only a fresh
+      // detail GET provides the scheduling clock sample.
+      qc.setQueryData(queryKey, { ...data, clockReceivedAt: performance.now() - 60_000 });
+      void qc.invalidateQueries({ queryKey });
       void qc.invalidateQueries({ queryKey: ['admin-exams', ...scope] });
       setConfirmedRevision(null);
       setComment('');
@@ -459,6 +535,9 @@ export function AdminExamDetail() {
                 detail={d}
                 initial={s}
                 pending={pending}
+                onRefresh={() => {
+                  void query.refetch();
+                }}
                 onSave={(preparationVisibleAt, resultsReleaseAt, reason) => {
                   const body = {
                     scheduleRevision: s.scheduleRevision,
@@ -491,6 +570,9 @@ export function AdminExamDetail() {
               key={`new-${e.revision}`}
               detail={d}
               pending={pending}
+              onRefresh={() => {
+                void query.refetch();
+              }}
               onSave={(preparationVisibleAt, resultsReleaseAt) => {
                 if (d.approvedVersion !== null) {
                   const body = {

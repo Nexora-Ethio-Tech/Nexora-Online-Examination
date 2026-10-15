@@ -1,4 +1,6 @@
-import { Navigate, Outlet, createBrowserRouter, type RouteObject } from 'react-router';
+import { useEffect } from 'react';
+import { Navigate, Outlet, useLocation, createBrowserRouter, type RouteObject } from 'react-router';
+import { isAttemptPath, rememberAttempt } from '@/features/auth/attempt-resume';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { MfaPage } from '@/features/auth/MfaPage';
@@ -32,6 +34,11 @@ import {
 
 function SessionGate() {
   const auth = useAuth();
+  const location = useLocation();
+  const recovering = isAttemptPath(location.pathname);
+  useEffect(() => {
+    if (auth.session) rememberAttempt(auth.session, location.pathname);
+  }, [auth.session, location.pathname]);
   if (auth.loading)
     return (
       <main className="flex min-h-svh items-center justify-center p-6">
@@ -43,7 +50,26 @@ function SessionGate() {
   if (auth.sessionError && !auth.session)
     return (
       <main className="mx-auto max-w-lg px-6 py-20">
-        <h1 className="mb-6 text-2xl font-semibold">We couldn’t check your session</h1>
+        <h1 className="mb-6 text-2xl font-semibold">
+          {recovering ? 'Reconnect to recover your exam' : 'We couldn’t check your session'}
+        </h1>
+        {recovering && (
+          <div className="mb-6 space-y-3 text-sm">
+            <p>
+              We cannot verify your session while the connection or server is unavailable. Editing
+              is paused.
+            </p>
+            <p>
+              Keep this browser open. Do not clear site storage or switch browsers. Any answers
+              already saved on this device must be retained.
+            </p>
+            <p>
+              Reconnect and try again. If asked to sign in, use the same student account. We must
+              verify your identity, exam time and active browser before reopening. Your original
+              deadline still applies.
+            </p>
+          </div>
+        )}
         <ErrorState
           message={errorMessage(auth.sessionError)}
           onRetry={() => {
