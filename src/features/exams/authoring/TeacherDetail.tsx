@@ -401,12 +401,16 @@ export function TeacherDetail() {
               <a className="text-sm underline" href="/templates/nexora-questions.xlsx" download>
                 Download Excel example
               </a>
+              <a className="text-sm underline" href="/templates/nexora-math-20-demo.xlsx" download>
+                Download 20-question math demo (Excel)
+              </a>
             </div>
             {import.meta.env.DEV &&
               (import.meta.env.MODE === 'demo' || import.meta.env.VITE_USE_MOCKS === 'true') && (
                 <p className="mb-4 rounded-md bg-muted p-3 text-sm">
                   Demo: upload an unchanged example from the links above. Parsing and AI are
-                  simulated for these examples only; edited files require the real backend.
+                  simulated for these examples only; edited files require the real backend. The math
+                  demo has 20 questions worth 40 marks across four topics.
                 </p>
               )}
             <label className="block text-sm">

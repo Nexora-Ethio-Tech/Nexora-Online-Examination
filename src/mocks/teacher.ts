@@ -9,6 +9,7 @@ import {
 } from '@/features/exams/authoring/schemas';
 import templateHashes from './teacher-template-hashes.json';
 import { createAuthoringStore } from './authoring-store';
+import { math20Items } from './math20';
 
 export function sampleItems(): Item[] {
   return [
@@ -63,7 +64,7 @@ const revisionSchema = z.object({ revision: z.number().int().positive() });
 export function createTeacherDemo(clock: () => number = Date.now, store = createAuthoringStore()) {
   const { drafts, papers } = store;
   const jobs = new Map<string, Job>();
-  const due = new Map<string, number>();
+  const due = new Map<string, { at: number; items: Item[] }>();
   const replays = new Map<string, { fingerprint: string; body: unknown; status: number }>();
   function updateCounts(d: Draft) {
     const p = papers.get(d.examId) ?? [];
@@ -72,14 +73,14 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
     d.reviewedCount = p.filter((i) => i.reviewed).length;
   }
   function advance() {
-    for (const [id, at] of due) {
-      if (clock() < at) continue;
+    for (const [id, pending] of due) {
+      if (clock() < pending.at) continue;
       const j = jobs.get(id);
       const d = j && drafts.get(j.examId);
       if (j && d) {
         j.state = 'ready';
-        j.completedCount = 2;
-        papers.set(d.examId, sampleItems());
+        j.completedCount = pending.items.length;
+        papers.set(d.examId, pending.items);
         d.revision++;
         updateCounts(d);
       }
@@ -264,12 +265,18 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
       if (uploaded.size > 5 * 1024 * 1024)
         return fail('File exceeds 5 MB.', 'PAYLOAD_TOO_LARGE', 413);
       const id = crypto.randomUUID();
-      const supported = Object.values(templateHashes).includes(v.hash);
+      const items =
+        v.hash === templateHashes.math20Xlsx
+          ? math20Items()
+          : [templateHashes.docx, templateHashes.xlsx].includes(v.hash)
+            ? sampleItems()
+            : null;
+      const supported = items !== null;
       const j: Job = {
         importId: id,
         examId: d.examId,
         state: supported ? 'ai_running' : 'failed',
-        parsedCount: supported ? 2 : 0,
+        parsedCount: items?.length ?? 0,
         completedCount: 0,
         sourceName: v.name,
         sourceSha256: v.hash,
@@ -283,7 +290,7 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
       jobs.set(id, j);
       d.importId = id;
       d.revision++;
-      if (supported) due.set(id, clock() + 1200);
+      if (items) due.set(id, { at: clock() + 1200, items });
       return commit(j, 202);
     }
     const jobMatch = /^\/imports\/([^/]+)(?:\/(ai-retry))?$/.exec(path);

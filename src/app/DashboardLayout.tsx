@@ -53,6 +53,22 @@ export function DashboardLayout() {
           <nav aria-label="Workspace">
             {user.role === 'school_admin' && (
               <NavLink
+                to="/admin/monitor"
+                className="mb-2 flex min-h-11 items-center rounded-lg px-4 text-sm font-medium aria-[current=page]:bg-primary/10"
+              >
+                Live exams
+              </NavLink>
+            )}
+            {user.role === 'student' && (
+              <NavLink
+                to="/student/device"
+                className="mb-2 flex min-h-11 items-center rounded-lg px-4 text-sm font-medium aria-[current=page]:bg-primary/10"
+              >
+                Register replacement browser
+              </NavLink>
+            )}
+            {user.role === 'school_admin' && (
+              <NavLink
                 to="/admin/school"
                 className="mb-2 flex min-h-11 items-center rounded-lg px-4 text-sm font-medium aria-[current=page]:bg-primary/10"
               >

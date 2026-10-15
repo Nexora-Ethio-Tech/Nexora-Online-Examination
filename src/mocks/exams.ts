@@ -3,6 +3,7 @@ import type { Attempt, EncryptedPackage, Exam } from '@/features/exams/schemas';
 import { answerSchema, finalSchema, type Paper, type FinalBody } from '@/features/runner/schemas';
 import { snapshotDigest } from '@/features/runner/crypto';
 import type { DemoSitting } from './authoring-store';
+import { createMonitorDemo } from './monitor';
 // Synthetic schedules are relative to launch. This simulator is development-only.
 export function createExamDemo(
   clock = () => Date.now(),
@@ -19,6 +20,7 @@ export function createExamDemo(
     digest: string,
     paper: Paper,
   ) => void = () => {},
+  retainedAttempts: () => Attempt[] = () => [],
 ) {
   const launch = clock();
   const starts = [-7_200_000, -7_200_000, -7_200_000, -120_000, 30_000, 86_400_000];
@@ -31,8 +33,15 @@ export function createExamDemo(
     'Physics · tomorrow',
   ];
   const attempts = new Map<string, Attempt>();
+  let monitorExample: Exam | null = null;
   const bindings = new Map<string, string>();
   const enrolled = new Set<string>();
+  let activeDevice: string | undefined;
+  const contacts = new Map<string, string>();
+  const generationHistory = new Map<
+    string,
+    { attempt: Attempt; revisions: Map<number, string> }[]
+  >();
   const packets = new Map<string, EncryptedPackage>();
   const keys = new Map<string, string>();
   const orders = new Map<
@@ -121,6 +130,19 @@ export function createExamDemo(
     });
     return [
       ...seeded,
+      ...(monitorExample
+        ? [
+            {
+              ...monitorExample,
+              attemptState:
+                attempts.get(monitorExample.sessionId)?.state ?? monitorExample.attemptState,
+              phase:
+                clock() < Date.parse(monitorExample.endsAt)
+                  ? ('open' as const)
+                  : ('ended' as const),
+            },
+          ]
+        : []),
       ...scheduled().map(({ session: s, title, durationMinutes }): Exam => {
         const attempt = attempts.get(s.sessionId);
         return {
@@ -197,11 +219,85 @@ export function createExamDemo(
     packets.set(attempt.attemptId, value);
     return value;
   }
-  return async (path: string, method: string, body: unknown, headers: Headers) => {
+  const attemptFor = (sessionId: string) =>
+    attempts.get(sessionId) ?? retainedAttempts().find((a) => a.sessionId === sessionId);
+  function loadMonitorExample() {
+    if (monitorExample)
+      return { sessionId: monitorExample.sessionId, attemptId: monitorExample.attemptId };
+    const start = clock() - 60_000;
+    const attempt: Attempt = {
+      attemptId: crypto.randomUUID(),
+      sessionId: 'demo-monitor-sitting',
+      examVersion: 1,
+      scheduleRevision: 1,
+      deviceGeneration: 1,
+      state: 'active',
+      serverNow: now(),
+      startsAt: iso(start),
+      deadlineAt: iso(start + 3_600_000),
+      finalAcceptUntil: iso(start + 3_605_000),
+      lastServerSaveAt: now(),
+      highestAcceptedSeq: 1,
+      answers: [{ itemId: 'q1', value: 'true', clientSeq: 1 }],
+      receipt: null,
+      recovery: null,
+    };
+    const oldDevice = crypto.randomUUID();
+    enrolled.add(oldDevice);
+    bindings.set(attempt.attemptId, oldDevice);
+    attempts.set(attempt.sessionId, attempt);
+    contacts.set(attempt.attemptId, now());
+    record(attempt);
+    monitorExample = {
+      sessionId: attempt.sessionId,
+      examId: 'demo-monitor-paper',
+      title: 'Device replacement · synthetic rehearsal',
+      subjectName: 'Demo',
+      className: 'Grade 10 A',
+      durationMinutes: 60,
+      preparationVisibleAt: iso(start - 600_000),
+      startsAt: attempt.startsAt,
+      endsAt: attempt.deadlineAt,
+      deadlineAt: attempt.deadlineAt,
+      scheduleRevision: 1,
+      phase: 'open',
+      attemptId: attempt.attemptId,
+      attemptState: attempt.state,
+    };
+    return { sessionId: attempt.sessionId, attemptId: attempt.attemptId };
+  }
+  const monitor = createMonitorDemo(
+    {
+      exams,
+      attempt: attemptFor,
+      contact: (id) => contacts.get(id) ?? null,
+      enrolled: (id) => enrolled.has(id),
+      boundDevice: (id) => bindings.get(id),
+      replace: (attempt, deviceId) => {
+        generationHistory.set(attempt.attemptId, [
+          ...(generationHistory.get(attempt.attemptId) ?? []),
+          {
+            attempt: structuredClone(attempt),
+            revisions: new Map(revisions.get(attempt.attemptId)),
+          },
+        ]);
+        attempt.deviceGeneration += 1;
+        attempt.state = 'preparing';
+        attempt.answers = attempt.answers.map((a) => ({ ...a, clientSeq: 0 }));
+        attempt.highestAcceptedSeq = 0;
+        bindings.set(attempt.attemptId, deviceId);
+        revisions.delete(attempt.attemptId);
+        record(attempt);
+      },
+    },
+    clock,
+  );
+  const handle = async (path: string, method: string, body: unknown, headers: Headers) => {
     if (path === '/auth/device' && method === 'POST') {
       const parsed = z.object({ deviceId: z.uuid() }).safeParse(body);
       if (!parsed.success) return error('VALIDATION_ERROR', 'Invalid device ID.', 422);
       enrolled.add(parsed.data.deviceId);
+      activeDevice = parsed.data.deviceId;
       return json(parsed.data);
     }
     if (path === '/me/exams' && method === 'GET')
@@ -219,15 +315,21 @@ export function createExamDemo(
       const exam = exams().find((item) => item.sessionId === creation[1]);
       if (!exam) return error('NOT_FOUND', 'This exam is unavailable.', 404);
       const parsed = z.object({ deviceId: z.uuid() }).safeParse(body);
-      if (!parsed.success || !enrolled.has(parsed.data.deviceId))
+      if (
+        !parsed.success ||
+        !enrolled.has(parsed.data.deviceId) ||
+        activeDevice !== parsed.data.deviceId
+      )
         return error('DEVICE_REPLACED', 'Enroll this browser first.');
       if (!z.uuid().safeParse(headers.get('Idempotency-Key')).success)
         return error('VALIDATION_ERROR', 'Idempotency key is required.', 422);
       const existing = attempts.get(exam.sessionId);
-      if (existing)
-        return bindings.get(existing.attemptId) === parsed.data.deviceId
-          ? json({ ...existing, serverNow: now() })
-          : error('DEVICE_REPLACED', 'Another browser is bound to this attempt.');
+      if (existing) {
+        if (bindings.get(existing.attemptId) !== parsed.data.deviceId)
+          return error('DEVICE_REPLACED', 'Another browser is bound to this attempt.');
+        contacts.set(existing.attemptId, now());
+        return json({ ...existing, serverNow: now() });
+      }
       if (exam.phase === 'scheduled') return error('NOT_PREPARING', 'Preparation has not opened.');
       if (exam.phase === 'ended') return error('RECOVERY_REQUIRED', 'The exam window ended.');
       const attempt: Attempt = {
@@ -252,6 +354,7 @@ export function createExamDemo(
       attempts.set(exam.sessionId, attempt);
       record(attempt);
       bindings.set(attempt.attemptId, parsed.data.deviceId);
+      contacts.set(attempt.attemptId, now());
       return json(attempt, 201);
     }
     const write = /^\/attempts\/([^/]+)\/(unlock|answers|submit|recovery)$/.exec(path);
@@ -261,6 +364,12 @@ export function createExamDemo(
       const paper = paperFor(attempt);
       const action = write[2];
       const finalized = finalRequests.get(attempt.attemptId);
+      if (
+        action !== 'recovery' &&
+        !(action === 'submit' && finalized) &&
+        bindings.get(attempt.attemptId) !== activeDevice
+      )
+        return error('DEVICE_REPLACED', 'This browser has been replaced. Retain its saved work.');
       if (action === 'unlock') {
         if (!['preparing', 'active'].includes(attempt.state))
           return error('ALREADY_FINALIZED', 'This attempt is closed.');
@@ -286,6 +395,7 @@ export function createExamDemo(
         )
           return error('REVISION_CONFLICT', 'Package identity mismatch.');
         attempt.state = 'active';
+        contacts.set(attempt.attemptId, now());
         let order = orders.get(attempt.attemptId);
         if (!order) {
           const shuffle =
@@ -371,6 +481,7 @@ export function createExamDemo(
         }
         revisions.set(attempt.attemptId, pending);
         attempt.lastServerSaveAt = now();
+        contacts.set(attempt.attemptId, now());
         return json({
           acknowledged,
           superseded,
@@ -413,10 +524,17 @@ export function createExamDemo(
       if (
         final.examVersion !== attempt.examVersion ||
         final.scheduleRevision !== attempt.scheduleRevision ||
-        final.deviceGeneration !== attempt.deviceGeneration
+        (action !== 'recovery' && final.deviceGeneration !== attempt.deviceGeneration)
       )
         return error('REVISION_CONFLICT', 'Version mismatch.');
       if (action === 'recovery') {
+        if (
+          final.deviceGeneration !== attempt.deviceGeneration &&
+          !generationHistory
+            .get(attempt.attemptId)
+            ?.some((h) => h.attempt.deviceGeneration === final.deviceGeneration)
+        )
+          return error('REVISION_CONFLICT', 'Unknown device generation.');
         const recoveryKey = `${attempt.attemptId}:${idempotencyKey}`;
         const old = recoveryRequests.get(recoveryKey);
         if (old)
@@ -449,6 +567,7 @@ export function createExamDemo(
           receivedAt: recovery.receivedAt,
         };
         const reason = z.object({ reason: z.string() }).parse(parsed.data).reason;
+        contacts.set(attempt.attemptId, now());
         recordRecovery(attempt, final, reason, idempotencyKey, digest, paper);
         return json(
           {
@@ -481,6 +600,7 @@ export function createExamDemo(
         finalSeq: final.finalSeq,
       };
       attempt.state = 'submitted';
+      contacts.set(attempt.attemptId, now());
       record(attempt, final.answers);
       finalRequests.set(attempt.attemptId, { key: idempotencyKey, digest });
       return json(attempt.receipt);
@@ -496,13 +616,19 @@ export function createExamDemo(
           receipt: attempt.receipt,
           recovery: attempt.recovery,
         });
+      if (bindings.get(attempt.attemptId) !== activeDevice)
+        return error('DEVICE_REPLACED', 'This browser has been replaced. Retain its saved work.');
       if (read[2] === '/package') {
         if (clock() >= Date.parse(attempt.deadlineAt))
           return error('RECOVERY_REQUIRED', 'The exam window ended.');
-        return json(await packet(attempt));
+        const value = await packet(attempt);
+        contacts.set(attempt.attemptId, now());
+        return json(value);
       }
+      contacts.set(attempt.attemptId, now());
       return json({ ...attempt, serverNow: now() });
     }
     return error('NOT_FOUND', 'This endpoint is not implemented in the demo.', 404);
   };
+  return Object.assign(handle, { monitor, loadMonitorExample });
 }

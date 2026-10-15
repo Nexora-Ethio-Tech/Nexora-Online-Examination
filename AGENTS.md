@@ -8,6 +8,8 @@ This repository owns the frontend; a separate developer owns the backend. Read d
 
 ## Implementation
 
+Contract v0.10 adds BE-09 live sitting monitoring and device replacement. Read docs/backend-monitor-task.md; exact DTOs/calls are src/features/exams/monitor/schemas.ts and api.ts. Transfer now requires expectedDeviceGeneration and returns an audited transfer identity/time plus unchanged deadline. Admin reads never update student contact or create submission. Preserve frozen roster counts, server-only sequence-zero answer inheritance, old-generation evidence and atomic transfer/replay. Use 15-second visible monitor refresh, truthful stale/last-contact labels and no connectivity-based penalties. The synthetic rehearsal is development-only; real cookies, multiple devices and database races remain backend acceptance work.
+
 Contract v0.9 adds BE-08 school setup/accounts. Read docs/backend-school-task.md; executable DTOs/calls are src/features/school/schemas.ts and api.ts. Preserve tenant/role/MFA scope, assignment ownership and frozen rosters. Credential responses stay in component memory only, never query/mutation caches or browser storage. Successful credential replay returns identities/metadata with credentials null; lost responses require an explicit reset, never automatic regeneration. Production passwords use salted Argon2id; the demo digest is not production security. Directory and exam demo limitations are documented in docs/school-setup.md.
 
 Contract v0.8 adds BE-07 practice. Read docs/backend-practice-task.md; executable DTOs are src/features/practice/schemas.ts. Enforce admin/time/publication/all-related-sitting gates, first-answer immutability, valid completed maximum scoring and separation from official marks. GET /me/results has additive practice metadata. BE-04 must prevent scheduling while practice is enabled and official reuse after release. Demo tests do not prove backend concurrency or isolation.
@@ -40,5 +42,6 @@ Contract v0.6 additionally issues BE-05 official results/publication. Read docs/
 - Mocks support development only. Acceptance uses the real API/database; production disables mocks. The current placeholder e2e script is not an E2E test.
 - Run npm run check and npm run build for implementation changes. For documentation, format changed files and run the existing check suite. Never weaken tests or edit node_modules/cache to bypass failures.
 - Add meaningful integrity, timing, persistence and recovery tests as features are implemented. Real phone/network checks remain separate evidence.
-- Work on a task branch; preserve unrelated work. No force pushes, secrets or unsolicited commits/pushes.
+- Work on a task branch; preserve unrelated work. No force pushes or secrets in commits.
+- The user authorizes automatic commits after each completed, meaningful project change once its required checks pass. Keep commits focused on finished work and report the commit hash. This standing authorization covers commits; pushing and merging still require a user request.
 - Report changed files, actual checks and blockers honestly. A functional demonstration does not establish 500-student capacity.

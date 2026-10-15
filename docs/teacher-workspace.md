@@ -1,5 +1,7 @@
 # Teacher exam workspace
 
+For a longer rehearsal, download **20-question math demo (Excel)** under Import and follow [math-20-demo-guide.md](math-20-demo-guide.md). It has 20 questions, 40 marks, four primary topics and exact expected results for the teacher → administrator → student → reports → practice flow. The original two-question examples below still work.
+
 Latest update: the [administrator increment](admin-approval-scheduling.md) now connects teacher submissions to admin review and scheduled student papers in the same demo tab. Sign out/in to switch roles without reloading. Contract v0.5 adds BE-04; BE-03 teacher wire formats are unchanged. The implementation notes below record the original teacher increment.
 
 Implemented frontend increment, 14 October 2026. Master plan v3.0 sections 6–7; contract v0.4 and BE-03. This is frontend and fixture-simulator evidence, not real backend acceptance.

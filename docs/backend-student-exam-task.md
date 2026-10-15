@@ -28,23 +28,23 @@ All three are required. Do not postpone A until unrelated teacher/results featur
 
 All paths have prefix `/api/v1`. Responses, cookies, CSRF, credentials and errors follow api-contract.md. Every protected operation rechecks active membership and school ownership. Teacher/admin accounts cannot impersonate a student by sending a student ID.
 
-| Increment | Method and path | Required behavior |
-| --- | --- | --- |
-| A | GET /auth/csrf; POST /auth/login; GET /auth/me; POST /auth/mfa/verify; POST /auth/logout | Real opaque cookie authentication; no JWT refresh substitute; MFA before admin access |
-| A | GET /me/exams | Only current student's eligible sittings, with server time and authoritative attempt state |
-| A | GET /me/exams/:sessionId | New: read a single assigned sitting without creating an attempt |
-| A | POST /auth/device | New: enroll/recover this authenticated student's browser device binding |
-| A | POST /sessions/:sessionId/attempts | One attempt per student/sitting, persistent generation and deadline |
-| A | GET /attempts/:attemptId | Online state/revision reconciliation; never overwrite newer client work implicitly |
-| A | GET /attempts/:attemptId/package | Private encrypted, answer-free package in the preparation window |
-| A | POST /attempts/:attemptId/unlock | Return key only at/after start, before deadline, to the active bound device |
-| B | POST /attempts/:attemptId/answers | Atomic revision batch; explicit acknowledgements and conflicts |
-| B | POST /attempts/:attemptId/submit | Complete final snapshot, score and unique receipt committed together |
-| B | GET /attempts/:attemptId/receipt | Actual committed receipt or explicit state with null receipt |
-| C | POST /attempts/:attemptId/recovery | Preserve late/disputed evidence separately, without falsely submitting |
-| C | POST /recovery/:recoveryId/decision | School admin accepts/rejects with audit reason |
-| C | POST /attempts/:attemptId/device-transfer | School admin changes the active enrolled device atomically |
-| A | GET /health; GET /ready | Minimal liveness and database/private-storage readiness |
+| Increment | Method and path                                                                          | Required behavior                                                                          |
+| --------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| A         | GET /auth/csrf; POST /auth/login; GET /auth/me; POST /auth/mfa/verify; POST /auth/logout | Real opaque cookie authentication; no JWT refresh substitute; MFA before admin access      |
+| A         | GET /me/exams                                                                            | Only current student's eligible sittings, with server time and authoritative attempt state |
+| A         | GET /me/exams/:sessionId                                                                 | New: read a single assigned sitting without creating an attempt                            |
+| A         | POST /auth/device                                                                        | New: enroll/recover this authenticated student's browser device binding                    |
+| A         | POST /sessions/:sessionId/attempts                                                       | One attempt per student/sitting, persistent generation and deadline                        |
+| A         | GET /attempts/:attemptId                                                                 | Online state/revision reconciliation; never overwrite newer client work implicitly         |
+| A         | GET /attempts/:attemptId/package                                                         | Private encrypted, answer-free package in the preparation window                           |
+| A         | POST /attempts/:attemptId/unlock                                                         | Return key only at/after start, before deadline, to the active bound device                |
+| B         | POST /attempts/:attemptId/answers                                                        | Atomic revision batch; explicit acknowledgements and conflicts                             |
+| B         | POST /attempts/:attemptId/submit                                                         | Complete final snapshot, score and unique receipt committed together                       |
+| B         | GET /attempts/:attemptId/receipt                                                         | Actual committed receipt or explicit state with null receipt                               |
+| C         | POST /attempts/:attemptId/recovery                                                       | Preserve late/disputed evidence separately, without falsely submitting                     |
+| C         | POST /recovery/:recoveryId/decision                                                      | School admin accepts/rejects with audit reason                                             |
+| C         | POST /attempts/:attemptId/device-transfer                                                | School admin changes the active enrolled device atomically                                 |
+| A         | GET /health; GET /ready                                                                  | Minimal liveness and database/private-storage readiness                                    |
 
 Every mutation uses Origin validation and X-CSRF-Token. Idempotency-Key is required for attempt creation, final submission, recovery upload, recovery decision and device transfer. Device enrollment is naturally idempotent under its device ID and valid credential, as described below. Do not require a new idempotency header on login, MFA, logout or answer batches: the current frontend follows their existing contract.
 
@@ -64,6 +64,8 @@ Use the student's accommodated deadline when computing phase:
 phase describes time; attemptState independently describes participation. A student who submitted early may have phase open and attemptState submitted. Never offer a new attempt for that student. Generate one serverNow for each response.
 
 ## 5. Browser device enrollment and replacement
+
+**v0.10 revision:** [BE-09](backend-monitor-task.md) now governs the admin transfer wire format and concurrency precondition. Its body is `{newDeviceId,expectedDeviceGeneration,reason}` and its response adds deadlineAt/transferredAt/transferId. The abbreviated body/response below describe the original BE-02 version; implement BE-09's revised shapes. Enrollment, original-deadline and server-only answer inheritance rules remain in force.
 
 ### Enrollment
 
@@ -156,22 +158,22 @@ Lost-authenticator recovery is operator-assisted for this MVP: authorized staff 
 
 Seed only synthetic users: two schools, students in different classes, a teacher and MFA-enrolled admin per school. Provide a ten-question paper totaling 20 integer marks, with both single-answer MCQ and true/false, frozen private keys, topics and explanations, and answer-free student packages. Provide separate scheduled, preparing, open, ended, submitted and recovery cases. Seed schedules relative to server time while retaining the real ten-minute preparation rule. Use an injected test clock for boundary tests; never expose a production time-override endpoint.
 
-| Test | Required observable result |
-| --- | --- |
-| Auth | Cookie login/CSRF/MFA/logout work against the frontend origin; failed MFA grants no admin access |
-| Isolation | Other school, other student and wrong role cannot list/read/unlock/write/download another attempt |
-| List/detail | Empty list works; cursor order stable; direct detail never creates attempts |
-| Enrollment | Reused visible device ID without credential cannot take over; different enrolled browser needs transfer |
-| Preparation | Ten-minute boundary exact; downloaded ciphertext contains no usable key; official plaintext has no grading fields |
-| Unlock | Just before start denied; at start allowed; at deadline denied; accommodations and late join use persisted deadline |
-| Revisions | Replays acknowledge; changed reused revision conflicts; reordered batches never roll answers back |
-| Atomicity | Final answers, score and receipt commit together; forced rollback leaves none partially committed |
-| Timing | Complete body at finalAcceptUntil accepted; one millisecond later requires recovery; delayed commit does not change receipt-time decision |
-| Lost response | Same key/body after deadline/process restart returns the same receipt; different payload/key reuse conflicts |
-| Digest | Published canonical JSON and hash fixture match exactly, including null unanswered item |
-| Races | Concurrent save/submit/transfer/recovery acceptance yields one valid final result; no later save overwrites it |
-| Recovery | Late evidence is preserved separately; accept/reject audited; no fake receipt or unreleased score |
-| Transfer | Generation increments once; old writes denied; server-only answers carry forward; deadline unchanged |
+| Test          | Required observable result                                                                                                                |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth          | Cookie login/CSRF/MFA/logout work against the frontend origin; failed MFA grants no admin access                                          |
+| Isolation     | Other school, other student and wrong role cannot list/read/unlock/write/download another attempt                                         |
+| List/detail   | Empty list works; cursor order stable; direct detail never creates attempts                                                               |
+| Enrollment    | Reused visible device ID without credential cannot take over; different enrolled browser needs transfer                                   |
+| Preparation   | Ten-minute boundary exact; downloaded ciphertext contains no usable key; official plaintext has no grading fields                         |
+| Unlock        | Just before start denied; at start allowed; at deadline denied; accommodations and late join use persisted deadline                       |
+| Revisions     | Replays acknowledge; changed reused revision conflicts; reordered batches never roll answers back                                         |
+| Atomicity     | Final answers, score and receipt commit together; forced rollback leaves none partially committed                                         |
+| Timing        | Complete body at finalAcceptUntil accepted; one millisecond later requires recovery; delayed commit does not change receipt-time decision |
+| Lost response | Same key/body after deadline/process restart returns the same receipt; different payload/key reuse conflicts                              |
+| Digest        | Published canonical JSON and hash fixture match exactly, including null unanswered item                                                   |
+| Races         | Concurrent save/submit/transfer/recovery acceptance yields one valid final result; no later save overwrites it                            |
+| Recovery      | Late evidence is preserved separately; accept/reject audited; no fake receipt or unreleased score                                         |
+| Transfer      | Generation increments once; old writes denied; server-only answers carry forward; deadline unchanged                                      |
 
 Also demonstrate a real browser disconnect/reconnect journey with database reconciliation once the frontend runner is ready. Report backend-only tests honestly until then. A successful seeded sitting is not proof of 500-student capacity, teacher imports or real AI; those master-plan release checks remain required later.
 

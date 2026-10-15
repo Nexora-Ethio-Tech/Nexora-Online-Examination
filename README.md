@@ -22,6 +22,8 @@ Rules for contributors and coding agents are in `AGENTS.md`.
 
 ## School setup and accounts
 
+Administrators now have **Live exams** with paginated sitting rosters, whole-roster counts, last contact/save times, audited device replacement and recovery links. Students can **Register replacement browser** for school approval. Follow [the monitoring testing guide](docs/live-exam-monitoring.md), including the **Load synthetic monitoring example** rehearsal. Send `../handoffs/Nexora_Backend_BE09_v0.10.zip` to the backend developer and require implementation/reporting from `docs/backend-monitor-task.md`. BE-09 requires a generation precondition on transfer; the original deadline and only server-confirmed answers carry forward. Real backend/device acceptance remains outstanding.
+
 Administrators now have **School setup** with classes, subjects, teacher accounts/assignments, student CSV validation/import, one-time credentials, account edits, password reset and activity history. Follow [the guide](docs/school-setup.md). Send `../handoffs/Nexora_Backend_BE08_v0.9.zip` to the backend developer and require implementation/reporting from `docs/backend-school-task.md` under API contract v0.9.
 
 The local directory demo supports generated logins and teacher ownership in the same tab. New students have no exam fixtures; full roster delivery requires the backend. Import into a new class to preserve the original Samira-only exam demonstration. Reload clears demo directory data. Never use actual student data in this simulation.
@@ -37,6 +39,8 @@ Official results is now available in every role's navigation. Administrators app
 The application has login, administrator MFA verification, session restoration, role guards and logout. Students have assigned exams, schedules, encrypted preparation, timed unlock, questions, durable answers and final submission/receipt handling. Teachers have draft creation, template upload, import progress, question/AI review and submission for approval. Administrators can review, return, approve and schedule papers, including safe schedule changes before preparation. See `docs/api-contract.md` v0.5, `docs/student-runner.md`, `docs/teacher-workspace.md` and `docs/admin-approval-scheduling.md` for behavior and remaining real-backend acceptance.
 
 ### Local demo
+
+For a complete 20-question mathematics rehearsal, use the [upload file](public/templates/nexora-math-20-demo.xlsx) unchanged and follow the [answer key and testing guide](docs/math-20-demo-guide.md). The guide covers 40 total marks, a deliberate 75% result, topic charts, publication, CSV/print reports and separate practice scores. The same file is downloadable from the teacher's Import tab.
 
 Run `npm ci`, then `npm run dev:demo`. Open Vite's printed local URL.
 

@@ -410,6 +410,12 @@ export function AdminExamDetail() {
       {d.sessions.map((s) => (
         <section key={s.sessionId} className={panel}>
           <h2 className="text-lg font-semibold">Scheduled sitting · {s.rosterCount} students</h2>
+          <Link
+            className="mt-2 inline-flex min-h-11 items-center text-sm underline"
+            to={`/admin/monitor/${encodeURIComponent(s.sessionId)}`}
+          >
+            Monitor this sitting
+          </Link>
           <dl className="mt-3 space-y-2 text-sm">
             <div>
               <dt>Preparation</dt>
