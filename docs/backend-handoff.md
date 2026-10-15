@@ -1,5 +1,7 @@
 # Backend handoff: MVP implementation increments
 
+Audit update (15 October): read [the master-plan audit](master-plan-audit.md), including its backend coordination section. BE-09/v0.10 remains the latest issued executable interface. Accommodation configuration and verified preparation acknowledgement need owner-issued addenda before implementation; their precise payloads are not yet specified. Continue existing contracts and provide staging integration evidence. This audit does not change wire formats.
+
 Live monitoring update (14 October): implement [BE-09 live sitting monitor and device replacement](backend-monitor-task.md) under contract v0.10. Send the BE-09 ZIP and follow START-HERE.txt. Implement exact monitor schemas/calls, frozen-roster totals, truthful last-contact/save metadata and the revised transfer request requiring expectedDeviceGeneration. Return the mandatory implementation and real-database report in section 7. Preserve original deadlines, inherited server-confirmed answers, immutable old-generation evidence and one atomic audited/replayable transfer. Do not implement the frontend's private synthetic-example endpoint in production. No backend choice or approval of payloads is requested. Earlier notes below are historical increment context.
 
 School setup update (14 October): implement [BE-08 school setup and accounts](backend-school-task.md) under contract v0.9. Follow its exact school schemas/API calls, class/subject/assignment dependencies, atomic CSV import, one-time credentials, audited password reset and session revocation. A replay returns safe issue/account metadata with credentials null; it must never retrieve or silently regenerate passwords. Preserve frozen exam rosters and pending evidence. Send the BE-08 ZIP and require the real-database implementation report in section 5. This is mandatory backend work; frontend demos do not establish backend acceptance. Earlier notes below document historical increments.
@@ -22,11 +24,11 @@ Prepared 13 October 2026. Send with api-contract.md and exam-engine.md. Master p
 
 ## Current required task
 
-The newest issued task is BE-08 above. Complete all still-outstanding BE-02 through BE-07 dependencies as specified; the new increment does not replace them. BE-02 remains the initial integration priority when the backend has not yet delivered student exam delivery. Include its supplied [interoperability fixture](fixtures/student-exam-v1.json) in backend verification.
+The newest issued task is BE-09 above. Complete all still-outstanding BE-02 through BE-08 dependencies as specified; the new increment does not replace them. BE-02 remains the initial integration priority when the backend has not yet delivered student exam delivery. Include its supplied [interoperability fixture](fixtures/student-exam-v1.json) in backend verification.
 
 ## Ownership and milestone
 
-Frontend repository: https://github.com/codifex11/exam-frontend. At initial audit this was a React/TypeScript/Vite design scaffold with ten passing unit tests. The local authentication foundation now includes login/MFA screens, role guards, session restoration and dashboard shells; see auth-foundation.md for evidence and limits. Runner and real backend integration remain outstanding. Separate backend developer owns API, migrations, isolation, jobs and hosting. Frontend owns screens, client, local persistence and recovery UI.
+Frontend repository: https://github.com/codifex11/exam-frontend. The authentication, school setup, authoring, approval/scheduling, runner, results, practice, recovery and monitoring frontend workflows now exist. See master-plan-audit.md for remaining frontend gaps and evidence limits; real backend acceptance remains outstanding. Separate backend developer owns API, migrations, isolation, jobs and hosting. Frontend owns screens, client, local persistence and recovery UI.
 
 First milestone: generated test student logs in, prepares encrypted seeded objective paper, unlocks at common start, answers during interruption, reconnects and receives one durable receipt for the complete snapshot.
 

@@ -20,6 +20,10 @@ Frontend of a multi-tenant online examination platform for schools. React 19, Ty
 
 Rules for contributors and coding agents are in `AGENTS.md`.
 
+## Current completion status
+
+See the [master-plan audit](docs/master-plan-audit.md) for requirement evidence, confirmed gaps and ordered remaining tasks. The main frontend workflows exist, but frontend completion and real-backend release acceptance are not established. The `e2e` script is still a placeholder.
+
 ## School setup and accounts
 
 Administrators now have **Live exams** with paginated sitting rosters, whole-roster counts, last contact/save times, audited device replacement and recovery links. Students can **Register replacement browser** for school approval. Follow [the monitoring testing guide](docs/live-exam-monitoring.md), including the **Load synthetic monitoring example** rehearsal. Send `../handoffs/Nexora_Backend_BE09_v0.10.zip` to the backend developer and require implementation/reporting from `docs/backend-monitor-task.md`. BE-09 requires a generation precondition on transfer; the original deadline and only server-confirmed answers carry forward. Real backend/device acceptance remains outstanding.

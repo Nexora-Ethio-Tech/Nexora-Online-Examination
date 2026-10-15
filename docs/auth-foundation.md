@@ -2,6 +2,8 @@
 
 13 October 2026. Frontend implementation against issued API contract v0.2. No new wire fields or backend endpoints were introduced by this slice.
 
+Current-status note (15 October): this is a historical delivery record. Exam persistence and the later role workflows now exist; see master-plan-audit.md for current gaps. Operator-assisted production MFA enrollment/recovery was subsequently specified in BE-02 section 9. Its real-backend acceptance remains unverified.
+
 ## Implemented
 
 - Login with generated user ID/password, validation and school-admin reset guidance.
@@ -19,6 +21,6 @@ Browser checks used synthetic identities: admin login stopped at MFA, verificati
 
 ## Backend integration still required
 
-Supply the real API URL and implement the five auth endpoints exactly as specified in api-contract.md. Verify actual cookie flags, session revocation, CSRF/Origin enforcement, school/role isolation and administrator MFA. Production MFA enrollment/recovery still needs the owner-issued addendum listed in the handoff. Browser mocks and unit tests do not establish these server guarantees.
+Supply the real API URL and implement the five auth endpoints exactly as specified in api-contract.md. Verify actual cookie flags, session revocation, CSRF/Origin enforcement, school/role isolation and administrator MFA. Production MFA enrollment/recovery must follow the subsequently issued BE-02 section 9. Browser mocks and unit tests do not establish these server guarantees.
 
 Run instructions and synthetic demo credentials are in README.md. No deployment or GitHub push is included in this delivery. Next frontend slice: assigned exams, preparation and exam runner.

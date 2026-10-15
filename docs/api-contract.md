@@ -273,7 +273,7 @@ POST /attempts/:id/device-transfer, admin, Idempotency-Key, { newDeviceId, reaso
 | Practice        | POST /exams/:id/practice-attempts; POST /practice-attempts/:id/answers, /complete   | First-answer scoring; atomic completed maximum         |
 | Operations      | GET /health, /ready                                                                 | Minimal liveness/readiness, no secrets                 |
 
-Still to specify: admin monitoring/recovery-list reads, directory assignments, staff exam list/detail routes, complete later payloads and shared executable schemas. Student detail, device enrollment, final digest and operator-assisted MFA are specified in BE-02. This does not defer those required MVP features.
+Current status (15 October): admin monitoring/recovery-list reads, directory assignments, staff exam list/detail routes and their executable schemas have been issued through BE-03 to BE-09. Student detail, device enrollment, final digest and operator-assisted MFA are specified in BE-02. The master-plan audit identifies accommodation configuration and verified preparation acknowledgement as remaining contract work; no new payloads for those operations are issued here. Existing v0.10 interfaces remain unchanged.
 
 ## Contract control
 
