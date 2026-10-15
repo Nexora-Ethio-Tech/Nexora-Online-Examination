@@ -40,5 +40,6 @@ Contract v0.6 additionally issues BE-05 official results/publication. Read docs/
 - Mocks support development only. Acceptance uses the real API/database; production disables mocks. The current placeholder e2e script is not an E2E test.
 - Run npm run check and npm run build for implementation changes. For documentation, format changed files and run the existing check suite. Never weaken tests or edit node_modules/cache to bypass failures.
 - Add meaningful integrity, timing, persistence and recovery tests as features are implemented. Real phone/network checks remain separate evidence.
-- Work on a task branch; preserve unrelated work. No force pushes, secrets or unsolicited commits/pushes.
+- Work on a task branch; preserve unrelated work. No force pushes or secrets in commits.
+- The user authorizes automatic commits after each completed, meaningful project change once its required checks pass. Keep commits focused on finished work and report the commit hash. This standing authorization covers commits; pushing and merging still require a user request.
 - Report changed files, actual checks and blockers honestly. A functional demonstration does not establish 500-student capacity.
