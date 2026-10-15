@@ -1,4 +1,8 @@
-# Nexora API contract v0.9
+# Nexora API contract v0.10
+
+## Live monitoring and device replacement addendum
+
+v0.10, issued 14 October 2026: implement [backend-monitor-task.md](backend-monitor-task.md), BE-09. It issues admin sitting/roster/attempt-history reads and completes the browser replacement workflow. Exact DTOs/calls are src/features/exams/monitor/schemas.ts and api.ts. This explicitly supersedes the earlier transfer wire shape: POST /attempts/:id/device-transfer now requires `{newDeviceId,expectedDeviceGeneration,reason}`; its response adds deadlineAt/transferredAt/transferId to attemptId/deviceGeneration/state. Reject the old unguarded body. Preserve one atomic generation increment/audit, server-only sequence-zero answer inheritance, unchanged deadline and old-generation evidence. Admin reads never update student contact or fabricate submissions. Other student/auth/runner payloads stay unchanged. These are mandatory owner-issued requirements; real backend acceptance remains outstanding. Historical addenda below describe their own versions.
 
 ## School setup and accounts addendum
 
@@ -16,7 +20,7 @@ v0.7, issued 14 October 2026: implement [backend-recovery-task.md](backend-recov
 
 v0.6, issued 14 October 2026: implement [backend-results-task.md](backend-results-task.md) (BE-05), including the executable src/features/results/schemas.ts and api.ts. It defines official grading, revision snapshots, staff result lists/analytics, administrator publication and explicit unresolved-attempt exclusions, student release gates, complete scoped CSV and typed printable reports. These definitions supersede the previously unspecified publication/report/student-results inventory rows below. Earlier v0.5/v0.4/v0.3 interfaces are unchanged. Backend approval is not requested; real backend implementation remains unverified. The status paragraphs below document earlier increments.
 
-Status: issued implementation requirements, 14 October 2026. Current contract is v0.9 (BE-08 school setup and accounts); earlier increments remain dependencies except where explicitly revised by the addendum above. Backend approval is not requested. No backend implementation was inspected.
+Status: issued implementation requirements, 14 October 2026. Current contract is v0.10 (BE-09 monitoring and device replacement); earlier increments remain dependencies except where explicitly revised by the addenda above. Backend approval is not requested. No backend implementation was inspected.
 
 ## Administrator approval and scheduling addendum
 

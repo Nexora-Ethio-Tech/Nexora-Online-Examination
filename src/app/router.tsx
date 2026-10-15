@@ -13,6 +13,12 @@ import { errorMessage } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { ExamsPage } from '@/features/exams/ExamsPage';
 import { PreparationPage } from '@/features/exams/PreparationPage';
+import { DevicePage } from '@/features/exams/DevicePage';
+import {
+  MonitorPage,
+  MonitorSittingPage,
+  MonitorAttemptPage,
+} from '@/features/exams/monitor/MonitorPages';
 import { RunnerPage } from '@/features/runner/RunnerPage';
 import { TeacherPage } from '@/features/exams/authoring/TeacherPage';
 import { TeacherDetail } from '@/features/exams/authoring/TeacherDetail';
@@ -87,6 +93,7 @@ export const routes: RouteObject[] = [
               role === 'student'
                 ? [
                     { index: true, element: <ExamsPage /> },
+                    { path: 'device', element: <DevicePage /> },
                     { path: 'results', element: <ResultsPage /> },
                     { path: 'practice', element: <PracticePage /> },
                     { path: 'practice/:practiceAttemptId', element: <PracticeRunnerPage /> },
@@ -102,6 +109,9 @@ export const routes: RouteObject[] = [
                     ]
                   : [
                       { index: true, element: <AdminExamsPage /> },
+                      { path: 'monitor', element: <MonitorPage /> },
+                      { path: 'monitor/attempts/:attemptId', element: <MonitorAttemptPage /> },
+                      { path: 'monitor/:sessionId', element: <MonitorSittingPage /> },
                       { path: 'school', element: <SchoolSetupPage /> },
                       { path: 'practice', element: <AdminPracticePage /> },
                       { path: 'recovery', element: <RecoveryPage /> },

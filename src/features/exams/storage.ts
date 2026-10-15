@@ -51,3 +51,22 @@ export async function savePackage(key: string, value: EncryptedPackage) {
     db.close();
   }
 }
+// Rotate only after an explicit lost-credential action. Never delete exam evidence.
+export async function replaceBrowserId(expected: string) {
+  const db = await database();
+  try {
+    const tx = db.transaction('identities', 'readwrite');
+    void tx.done.catch(() => undefined);
+    if ((await tx.store.get('browser-device')) !== expected) {
+      tx.abort();
+      await tx.done.catch(() => undefined);
+      throw new Error('Browser registration changed in another tab. Register again.');
+    }
+    const next = crypto.randomUUID();
+    await tx.store.put(next, 'browser-device');
+    await tx.done;
+    return next;
+  } finally {
+    db.close();
+  }
+}

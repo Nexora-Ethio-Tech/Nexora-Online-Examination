@@ -198,6 +198,14 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
               </Link>
             </Button>
           ) : null}
+          {exam.attemptId && (
+            <Link
+              to="/student/device"
+              className="inline-flex min-h-11 items-center text-sm underline"
+            >
+              Need a replacement browser? Register it for school approval.
+            </Link>
+          )}
           {preparation.error ? (
             <div role="alert" className="rounded-xl border border-destructive/30 p-5 text-sm">
               <p>{errorMessage(preparation.error)}</p>

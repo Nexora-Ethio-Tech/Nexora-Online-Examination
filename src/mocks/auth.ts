@@ -43,6 +43,7 @@ export function createDemoTransport(
     },
     (attempt, body, reason, key, digest, paper) =>
       captureRecovery(store, attempt, body, reason, key, digest, paper),
+    () => [...store.resultAttempts.values()].map((r) => r.attempt),
   );
   const resultsDemo = createResultsDemo(store, clock);
   const practiceDemo = createPracticeDemo(store, clock);
@@ -160,6 +161,25 @@ export function createDemoTransport(
     }
     if (!role) return error(401, 'AUTH_REQUIRED', 'Please sign in.');
     const apiPath = path.replace(/^\/api\/v1/, '');
+    if (apiPath === '/demo/monitor-example' && method === 'POST') {
+      if (role !== 'school_admin')
+        return error(403, 'FORBIDDEN', 'Administrator access is required.');
+      return json(examDemo.loadMonitorExample());
+    }
+    if (
+      apiPath.startsWith('/admin/monitor/') ||
+      /^\/attempts\/[^/]+\/device-transfer$/.test(apiPath)
+    ) {
+      if (role !== 'school_admin')
+        return error(403, 'FORBIDDEN', 'Administrator access with MFA is required.');
+      return examDemo.monitor(
+        new URL(url, 'http://localhost'),
+        method,
+        body,
+        new Headers(init.headers),
+        actorId ?? 'demo-school_admin',
+      );
+    }
     if (
       /^\/(classes|subjects|teachers|students|teacher-assignments)(\/|$)/.test(apiPath) ||
       apiPath === '/admin/directory-audit'

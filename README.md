@@ -22,6 +22,8 @@ Rules for contributors and coding agents are in `AGENTS.md`.
 
 ## School setup and accounts
 
+Administrators now have **Live exams** with paginated sitting rosters, whole-roster counts, last contact/save times, audited device replacement and recovery links. Students can **Register replacement browser** for school approval. Follow [the monitoring testing guide](docs/live-exam-monitoring.md), including the **Load synthetic monitoring example** rehearsal. Send `../handoffs/Nexora_Backend_BE09_v0.10.zip` to the backend developer and require implementation/reporting from `docs/backend-monitor-task.md`. BE-09 requires a generation precondition on transfer; the original deadline and only server-confirmed answers carry forward. Real backend/device acceptance remains outstanding.
+
 Administrators now have **School setup** with classes, subjects, teacher accounts/assignments, student CSV validation/import, one-time credentials, account edits, password reset and activity history. Follow [the guide](docs/school-setup.md). Send `../handoffs/Nexora_Backend_BE08_v0.9.zip` to the backend developer and require implementation/reporting from `docs/backend-school-task.md` under API contract v0.9.
 
 The local directory demo supports generated logins and teacher ownership in the same tab. New students have no exam fixtures; full roster delivery requires the backend. Import into a new class to preserve the original Samira-only exam demonstration. Reload clears demo directory data. Never use actual student data in this simulation.

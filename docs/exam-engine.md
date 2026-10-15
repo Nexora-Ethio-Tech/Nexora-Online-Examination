@@ -4,6 +4,8 @@ Requirements from master plan v3.0 sections 5, 8-12; api-contract.md v0.3 contai
 
 The BE-02 addendum in backend-student-exam-task.md defines direct student schedule reads, device enrollment/transfer, final digest and recovery reconciliation. Apply it together with this document.
 
+BE-09 in backend-monitor-task.md now adds operational monitoring and requires expectedDeviceGeneration for transfer. Administrator monitor reads never update last student contact. A transfer inherits only timely server-confirmed answers at sequence zero, preserves the deadline and original device evidence, and returns to preparing until the replacement browser unlocks. The student registration screen creates no attempt and grants no transfer by itself.
+
 ## Time and states
 
 startsAt = preparationVisibleAt + ten minutes. deadlineAt = common endsAt + approved extra time. finalAcceptUntil = deadlineAt + five seconds. Server computes these; late joining never resets time. Store UTC; display schedule in EAT.
