@@ -1,0 +1,70 @@
+{
+  "description": "Synthetic BE-05 grading fixture. Private server-side keys; never deliver these fields in official student packages.",
+  "passPercent": 50,
+  "items": [
+    {
+      "itemId": "q1",
+      "marks": 2,
+      "correctOptionId": "b",
+      "primaryTopic": "Algebra",
+      "secondaryTopics": ["Equations"]
+    },
+    {
+      "itemId": "q2",
+      "marks": 2,
+      "correctOptionId": "true",
+      "primaryTopic": "Algebra",
+      "secondaryTopics": ["Equations"]
+    },
+    {
+      "itemId": "q3",
+      "marks": 2,
+      "correctOptionId": "c",
+      "primaryTopic": "Algebra",
+      "secondaryTopics": []
+    }
+  ],
+  "finalizedStudents": [
+    {
+      "studentId": "s1",
+      "answers": { "q1": "b", "q2": "true", "q3": "c" },
+      "expectedScore": 6,
+      "expectedRank": 1
+    },
+    {
+      "studentId": "s2",
+      "answers": { "q1": "b", "q2": "true", "q3": null },
+      "expectedScore": 4,
+      "expectedRank": 2
+    },
+    {
+      "studentId": "s3",
+      "answers": { "q1": "b", "q2": null, "q3": "c" },
+      "expectedScore": 4,
+      "expectedRank": 2
+    },
+    {
+      "studentId": "s4",
+      "answers": { "q1": null, "q2": null, "q3": "c" },
+      "expectedScore": 2,
+      "expectedRank": 4
+    },
+    {
+      "studentId": "s5",
+      "answers": { "q1": "b", "q2": "false", "q3": null },
+      "expectedScore": 2,
+      "expectedRank": 4
+    }
+  ],
+  "additionalStatusRows": ["absent", "invalidated", "recovery_pending"],
+  "expectedStatusRowScoreAndRank": null,
+  "expectedTopic": {
+    "topic": "Algebra",
+    "itemCount": 3,
+    "studentCount": 5,
+    "earnedMarks": 18,
+    "availableMarks": 30,
+    "percent": 60
+  },
+  "expectedDistributionCounts": [0, 2, 0, 2, 1]
+}
