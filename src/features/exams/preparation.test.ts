@@ -9,6 +9,7 @@ import { preparePaper, verifyPackage } from './preparation';
 import { packageSchema } from './schemas';
 import { retainedId, storageKey } from './storage';
 import * as storage from './storage';
+import * as shell from '@/lib/offline-shell';
 import { clockSample, serverTime } from './PreparationPage';
 import fixture from '../../../docs/fixtures/student-exam-v1.json';
 
@@ -29,15 +30,56 @@ function setup(change?: (response: Response, url: string) => Promise<Response>) 
 }
 const owner = { schoolId: 'test-school', userId: 'test-student' };
 describe('student preparation integrity', () => {
+  it('reports only reached phases, retries a failed shell check and never succeeds after cancellation', async () => {
+    const { api, calls } = setup();
+    const exam = (await api.detail('demo-session-4')).exam;
+    const phases: string[] = [];
+    const check = vi
+      .spyOn(shell, 'ensureOfflineShell')
+      .mockRejectedValueOnce(new Error('Cache unavailable'))
+      .mockResolvedValue('ready');
+    try {
+      await expect(
+        preparePaper(api, owner, exam, undefined, (step) => phases.push(step)),
+      ).rejects.toMatchObject({ code: 'SHELL_UNAVAILABLE' });
+      expect(phases).toEqual([
+        'eligibility',
+        'attempt',
+        'download',
+        'integrity',
+        'storage',
+        'shell',
+      ]);
+      const first = calls.find((c) => c.url.endsWith('/attempts'));
+      await expect(preparePaper(api, owner, exam)).resolves.toMatchObject({ shell: 'ready' });
+      const posts = calls.filter((c) => c.url.endsWith('/attempts'));
+      expect(new Headers(posts.at(-1)?.init.headers).get('Idempotency-Key')).toBe(
+        new Headers(first?.init.headers).get('Idempotency-Key'),
+      );
+      const controller = new AbortController();
+      check.mockImplementationOnce(async () => {
+        controller.abort();
+        return 'ready';
+      });
+      await expect(preparePaper(api, owner, exam, controller.signal)).rejects.toThrow();
+    } finally {
+      check.mockRestore();
+    }
+  });
   it('reports storage failure without claiming the paper was saved', async () => {
     const { api } = setup();
     const write = vi
       .spyOn(storage, 'savePackage')
       .mockRejectedValue(new DOMException('Quota exceeded', 'QuotaExceededError'));
     try {
+      const phases: string[] = [];
       await expect(
-        preparePaper(api, owner, (await api.detail('demo-session-4')).exam),
+        preparePaper(api, owner, (await api.detail('demo-session-4')).exam, undefined, (step) =>
+          phases.push(step),
+        ),
       ).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
+      expect(phases.at(-1)).toBe('storage');
+      expect(phases).not.toContain('shell');
     } finally {
       write.mockRestore();
     }

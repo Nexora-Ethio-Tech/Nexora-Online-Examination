@@ -8,7 +8,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useApiClient } from '@/lib/ApiProvider';
 import { ApiError, errorMessage } from '@/lib/api-client';
 import { examApi } from './api';
-import { preparePaper } from './preparation';
+import { preparePaper, preparationSteps, type PreparationStep } from './preparation';
 import { eatTime, examStatus } from './ExamsPage';
 export function clockSample(serverNow: string, receivedAt = performance.now()) {
   return { epoch: Date.parse(serverNow), receivedAt };
@@ -45,6 +45,7 @@ export function PreparationPage() {
 function PreparationContent({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
   const [refreshMessage, setRefreshMessage] = useState('');
+  const [step, setStep] = useState<PreparationStep | null>(null);
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setTick((n) => n + 1), 1000);
@@ -74,6 +75,7 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
         { schoolId: session.school.id, userId: session.user.id },
         query.data.exam,
         controller.signal,
+        setStep,
       );
     },
     onSuccess: () => {
@@ -165,7 +167,9 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
                     ? 'Checking device and saving paper…'
                     : preparation.data
                       ? 'Verify and download again'
-                      : 'Download encrypted paper'}
+                      : preparation.isError
+                        ? 'Retry preparation'
+                        : 'Download encrypted paper'}
                 </Button>
               </>
             ) : null}
@@ -206,9 +210,52 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
               Need a replacement browser? Register it for school approval.
             </Link>
           )}
+          {step ? (
+            <section
+              className="rounded-xl border bg-background p-5"
+              aria-label="Preparation progress"
+            >
+              <h2 className="font-semibold">Preparation progress</h2>
+              <p role="status" className="mt-2 text-sm">
+                {preparation.isPending
+                  ? `In progress: ${preparationSteps.find((s) => s.id === step)?.label}`
+                  : preparation.isError
+                    ? `Stopped: ${preparationSteps.find((s) => s.id === step)?.label}`
+                    : preparation.data?.shell === 'development'
+                      ? 'Paper saved. Offline app verification is unavailable in the demo.'
+                      : 'All preparation checks completed.'}
+              </p>
+              <ol className="mt-3 space-y-2 text-sm">
+                {preparationSteps.map((entry, index) => {
+                  const current = preparationSteps.findIndex((s) => s.id === step);
+                  const label =
+                    index < current
+                      ? 'Complete'
+                      : index > current
+                        ? 'Not started'
+                        : preparation.isPending
+                          ? 'In progress'
+                          : preparation.isError
+                            ? 'Stopped'
+                            : preparation.data?.shell === 'development'
+                              ? 'Unavailable in demo'
+                              : 'Complete';
+                  return (
+                    <li key={entry.id}>
+                      {entry.label}: <strong>{label}</strong>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          ) : null}
           {preparation.error ? (
             <div role="alert" className="rounded-xl border border-destructive/30 p-5 text-sm">
               <p>{errorMessage(preparation.error)}</p>
+              <p className="mt-2">
+                Keep this page open and retain browser storage. Resolve the issue above, then retry
+                preparation while connected. If the exam window has closed, contact your school.
+              </p>
               {deviceError ? (
                 <p className="mt-2">
                   This browser’s device credential needs school assistance. Do not clear browser
@@ -217,7 +264,8 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
               ) : null}
             </div>
           ) : null}
-          {preparation.data &&
+          {preparation.isSuccess &&
+          preparation.data &&
           preparation.data.attempt.scheduleRevision === exam.scheduleRevision ? (
             <div role="status" className="rounded-xl border bg-primary/5 p-5">
               <h2 className="flex items-center gap-2 font-semibold">

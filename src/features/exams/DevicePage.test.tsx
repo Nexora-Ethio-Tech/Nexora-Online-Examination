@@ -37,7 +37,7 @@ describe('replacement browser registration', () => {
     );
     expect(paths.some((p) => p.includes('/attempts'))).toBe(false);
     await user.click(screen.getByRole('button', { name: 'Verify browser registration' }));
-    expect(screen.getByLabelText('Registered browser ID').textContent).toBe(
+    expect((await screen.findByLabelText('Registered browser ID')).textContent).toBe(
       await retainedId('browser-device'),
     );
   });

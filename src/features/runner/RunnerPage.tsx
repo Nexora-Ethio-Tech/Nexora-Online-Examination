@@ -5,6 +5,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useApiClient } from '@/lib/ApiProvider';
 import { eatTime } from '@/features/exams/ExamsPage';
 import { RunnerEngine } from './engine';
+import { QuestionNavigator } from './QuestionNavigator';
 export function RunnerPage() {
   const { attemptId = '' } = useParams();
   const { session } = useAuth();
@@ -125,23 +126,12 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
       {active && view.paper && item ? (
         <>
           <p className="text-sm text-muted-foreground">{view.paper.instructions}</p>
-          <nav aria-label="Questions" className="flex flex-wrap gap-2">
-            {view.paper.items.map((question, position) => (
-              <Button
-                key={question.itemId}
-                variant={position === index ? 'default' : 'outline'}
-                className="min-h-11 min-w-11"
-                aria-current={position === index ? 'step' : undefined}
-                aria-label={`Question ${position + 1}${view.row?.answers.some((a) => a.itemId === question.itemId && a.value !== null) ? ', answered' : ', unanswered'}`}
-                onClick={() => setIndex(position)}
-              >
-                {position + 1}
-                {view.row?.answers.some((a) => a.itemId === question.itemId && a.value !== null)
-                  ? ' ✓'
-                  : ''}
-              </Button>
-            ))}
-          </nav>
+          <QuestionNavigator
+            items={view.paper.items}
+            answers={view.row?.answers ?? []}
+            index={index}
+            onSelect={setIndex}
+          />
           <section className="rounded-xl border bg-background p-5 sm:p-6">
             <p className="mb-3 text-xs text-muted-foreground">
               Question {index + 1} of {view.paper.items.length} · {item.marks} marks

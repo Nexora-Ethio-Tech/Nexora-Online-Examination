@@ -10,7 +10,7 @@ import { App } from '@/app/App';
 import { routes } from '@/app/router';
 import { ApiClient, type Transport } from '@/lib/api-client';
 import { createDemoTransport } from '@/mocks/auth';
-import { listSchema } from './schemas';
+import { listSchema, packageSchema } from './schemas';
 beforeEach(() => vi.stubGlobal('crypto', webcrypto));
 function setup(path = '/student', transport: Transport = createDemoTransport('student')) {
   const client = new ApiClient('/api/v1', transport);
@@ -64,6 +64,27 @@ it('shows an empty assignment state', async () => {
       : demo(url, init),
   );
   expect(await screen.findByRole('heading', { name: 'No exams assigned yet' })).toBeInTheDocument();
+});
+it('shows the failed integrity step, hides readiness and allows a successful retry', async () => {
+  const demo = createDemoTransport('student');
+  let corrupt = true;
+  const user = setup('/student/exams/demo-session-4', async (url, init) => {
+    const response = await demo(url, init);
+    return corrupt && url.endsWith('/package')
+      ? Response.json({ ...packageSchema.parse(await response.json()), sha256: '0'.repeat(64) })
+      : response;
+  });
+  await user.click(await screen.findByRole('button', { name: 'Download encrypted paper' }));
+  expect(await screen.findByText('Stopped: Verify the paper checksum')).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Encrypted paper saved' })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('heading', { name: 'Ready for the common start' }),
+  ).not.toBeInTheDocument();
+  corrupt = false;
+  await user.click(screen.getByRole('button', { name: 'Retry preparation' }));
+  await screen.findByRole('heading', { name: 'Encrypted paper saved' });
+  expect(screen.getByText('Unavailable in demo')).toBeInTheDocument();
+  expect(screen.queryByText('Stopped: Verify the paper checksum')).not.toBeInTheDocument();
 });
 it('loads the next opaque cursor without dropping the first page', async () => {
   const demo = createDemoTransport('student');

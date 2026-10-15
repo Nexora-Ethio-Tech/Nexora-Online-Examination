@@ -22,6 +22,8 @@ Rules for contributors and coding agents are in `AGENTS.md`.
 
 ## Current completion status
 
+Student exams now have collapsible question navigation and explicit preparation steps. See [the testing guide](docs/student-navigation-progress.md). No backend contract changes are required for this increment.
+
 See the [master-plan audit](docs/master-plan-audit.md) for requirement evidence, confirmed gaps and ordered remaining tasks. The main frontend workflows exist, but frontend completion and real-backend release acceptance are not established. The `e2e` script is still a placeholder.
 
 ## School setup and accounts

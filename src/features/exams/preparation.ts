@@ -3,6 +3,15 @@ import type { examApi } from './api';
 import type { EncryptedPackage, Exam } from './schemas';
 import { retainedId, savePackage, storageKey } from './storage';
 import { ensureOfflineShell } from '@/lib/offline-shell';
+export const preparationSteps = [
+  { id: 'eligibility', label: 'Check exam availability' },
+  { id: 'attempt', label: 'Register this browser and recover your attempt' },
+  { id: 'download', label: 'Download the encrypted paper' },
+  { id: 'integrity', label: 'Verify the paper checksum' },
+  { id: 'storage', label: 'Save the paper on this device' },
+  { id: 'shell', label: 'Check offline app files' },
+] as const;
+export type PreparationStep = (typeof preparationSteps)[number]['id'];
 export function decodeBase64url(value: string) {
   const bytes = Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), (c) =>
     c.charCodeAt(0),
@@ -22,9 +31,15 @@ export async function preparePaper(
   owner: { schoolId: string; userId: string },
   exam: Exam,
   signal?: AbortSignal,
+  onStep?: (step: PreparationStep) => void,
 ) {
+  const step = (value: PreparationStep) => {
+    signal?.throwIfAborted();
+    onStep?.(value);
+  };
   // Re-read schedule before any write. Server still enforces every timing boundary.
   signal?.throwIfAborted();
+  step('eligibility');
   const current = (await api.detail(exam.sessionId, signal)).exam;
   if (
     current.sessionId !== exam.sessionId ||
@@ -35,6 +50,7 @@ export async function preparePaper(
       'STATE_CHANGED',
       'This sitting is no longer available for preparation. Refresh its schedule.',
     );
+  step('attempt');
   let deviceId: string;
   let requestId: string;
   try {
@@ -68,7 +84,9 @@ export async function preparePaper(
       'STATE_CHANGED',
       'The attempt changed. Refresh the schedule before continuing.',
     );
+  step('download');
   const packet = await api.package(attempt.attemptId, signal);
+  step('integrity');
   if (
     packet.examVersion !== attempt.examVersion ||
     packet.scheduleRevision !== attempt.scheduleRevision
@@ -86,6 +104,7 @@ export async function preparePaper(
     );
   }
   signal?.throwIfAborted();
+  step('storage');
   try {
     await savePackage(
       storageKey(
@@ -105,6 +124,7 @@ export async function preparePaper(
       'The paper could not be saved on this device. Free browser storage and try again.',
     );
   }
+  step('shell');
   let shell: 'ready' | 'development';
   try {
     shell = await ensureOfflineShell();
@@ -114,5 +134,6 @@ export async function preparePaper(
       error instanceof Error ? error.message : 'Offline app preparation failed.',
     );
   }
+  signal?.throwIfAborted();
   return { attempt, packageId: packet.packageId, shell };
 }

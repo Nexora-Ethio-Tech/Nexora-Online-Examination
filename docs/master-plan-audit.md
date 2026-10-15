@@ -4,6 +4,8 @@ Audit date: 15 October 2026. Code baseline: `55c4891` on `main` (includes `f6731
 
 ## Conclusion and evidence limits
 
+Follow-up (15 October): F-01 collapsible navigation and F-02 preparation phase feedback are now implemented; see [student-navigation-progress.md](student-navigation-progress.md) for tests and browser evidence. The matrix below preserves the original `55c4891` audit baseline. Real Android/production acceptance remains open under F-07. F-03 through F-09 are unchanged.
+
 All eleven screen categories in section 6.1 have frontend routes or controls, but that is not proof that every required behavior is complete. There are confirmed frontend gaps, missing operational workflows and unverified integration/release requirements. Do not call the frontend finished or describe the project as only waiting for a backend connection. No defensible completion percentage is assigned.
 
 This is a source-and-test-coverage audit, not a new browser, real-device or backend acceptance run. Evidence consists of the master plan, routed components, executable schemas/API clients, local persistence code, test cases and repository guides. Existing demo tests use simulated server behavior. Backend implementation was not inspected or certified. The full check-suite result for this documentation change is recorded below.
