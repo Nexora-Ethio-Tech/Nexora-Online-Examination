@@ -40,6 +40,8 @@ The application has login, administrator MFA verification, session restoration, 
 
 ### Local demo
 
+For a complete 20-question mathematics rehearsal, use the [upload file](public/templates/nexora-math-20-demo.xlsx) unchanged and follow the [answer key and testing guide](docs/math-20-demo-guide.md). The guide covers 40 total marks, a deliberate 75% result, topic charts, publication, CSV/print reports and separate practice scores. The same file is downloadable from the teacher's Import tab.
+
 Run `npm ci`, then `npm run dev:demo`. Open Vite's printed local URL.
 
 | Role         | User ID      | Password    | MFA    |
