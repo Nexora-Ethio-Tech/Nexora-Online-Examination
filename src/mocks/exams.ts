@@ -187,9 +187,19 @@ export function createExamDemo(
   }
   function ordered(ids: string[], shuffle: boolean) {
     const values = [...ids];
+    const randomIndex = (maxExclusive: number) => {
+      if (maxExclusive <= 0) return 0;
+      const upperBound = 0x1_0000_0000;
+      const limit = upperBound - (upperBound % maxExclusive);
+      let next = 0;
+      do {
+        next = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
+      } while (next >= limit);
+      return next % maxExclusive;
+    };
     if (shuffle)
       for (let i = values.length - 1; i > 0; i--) {
-        const j = (crypto.getRandomValues(new Uint32Array(1))[0] ?? 0) % (i + 1);
+        const j = randomIndex(i + 1);
         const a = values[i];
         const b = values[j];
         if (a !== undefined && b !== undefined) {
