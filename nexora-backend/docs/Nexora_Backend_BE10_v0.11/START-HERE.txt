@@ -1,0 +1,5 @@
+Nexora BE-10 / API contract v0.11 — 15 October 2026
+
+Read docs/backend-accommodations-task.md first. Implement its mandatory interfaces and downstream timing rules. Exact DTOs/calls are in src/features/exams/admin/. Read docs/api-contract.md and earlier BE task files as dependencies.
+
+This package includes the testing guide, backend instructions, message to accompany this package, updated contract and schema sources. Frontend tests/demo do not prove backend completion. Return the real-backend implementation and test report required by BE-10. Do not invent alternate interfaces. F-06 readiness is a separate future task.

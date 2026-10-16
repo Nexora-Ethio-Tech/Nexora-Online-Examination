@@ -1,0 +1,12 @@
+Nexora backend task BE-02 - API contract v0.3
+
+Read docs/backend-student-exam-task.md first. It defines your required work for the next student exam flow. Implement the interfaces exactly as specified; these are issued requirements, not options requiring backend approval.
+
+Deliver in order:
+1. BE-02A: real authentication, assigned exam list/detail, device enrollment, attempt creation, encrypted preparation package and timed unlock. Report this increment as soon as it is ready so frontend integration can begin.
+2. BE-02B: revision saves, atomic complete final submission and a durable receipt.
+3. BE-02C: late recovery, audited admin decisions and device transfer.
+
+The other documents contain the updated API contract and exam rules. The JSON fixture contains synthetic test values to verify encryption and answer digests; never reuse its fixed keys for school data.
+
+Replace earlier copies of the included documents with this v0.3 package. Authentication JSON used by the current frontend is unchanged. Report implemented endpoints, tests/evidence, staging URL, remaining work and specific blockers using the task document's report format. Do not change the contract independently. Report any missing detail to us for a binding instruction and continue unaffected work.

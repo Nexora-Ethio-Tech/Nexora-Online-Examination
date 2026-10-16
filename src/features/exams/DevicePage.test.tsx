@@ -10,7 +10,7 @@ import { ApiClient, type Transport } from '@/lib/api-client';
 import { createDemoTransport } from '@/mocks/auth';
 import { retainedId, loadPackage, savePackage, replaceBrowserId } from './storage';
 import { packageSchema } from './schemas';
-import fixture from '../../../docs/fixtures/student-exam-v1.json';
+import fixture from '../../../nexora-backend/docs/Nexora_Backend_BE10_v0.11/docs/fixtures/student-exam-v1.json';
 import * as store from '@/features/runner/store';
 import { monitorFixture } from './monitor/test-fixture';
 

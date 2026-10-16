@@ -1,0 +1,7 @@
+Implement BE-05 official results, publication and reporting exactly as specified in docs/backend-results-task.md under API contract v0.6. Preserve existing BE-02, BE-03 and BE-04 interfaces.
+
+Read backend-results-task.md first. It specifies the work, every endpoint, grading and rank rules, recovery exclusions, revision history, release gates, exports, mandatory tests and the required implementation report. schemas.ts and api.ts under src/features/results define the exact frontend payloads and requests. api-client.ts shows the authenticated CSV text transport. official-results.md explains the frontend demonstration and its limits. The official-results-v1.json fixture supplies expected marking/rank/topic outputs; its private keys are test data only. Older task documents are included for dependency context.
+
+Connect real committed student submissions to deterministic official results. Only administrators approve publication; honor the release time and unresolved recovery gate. Students receive only their own released snapshot. Teachers receive only assigned classes and subjects. Produce complete authorized CSV and typed report snapshots, including historical revisions.
+
+Return the report in BE-05 section G with real database, timing, privacy, revision, isolation and export evidence. Report concrete blockers with evidence and continue unaffected work. Do not ask to approve alternative interfaces or substitute demo data. These are implementation requirements, not a claim that the backend already supports them.

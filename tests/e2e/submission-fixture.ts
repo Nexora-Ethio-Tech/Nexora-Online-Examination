@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { BrowserContext } from '@playwright/test';
-import fixture from '../../docs/fixtures/student-exam-v1.json' with { type: 'json' };
+import fixture from '../../nexora-backend/docs/Nexora_Backend_BE10_v0.11/docs/fixtures/student-exam-v1.json' with { type: 'json' };
 import type { Attempt } from '../../src/features/exams/schemas';
 import { finalSchema } from '../../src/features/runner/schemas';
 

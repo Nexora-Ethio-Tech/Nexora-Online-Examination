@@ -1,0 +1,7 @@
+Implement BE-06 exactly as specified in docs/backend-recovery-task.md under API contract v0.7. Existing student/auth and BE-05 results payloads remain unchanged.
+
+Read backend-recovery-task.md first: it defines the queue/detail reads, existing decision mutation, immutable evidence, acceptance/rejection transactions, competing-upload settlement, receipt correlation and required report. The recovery schemas.ts and api.ts are the exact frontend wire definitions. Older student/results/admin task documents and fixtures supply dependency context. recovery-review.md explains frontend testing and simulator limitations.
+
+Acceptance must commit the selected snapshot, score, receipt and candidate result revision atomically. Receipt idempotencyKey is the ORIGINAL RECOVERY UPLOAD KEY, not the admin decision key. Rejecting keeps evidence and creates no receipt or score. Preserve released publication history; require new approval to release changed results. A new recovery upload advances the publication candidate even when scores do not change.
+
+Run the real-database isolation, rollback, race, idempotency, receipt and publication tests in section 5 and return its implementation report. Report concrete blockers with evidence; continue unaffected work. Do not substitute different interfaces. Do not implement the demo-only /demo/recovery-example route in production.

@@ -1,0 +1,3 @@
+Nexora BE-11 / API contract v0.12
+
+Read docs/backend-readiness-task.md first and implement its mandatory interfaces. Exact readiness and revised monitoring schemas/API calls are in src/features/exams/. Earlier contracts in docs remain dependencies. Use the included message to accompany this handoff and return the mandatory real-database implementation/test report. Development mode does not send verified readiness; tests simulate a successful shell check. Do not infer ready from package download, require readiness for exam access, or substitute different wire formats.

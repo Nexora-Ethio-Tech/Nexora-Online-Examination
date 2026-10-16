@@ -1,0 +1,86 @@
+{
+  "warning": "SYNTHETIC TEST MATERIAL ONLY. Never reuse these fixed keys or nonces for school data.",
+  "contractVersion": "0.3",
+  "attemptId": "00000000-0000-4000-8000-000000000001",
+  "finalRequest": {
+    "examVersion": 1,
+    "scheduleRevision": 1,
+    "deviceGeneration": 1,
+    "finalSeq": 2,
+    "answers": [
+      {
+        "itemId": "q2",
+        "value": null
+      },
+      {
+        "itemId": "q1",
+        "value": "option-b"
+      }
+    ]
+  },
+  "canonicalUtf8": "[\"nexora-final-v1\",\"00000000-0000-4000-8000-000000000001\",1,1,1,2,[[\"q1\",\"option-b\"],[\"q2\",null]]]",
+  "snapshotDigest": "c2fdd710f413fb8354dddb444c6aab8af5ffee1840e8e6bedb1450d413324380",
+  "package": {
+    "packageId": "00000000-0000-4000-8000-000000000002",
+    "examVersion": 1,
+    "scheduleRevision": 1,
+    "algorithm": "AES-GCM",
+    "iv": "ICEiIyQlJicoKSor",
+    "ciphertext": "qRjDCA31TGtoDyuhrzrOyPxrmPXz7AbMVtQ_ayf-NmwB54Yk50tBv2aSHvcqaH2hjkOY97pMTBGrEF0xbttkrqxUuGji_or4-EjTBfg1Vg6m8hNr2Z6mf6E8tU9oPPizcHRLN6ssvpq9-ckpgdrvegT04jGz5PR2cptzapjO5goGxgyvGcIhxRz_x0g0HXHFppVYXL3_tu8SJJ9c_ra87-PXa0e9h1flkpf7nI0KKZSJn57pKLGkTkn63IjEVaPeiswYZVa8nyR3dNGc1fHEvLlMmnDrvjGzI8tsJDN2cS8PNhOn5k0WmHFe-f6Zgvl-pFLQqx8ocVbGSyNPKUBai_bxaUjuJFc2mTJhENGct6LY7eBtRSzz0xAJBgozhT2X60_ZA72UpDAXv9AA1gD9U_rDYew8s-PlwSDEZ_Jubtq33mok6h3o8sOEMLPYePxbT5xnX2DaKLvCpTxZPyFabR7A7kqWYUSdyDYAV4I73UwO0k1FW15miyIJa0dw198D6NJ1Hy9K56BMxXfCCcdXc4UVT9qkGT9asn_UJMnxnJZOjEc2cNyChVm4RnvNKdexrk-SD8IRbIaUo57w1Sh57aV2bxNMsxeEsiUa6zFLSNoL5sWYd8qWopc16gOLW_nqV1p2Q9sNUw",
+    "sha256": "d3329d123959c733b9a915b032f53b7c5c35adfbc9181c8ab2d6b9d08e0058cd"
+  },
+  "unlockKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+  "plaintextUtf8": "{\"examVersion\":1,\"title\":\"Synthetic interoperability paper\",\"instructions\":\"Choose one answer for each item.\",\"items\":[{\"itemId\":\"q1\",\"type\":\"mcq_single\",\"stem\":\"What is 2 + 2?\",\"marks\":2,\"options\":[{\"id\":\"option-a\",\"text\":\"3\"},{\"id\":\"option-b\",\"text\":\"4\"},{\"id\":\"option-c\",\"text\":\"5\"},{\"id\":\"option-d\",\"text\":\"6\"}]},{\"itemId\":\"q2\",\"type\":\"true_false\",\"stem\":\"A triangle has three sides.\",\"marks\":2,\"options\":[{\"id\":\"true\",\"text\":\"True\"},{\"id\":\"false\",\"text\":\"False\"}]}]}",
+  "plaintext": {
+    "examVersion": 1,
+    "title": "Synthetic interoperability paper",
+    "instructions": "Choose one answer for each item.",
+    "items": [
+      {
+        "itemId": "q1",
+        "type": "mcq_single",
+        "stem": "What is 2 + 2?",
+        "marks": 2,
+        "options": [
+          {
+            "id": "option-a",
+            "text": "3"
+          },
+          {
+            "id": "option-b",
+            "text": "4"
+          },
+          {
+            "id": "option-c",
+            "text": "5"
+          },
+          {
+            "id": "option-d",
+            "text": "6"
+          }
+        ]
+      },
+      {
+        "itemId": "q2",
+        "type": "true_false",
+        "stem": "A triangle has three sides.",
+        "marks": 2,
+        "options": [
+          {
+            "id": "true",
+            "text": "True"
+          },
+          {
+            "id": "false",
+            "text": "False"
+          }
+        ]
+      }
+    ]
+  },
+  "questionOrder": ["q1", "q2"],
+  "optionOrders": {
+    "q1": ["option-a", "option-b", "option-c", "option-d"],
+    "q2": ["true", "false"]
+  }
+}

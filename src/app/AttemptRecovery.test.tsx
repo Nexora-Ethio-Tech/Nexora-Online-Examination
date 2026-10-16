@@ -13,7 +13,7 @@ import { authenticatedDestination, rememberAttempt } from '@/features/auth/attem
 import * as store from '@/features/runner/store';
 import { attemptSchema } from '@/features/exams/schemas';
 import { paperSchema } from '@/features/runner/schemas';
-import fixture from '../../docs/fixtures/student-exam-v1.json';
+import fixture from '../../nexora-backend/docs/Nexora_Backend_BE10_v0.11/docs/fixtures/student-exam-v1.json';
 
 // Web Locks are covered by runner tests; jsdom has no browser lock manager.
 vi.mock('@/features/runner/lock', () => ({ acquireWriter: async () => () => undefined }));
