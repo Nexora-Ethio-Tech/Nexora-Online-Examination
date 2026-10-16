@@ -3,6 +3,37 @@
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
 
+@media print {
+  body:has(.results-print) header,
+  body:has(.results-print) aside {
+    display: none !important;
+  }
+  body:has(.results-print) #main-content {
+    width: 100%;
+  }
+  body:has(.results-print) .lg\:grid-cols-\[200px_1fr\] {
+    display: block;
+  }
+  .results-print {
+    color: #000;
+    background: #fff;
+    font-size: 10pt;
+  }
+  .results-print section {
+    border: 0;
+    padding: 8pt 0;
+  }
+  .results-print tr {
+    break-inside: avoid;
+  }
+  .results-print thead {
+    display: table-header-group;
+  }
+  .results-print .overflow-x-auto {
+    overflow: visible;
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -139,10 +170,10 @@
 }
 
 :root[data-role='school_admin'] {
-  --primary: #2563eb;
+  --primary: #1d4ed8;
   --primary-foreground: #ffffff;
-  --ring: #2563eb;
-  --sidebar-primary: #2563eb;
+  --ring: #1d4ed8;
+  --sidebar-primary: #1d4ed8;
   --sidebar-primary-foreground: #ffffff;
 }
 
@@ -155,10 +186,10 @@
 }
 
 :root[data-role='student'] {
-  --primary: #c2410c;
+  --primary: #9a3412;
   --primary-foreground: #ffffff;
-  --ring: #c2410c;
-  --sidebar-primary: #c2410c;
+  --ring: #9a3412;
+  --sidebar-primary: #9a3412;
   --sidebar-primary-foreground: #ffffff;
 }
 
