@@ -14,4 +14,6 @@ Send this message with browser-testing.md and deploy.md:
 
 ## Additional frontend verification
 
+The owner found no service-worker registration at `/login` on the protected Preview. Source inspection confirms registration is deferred to student preparation and runner startup through `ensureOfflineShell()`, not login. Protected installation/cache population remains untested; the normal production path requires backend student authentication, an eligible attempt, device enrollment and package delivery. The shell install fetches use `credentials: 'omit'`, whose compatibility with deployment protection remains unverified. See deploy.md for the call sites and acceptance steps. A standalone shell test would not replace integrated BE-11 readiness verification; no new endpoint is requested.
+
 The expanded production-browser suite intercepts a synthetic API to simulate a lost committed-response, reload and retry with the same final body and idempotency key. This is evidence about browser persistence only. The backend must demonstrate that same behavior against the real database, including session expiry and deadline/restart races already required by BE-02. Route splitting and navigation changes introduce no endpoint changes. Send frontend-readiness.md alongside this message for current evidence and remaining device/host checks.

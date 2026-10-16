@@ -44,6 +44,16 @@ Deploy the complete `dist` artifact. `dist/release.json` records Git commit, whe
 
 ## Smoke tests on the actual host
 
+### Protected Preview service-worker status
+
+The owner inspected DevTools > Application > Service Workers on the protected Preview's `/login` and found no registration for that origin. This is expected for a fresh origin at login: there is no registration on login or application startup. It is not evidence of a failed installation, successful installation or populated cache.
+
+Registration occurs in `src/lib/offline-shell.ts`, inside `ensureOfflineShell()`, through `navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })`. Production callers are student preparation (`src/features/exams/preparation.ts`, after server enrollment/attempt/package requests, package integrity verification and local package storage) and the exam runner (`src/features/runner/engine.ts`, after attempt/device checks and obtaining the package, before unlock). Development mode bypasses registration. Preparation reports BE-11 readiness only after the worker verifies the expected shell version and cached bytes.
+
+Service-worker installation and complete cache population on the protected Preview remain **untested**. Exercising the normal production application flow depends on a working backend with authenticated student access, an eligible scheduled attempt, device enrollment and an encrypted package. A standalone manual worker test could isolate hosting behavior without a backend, but has not been performed and would not establish end-to-end preparation readiness. Loading `/sw.js` successfully is insufficient.
+
+The install handler in `scripts/offline-shell.ts` fetches shell assets with `credentials: 'omit'`; whether those requests succeed behind Vercel Deployment Protection remains an open question. Registration alone is insufficient: verify activation, every expected cached asset and checksum, the matching build/version response, and readiness acknowledgement through the real preparation flow. Record any authentication redirects or rejected asset fetches. This remains a backend-dependent integration acceptance item for the normal flow, not a failed login-page check or a new backend endpoint requirement.
+
 Record commit/build ID and backend revision. Verify direct links and refresh on each role route, MIME types/cache headers, HTTPS, real login/MFA, school/role isolation, CSRF and session restoration. Confirm no demo banner or synthetic accounts/endpoints are available. Create/import an approved test paper, schedule it in EAT, prepare through the real service-worker check and BE-11 acknowledgement, unlock at common start, save while disconnected, reconnect and obtain a matching committed receipt. Verify offline reload shows recovery guidance, retained evidence survives login expiry, results publication/practice gates and CSV/print work. Check a real lower-memory Android device. These are release gates, not claims made by the synthetic suite. Backend backup/restore, capacity and database race tests remain backend-owned acceptance.
 
 ## Rollback and incident behavior
