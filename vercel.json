@@ -2,7 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "installCommand": "npm ci",
-      "buildCommand": "npm run build && echo GIT-STATUS-START && git status --porcelain --untracked-files=all && echo GIT-STATUS-END && echo CONFIG-DIFF-START && git diff HEAD -- vercel.json && echo CONFIG-DIFF-END",  "outputDirectory": "dist",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "routes": [
     {
       "src": "^/.*$",
