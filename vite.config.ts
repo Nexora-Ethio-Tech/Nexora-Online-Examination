@@ -27,6 +27,8 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     test: {
+      // Bound simultaneous jsdom/transform work so lazy route imports do not starve UI checks.
+      maxWorkers: 4,
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],

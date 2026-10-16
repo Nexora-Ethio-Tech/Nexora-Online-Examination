@@ -1,5 +1,9 @@
 # Frontend master-plan audit
 
+Latest verification follow-up: see [frontend-readiness.md](frontend-readiness.md). Browser coverage, navigation clarity, text resizing and route loading have been strengthened. F-07 still requires physical-device, human assistive-technology and real-backend evidence; F-09 remains deployment preparation. This does not mark the full master plan complete.
+
+Browser/deployment follow-up (15 October): executable Playwright/axe journeys and CI are now implemented; see browser-testing.md. F-07 remains open for real API, physical Android and full manual accessibility acceptance. F-09 now has deploy.md and a release identity/hash manifest, but actual-host deployment/rollback is unverified. The user explicitly chose to keep F-08 cleanup disabled; see retention-policy.md. Historical placeholder/absent-document statements below are superseded on those points.
+
 Follow-up F-06 (15 October): frontend reporting after verified preparation, administrator ready subset/timestamp and simulator coverage are implemented; exact [BE-11 v0.12](backend-readiness-task.md) is issued. See [readiness testing](readiness-testing.md). Development-shell bypass never produces verified readiness. This supersedes historical F-06 pending statements below, but does not close F-07 real-backend/browser/device acceptance. F-07, F-08 and F-09 remain open.
 
 Follow-up F-05 (15 October): extra-time configuration is now implemented in frontend/demo and issued as [BE-10 v0.11](backend-accommodations-task.md), with [testing instructions](accommodations-testing.md). This closes the configuration gap in the original matrix below, not real-backend acceptance. It covers before-preparation edits, personal/latest deadlines, reschedule preview, audit/replay and downstream result/practice gates. F-06 and the acceptance/retention/deployment work remain open. Historical F-05 pending statements below are superseded by this follow-up.

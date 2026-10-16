@@ -1,5 +1,7 @@
 # Backend handoff: MVP implementation increments
 
+Frontend verification update (15 October): no wire change. Send backend-verification-handoff.md with browser-testing.md and deploy.md for staging and integration evidence. API v0.12 remains current. Local data/cache cleanup is disabled by user decision.
+
 Current update (15 October): implement [BE-11 verified preparation reporting](backend-readiness-task.md), API v0.12. Send the BE-11 package and its included message, follow [readiness testing](readiness-testing.md), and return the required real-database report. F-06 frontend/simulator and exact contract are now supplied. Earlier F-06 pending statements below are historical. Production browser/service-worker/backend acceptance remains outstanding.
 
 Current update (15 October): implement [BE-10 extra-time accommodations](backend-accommodations-task.md), contract v0.11, and follow [the testing guide](accommodations-testing.md). Send the task, updated API contract and executable admin schemas/API calls (or the accompanying BE-10 bundle). The task includes the message to send and required real-database delivery report. F-05 is now issued and implemented in the frontend/demo; F-06 readiness remains pending. Earlier status paragraphs below describe their historical increments and are superseded on F-05 by this update.
@@ -36,7 +38,7 @@ The newest issued task is BE-09 above. Complete all still-outstanding BE-02 thro
 
 ## Ownership and milestone
 
-Frontend repository: https://github.com/codifex11/exam-frontend. The authentication, school setup, authoring, approval/scheduling, runner, results, practice, recovery and monitoring frontend workflows now exist. See master-plan-audit.md for remaining frontend gaps and evidence limits; real backend acceptance remains outstanding. Separate backend developer owns API, migrations, isolation, jobs and hosting. Frontend owns screens, client, local persistence and recovery UI.
+Frontend repository: https://github.com/Nexora-Ethio-Tech/Nexora-Online-Examination. The authentication, school setup, authoring, approval/scheduling, runner, results, practice, recovery and monitoring frontend workflows now exist. See master-plan-audit.md for remaining frontend gaps and evidence limits; real backend acceptance remains outstanding. Separate backend developer owns API, migrations, isolation, jobs and hosting. Frontend owns screens, client, local persistence and recovery UI.
 
 First milestone: generated test student logs in, prepares encrypted seeded objective paper, unlocks at common start, answers during interruption, reconnects and receives one durable receipt for the complete snapshot.
 

@@ -1,4 +1,8 @@
-# exam-frontend
+# Nexora Online Examination — frontend
+
+Repository: [Nexora-Ethio-Tech/Nexora-Online-Examination](https://github.com/Nexora-Ethio-Tech/Nexora-Online-Examination). Existing local checkout folders and the private npm package may still be named `exam-frontend`; they do not need to match the GitHub repository name. See [deployment status](docs/deploy.md) for Vercel Preview evidence and outstanding checks.
+
+Browser verification: `npm ci`, `npx playwright install chromium`, then `npm run e2e`. See [browser testing](docs/browser-testing.md), [deployment preparation](docs/deploy.md) and [retention decision](docs/retention-policy.md). These tests use synthetic data; real backend acceptance remains outstanding. Production builds now write dist/release.json with commit/build identity and file hashes.
 
 Frontend of a multi-tenant online examination platform for schools. React 19, TypeScript, Vite.
 
@@ -75,3 +79,7 @@ Copy `.env.example` to an untracked `.env.local`. Set `VITE_API_BASE_URL` to the
 Authentication requires GET /auth/me, GET /auth/csrf, POST /auth/login, POST /auth/mfa/verify and POST /auth/logout. CSRF bootstrap protects login; successful login/MFA fetches /auth/me for identity and a rotated token. Failed mutations are not automatically replayed. Logout failure stays visible; 401 expires the UI session without any blanket browser-storage clearing.
 
 Real HttpOnly/Secure cookies, server-side roles, CSRF enforcement, MFA enrollment and real-device checks still require backend integration. Do not use mock test results as security or release acceptance.
+
+### Navigation and frontend readiness
+
+See [navigation instructions and readiness status](docs/frontend-readiness.md) for the workspace menu versus question navigation, expanded browser coverage, mobile/human acceptance procedure and dependency/performance review. The frontend can proceed to real backend integration; synthetic test passes alone are not deployment acceptance.
