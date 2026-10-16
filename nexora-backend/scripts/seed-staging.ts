@@ -1,32 +1,21 @@
 import { Logger } from '@nestjs/common';
 import { Pool } from 'pg';
-import * as dotenv from 'dotenv';
+import { databasePoolConfig, loadBackendEnvironment } from '../src/common/db/database-config';
 import { hashPassword } from '../src/common/crypto/password';
 import { encryptExamPackage } from '../src/common/crypto/package-cipher';
 
-dotenv.config();
+loadBackendEnvironment();
 const logger = new Logger('seed-staging');
 
-const connectionString =
-  process.env.MIGRATION_DATABASE_URL ||
-  process.env.DATABASE_URL ||
-  'postgres://postgres:postgres@localhost:5432/nexora_exam';
-
-const isRemote =
-  connectionString.includes('supabase.com') || connectionString.includes('supabase.co');
-
 async function seedStaging() {
-  const pool = new Pool({
-    connectionString,
-    ssl: isRemote ? { rejectUnauthorized: false } : undefined,
-  });
+  const pool = new Pool(databasePoolConfig('migration'));
 
   const client = await pool.connect();
 
   try {
     logger.log('[Seed] Connecting to database...');
     await client.query('BEGIN');
-    await client.query(`SET app.is_migration_or_admin = 'true';`);
+    await client.query(`SET LOCAL app.is_migration_or_admin = 'true';`);
 
     logger.log('[Seed] Seeding School 1: Hillside Academy...');
     const school1Res = await client.query(`

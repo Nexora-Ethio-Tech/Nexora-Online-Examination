@@ -1,8 +1,8 @@
 import { defineConfig } from 'vitest/config';
 import swc from 'unplugin-swc';
-import * as dotenv from 'dotenv';
+import { loadBackendEnvironment } from './src/common/db/database-config';
 
-dotenv.config();
+loadBackendEnvironment();
 
 export default defineConfig({
   test: {

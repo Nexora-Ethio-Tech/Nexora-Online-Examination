@@ -1,11 +1,25 @@
 # Backend implementation status
 
-Updated: 16 October 2026. Initial audit baseline: `23bc953`. Current task: `BE-02A` preparation repairs and prerequisite validation fixes, on branch `backend`.
+Updated: 16 October 2026. Initial audit baseline: `23bc953`. Current task: `DB-01` persistent Supabase configuration and migration verification, on branch `backend`.
 Scope: the actual backend in `nexora-backend/src`, its migrations, scripts and tests, compared with the supplied frontend handoffs through **BE-11 / API v0.12**.
 
 **The backend has a substantial BE-02 student-delivery implementation, but BE-02 is not yet contract-complete. Most later workflows still have no backend endpoints.** Some later features have supporting tables or small pieces of logic; those are identified separately below.
 
 The initial audit was source-only. The approved preparation repairs have now been verified against a disposable local PostgreSQL database: **81 backend tests and 10 frontend tests pass**, backend compilation passes, and root `npm run check` passes. This does not establish staging deployment, production browser, restricted-runtime-role, full MFA or complete BE-02 acceptance.
+
+## Latest completed task: DB-01 Supabase configuration
+
+Supabase is the database for ongoing backend development, application data and migrations. The private backend `.env` is ignored by Git. Both `DATABASE_URL` and `MIGRATION_DATABASE_URL` now connect successfully to the intended Supabase project through its Session pooler on port 5432. No credentials are included in this report.
+
+Implemented: a shared, validated backend environment loader; explicit runtime/migration connections with no silent localhost fallback; single-connection, transaction-locked migration execution; a read-only `db:status` command; a secret-free backend environment example and [setup instructions](../README.md). Startup, migrations and seeds use the same backend `.env`, including commands launched from the repository root. Migration/admin session settings are transaction-local.
+
+Verified against Supabase: inspected the existing five migration records before applying only `005_browser_device_credentials.sql`. Both connections subsequently report six recorded SQL migrations, the new `browser_devices` table and no pending migrations. No seed was run or existing application data reset. The running backend's `GET /api/v1/ready` returned HTTP 200 with `status: ready` and `database: connected`.
+
+Fixed the startup prerequisite exposed by this check: `tsx watch` did not emit constructor metadata, so NestJS started with missing dependencies and readiness returned 503. Development startup now compiles with TypeScript first and runs the actual `dist/src/main.js` output; the production start path and CommonJS cookie-parser import are corrected too. Restart `start:dev` after source edits; it no longer watches for changes. Root ESLint now excludes nested generated `dist` directories as well as the frontend build directory, so compiling the backend does not make the repository check lint generated JavaScript.
+
+Backend compilation, root `npm run check` (10 frontend tests) and 21 backend unit tests pass, including 14 database-configuration tests. The previously reported 81-test integration result below remains the earlier local PostgreSQL verification; it is not a Supabase result. No local database was used by DB-01. Existing destructive test guards remain in place until a separately isolated Supabase test target is configured.
+
+Still outstanding: the runtime connection currently uses the same privileged role as migrations (`bypassrls: true`). Restricted runtime privileges and authorized auth/bootstrap access must be completed and verified before claiming tenant isolation. Full BE-02A MFA/operator provisioning also remains incomplete; subsequent backend work follows the handoff's dependency order. This setup does not mark BE-02 accepted.
 
 ## Latest completed task: BE-02A preparation repairs
 
@@ -40,7 +54,7 @@ Files modified for this task: backend auth service/controller; delivery service/
 
 | Area | Status | Implemented in code | Work remaining |
 | --- | --- | --- | --- |
-| Foundation / operations | Partial | NestJS application, `/api/v1`, PostgreSQL service, five migrations, clock, crypto, error/response handling, health and DB readiness routes. | Restricted-runtime-role/RLS verification, exact Origin enforcement, safe errors, production provisioning and deployment evidence. |
+| Foundation / operations | Partial | NestJS application, `/api/v1`, Supabase PostgreSQL service, six recorded SQL migrations, clock, crypto, error/response handling, verified local backend DB readiness route. | Restricted-runtime-role/RLS verification, exact Origin enforcement, safe errors, production provisioning and deployment evidence. |
 | BE-02A: auth and preparation | Partial | Cookie sessions, CSRF, password login, admin TOTP challenge, logout, device registration, assigned exams, attempt creation/retrieval, encrypted package, timed unlock. | Approved preparation repairs are complete. Remaining BE-02A acceptance includes full MFA/operator provisioning, restricted-runtime-role auth/bootstrap and real browser/staging verification. |
 | BE-02B: saves and final receipt | Partial | Row-locked saves, revision history, complete-snapshot validation, deterministic objective grading, atomic submission/result writes, digest and receipt reads/replay logic. | Cross-item sequence uniqueness, correct validation/arrival timing, device-expiry replay exception, stronger validation and concurrency evidence. |
 | BE-02C: recovery and transfer | Partial | Late evidence upload, decision/transfer handlers, receipt correlation, audit/replay code, sequence-zero answer inheritance. | Recovery decision SQL is fixed. Replay/concurrency gaps, BE-09 transfer contract, recovery evidence and result revisions remain. |

@@ -2,34 +2,21 @@ import { Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Pool } from 'pg';
-import * as dotenv from 'dotenv';
+import { databasePoolConfig, loadBackendEnvironment } from '../src/common/db/database-config';
 
-dotenv.config();
+loadBackendEnvironment();
 const logger = new Logger('migrate');
 
-const connectionString =
-  process.env.MIGRATION_DATABASE_URL ||
-  process.env.DATABASE_URL ||
-  'postgres://postgres:postgres@localhost:5432/nexora_exam';
-
-const isRemote =
-  connectionString.includes('supabase.com') ||
-  connectionString.includes('supabase.co') ||
-  connectionString.includes('sslmode=require');
-
 async function runMigrations() {
-  const pool = new Pool({
-    connectionString,
-    ssl: isRemote ? { rejectUnauthorized: false } : undefined,
-    connectionTimeoutMillis: 10000,
-  });
+  const pool = new Pool(databasePoolConfig('migration'));
 
   const client = await pool.connect();
 
   try {
     logger.log('[Migrate] Connecting to database...');
     await client.query('BEGIN');
-    await client.query(`SET app.is_migration_or_admin = 'true';`);
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended('nexora:migrations', 0))");
+    await client.query(`SET LOCAL app.is_migration_or_admin = 'true';`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (

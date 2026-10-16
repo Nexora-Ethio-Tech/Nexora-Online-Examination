@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { databasePoolConfig, loadBackendEnvironment } from './database-config';
 
 @Injectable()
 export class DbService implements OnModuleInit, OnModuleDestroy {
@@ -7,22 +8,8 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
   private pool!: Pool;
 
   onModuleInit() {
-    const connectionString =
-      process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/nexora_exam';
-
-    const max = parseInt(process.env.DB_POOL_MAX || '5', 10);
-    const isRemote =
-      connectionString.includes('supabase.com') ||
-      connectionString.includes('supabase.co') ||
-      connectionString.includes('sslmode=require');
-
-    this.pool = new Pool({
-      connectionString,
-      max,
-      ssl: isRemote ? { rejectUnauthorized: false } : undefined,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 30000,
-    });
+    loadBackendEnvironment();
+    this.pool = new Pool(databasePoolConfig('runtime'));
 
     this.pool.on('error', (err) => {
       this.logger.error('Unexpected error on idle PostgreSQL client', err.stack);

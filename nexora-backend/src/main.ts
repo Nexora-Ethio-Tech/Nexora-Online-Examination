@@ -1,11 +1,11 @@
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import cookieParser from 'cookie-parser';
-import * as dotenv from 'dotenv';
+import * as cookieParser from 'cookie-parser';
+import { loadBackendEnvironment } from './common/db/database-config';
 import { AppModule } from './app.module';
 
-dotenv.config();
+loadBackendEnvironment();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
