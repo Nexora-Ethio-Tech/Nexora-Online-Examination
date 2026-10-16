@@ -1,3 +1,4 @@
+import { readinessRequestSchema, type Readiness } from '@/features/exams/readiness';
 import { accommodationRoster } from './accommodations';
 import { z } from 'zod';
 import type { Attempt, EncryptedPackage, Exam } from '@/features/exams/schemas';
@@ -39,6 +40,8 @@ export function createExamDemo(
   const enrolled = new Set<string>();
   let activeDevice: string | undefined;
   const contacts = new Map<string, string>();
+  const readiness = new Map<string, Readiness>();
+  const readinessReplays = new Map<string, { body: string; response: unknown }>();
   const generationHistory = new Map<
     string,
     { attempt: Attempt; revisions: Map<number, string> }[]
@@ -276,6 +279,7 @@ export function createExamDemo(
       exams,
       attempt: attemptFor,
       contact: (id) => contacts.get(id) ?? null,
+      readiness: (id) => readiness.get(id) ?? null,
       enrolled: (id) => enrolled.has(id),
       boundDevice: (id) => bindings.get(id),
       replace: (attempt, deviceId) => {
@@ -286,6 +290,7 @@ export function createExamDemo(
             revisions: new Map(revisions.get(attempt.attemptId)),
           },
         ]);
+        readiness.delete(attempt.attemptId);
         attempt.deviceGeneration += 1;
         attempt.state = 'preparing';
         attempt.answers = attempt.answers.map((a) => ({ ...a, clientSeq: 0 }));
@@ -362,7 +367,7 @@ export function createExamDemo(
       contacts.set(attempt.attemptId, now());
       return json(attempt, 201);
     }
-    const write = /^\/attempts\/([^/]+)\/(unlock|answers|submit|recovery)$/.exec(path);
+    const write = /^\/attempts\/([^/]+)\/(unlock|answers|submit|recovery|readiness)$/.exec(path);
     if (write && method === 'POST') {
       const attempt = [...attempts.values()].find((item) => item.attemptId === write[1]);
       if (!attempt) return error('NOT_FOUND', 'Attempt unavailable.', 404);
@@ -375,6 +380,41 @@ export function createExamDemo(
         bindings.get(attempt.attemptId) !== activeDevice
       )
         return error('DEVICE_REPLACED', 'This browser has been replaced. Retain its saved work.');
+      if (action === 'readiness') {
+        const input = readinessRequestSchema.safeParse(body);
+        const key = headers.get('Idempotency-Key');
+        if (!input.success || !z.uuid().safeParse(key).success)
+          return error('VALIDATION_ERROR', 'Invalid preparation report.', 422);
+        const value = input.data;
+        const p = packets.get(attempt.attemptId);
+        if (
+          !p ||
+          value.packageId !== p.packageId ||
+          value.sha256 !== p.sha256 ||
+          value.examVersion !== attempt.examVersion ||
+          value.scheduleRevision !== attempt.scheduleRevision ||
+          value.deviceGeneration !== attempt.deviceGeneration
+        )
+          return error(
+            'READINESS_MISMATCH',
+            'Preparation identity changed. Prepare this browser again.',
+          );
+        const replayKey = attempt.attemptId + ':' + key;
+        const serialized = JSON.stringify(value);
+        const old = readinessReplays.get(replayKey);
+        if (old)
+          return old.body === serialized
+            ? json(old.response)
+            : error('IDEMPOTENCY_CONFLICT', 'Request key reused with a different report.');
+        if (attempt.state !== 'preparing' || clock() >= Date.parse(attempt.deadlineAt))
+          return error('STATE_CHANGED', 'Attempt is no longer preparing.');
+        const report = { ...value, acknowledgementId: crypto.randomUUID(), receivedAt: now() };
+        readiness.set(attempt.attemptId, report);
+        contacts.set(attempt.attemptId, now());
+        const response = { attemptId: attempt.attemptId, readiness: report, serverNow: now() };
+        readinessReplays.set(replayKey, { body: serialized, response });
+        return json(response);
+      }
       if (action === 'unlock') {
         if (!['preparing', 'active'].includes(attempt.state))
           return error('ALREADY_FINALIZED', 'This attempt is closed.');

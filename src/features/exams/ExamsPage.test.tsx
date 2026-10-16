@@ -51,7 +51,9 @@ it('downloads and verifies a paper without claiming offline readiness or submiss
   const user = setup('/student/exams/demo-session-4');
   await user.click(await screen.findByRole('button', { name: 'Download encrypted paper' }));
   expect(await screen.findByRole('heading', { name: 'Encrypted paper saved' })).toBeInTheDocument();
-  expect(screen.getByText(/This is not full offline readiness/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/No verified readiness report is sent in development mode/),
+  ).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Start exam' })).not.toBeInTheDocument();
 });
 it('shows an empty assignment state', async () => {

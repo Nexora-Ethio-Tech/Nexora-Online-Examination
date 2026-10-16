@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Readiness } from '@/features/exams/readiness';
 import type { Attempt, Exam } from '@/features/exams/schemas';
 import {
   transferRequestSchema,
@@ -13,6 +14,7 @@ export function createMonitorDemo(
     exams: () => Exam[];
     attempt: (sessionId: string) => Attempt | undefined;
     contact: (attemptId: string) => string | null;
+    readiness: (attemptId: string) => Readiness | null;
     enrolled: (deviceId: string) => boolean;
     boundDevice: (attemptId: string) => string | undefined;
     replace: (attempt: Attempt, deviceId: string) => void;
@@ -53,6 +55,7 @@ export function createMonitorDemo(
       attempt: a
         ? {
             attemptId: a.attemptId,
+            readiness: source.readiness(a.attemptId),
             state: a.state,
             deviceGeneration: a.deviceGeneration,
             lastContactAt: source.contact(a.attemptId),
@@ -78,6 +81,7 @@ export function createMonitorDemo(
       latestDeadlineAt: student.deadlineAt,
       scheduleRevision: exam.scheduleRevision,
       rosterCount: 1,
+      readyCount: student.status === 'preparing' && student.attempt?.readiness ? 1 : 0,
       counts: {
         not_started: 0,
         preparing: 0,

@@ -252,6 +252,12 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
           {preparation.error ? (
             <div role="alert" className="rounded-xl border border-destructive/30 p-5 text-sm">
               <p>{errorMessage(preparation.error)}</p>
+              {step === 'report' && (
+                <p className="mt-2">
+                  Local preparation checks passed, but the school report is not confirmed. Retry
+                  preparation to resend it safely. This does not change your exam deadline.
+                </p>
+              )}
               <p className="mt-2">
                 Keep this page open and retain browser storage. Resolve the issue above, then retry
                 preparation while connected. If the exam window has closed, contact your school.
@@ -276,8 +282,8 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
               </h2>
               <p className="mt-2 text-sm">
                 {preparation.data.shell === 'ready'
-                  ? 'Paper integrity, local storage and offline app files verified. Keep this tab open; the exam opens at the common start after online authorization.'
-                  : 'Checksum verified and browser storage write confirmed. This is not full offline readiness: the development server must stay running. The exam opens at the common start after online authorization.'}
+                  ? 'Paper integrity, local storage and offline app files verified and reported to your school. Keep this tab open; the exam opens at the common start after online authorization.'
+                  : 'Checksum verified and browser storage write confirmed. No verified readiness report is sent in development mode: the development server must stay running. The exam opens at the common start after online authorization.'}
               </p>
             </div>
           ) : null}

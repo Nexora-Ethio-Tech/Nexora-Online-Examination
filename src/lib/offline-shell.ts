@@ -1,4 +1,5 @@
 declare const __APP_BUILD__: string;
+export const shellBuild = __APP_BUILD__;
 export async function ensureOfflineShell(): Promise<'ready' | 'development'> {
   if (import.meta.env.DEV) return 'development';
   if (!('serviceWorker' in navigator) || !isSecureContext)

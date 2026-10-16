@@ -1,5 +1,7 @@
 # Nexora frontend instructions
 
+Contract v0.12 adds BE-11 readiness reporting. Read docs/backend-readiness-task.md and exams/readiness.ts. Report only after checksum, completed local write and verified production shell. Never report the development bypass. readyCount is a subset of preparing; preserve identity-bound replay and invalidate on device/version changes. Readiness is not an unlock prerequisite or online-status proof.
+
 Contract v0.11 adds BE-10 extra-time accommodations. Read docs/backend-accommodations-task.md and the executable admin/accommodation-schemas.ts and api.ts. BE-04 sessionSchema now requires latestDeadlineAt; history adds accommodation_changed. Preserve frozen membership and allowances on reschedule, reject new changes at preparation/delivery, and replay committed identical requests after cutoff. Publication/practice use the entire roster deadline including absent students. F-06 readiness is separate.
 
 ## Authority

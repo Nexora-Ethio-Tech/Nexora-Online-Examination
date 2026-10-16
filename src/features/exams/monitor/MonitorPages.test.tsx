@@ -119,3 +119,29 @@ describe('administrator monitor screen', () => {
     );
   });
 });
+
+it('shows last-reported readiness separately from the preparing roster count', async () => {
+  const c = await monitorFixture();
+  await c.monitor.transfer(c.attempt.attemptId, c.body, crypto.randomUUID());
+  await c.login('STUDENT');
+  await c.exams.ready(
+    c.attempt.attemptId,
+    {
+      packageId: c.packet.packageId,
+      sha256: c.packet.sha256,
+      examVersion: c.attempt.examVersion,
+      scheduleRevision: c.attempt.scheduleRevision,
+      deviceGeneration: 2,
+      shellBuild: 'test-build',
+    },
+    crypto.randomUUID(),
+  );
+  await c.login('ADMIN');
+  show(c.client, '/admin/monitor/sitting');
+  expect(await screen.findByText(/Ready \(last reported\)/)).toHaveTextContent(
+    '1 of 1 preparing students',
+  );
+  expect(await screen.findByText(/Verified checks reported at/)).toHaveTextContent(
+    'does not prove continuing connectivity',
+  );
+});

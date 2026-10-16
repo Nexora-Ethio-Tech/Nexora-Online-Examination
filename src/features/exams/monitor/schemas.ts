@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { readinessSchema } from '../readiness';
 import { attemptState } from '../schemas';
 const id = z.string().min(1);
 const time = z.iso.datetime();
@@ -33,6 +34,7 @@ export const sittingSchema = z
     latestDeadlineAt: time,
     scheduleRevision: generation,
     rosterCount: count,
+    readyCount: count,
     counts: z
       .object({
         not_started: count,
@@ -48,7 +50,8 @@ export const sittingSchema = z
   .refine(
     (s) => Object.values(s.counts).reduce((sum, n) => sum + n, 0) === s.rosterCount,
     'Counts must cover the frozen roster.',
-  );
+  )
+  .refine((s) => s.readyCount <= s.counts.preparing, 'Ready count must be a subset of preparing.');
 export const monitorRowSchema = z
   .object({
     studentId: id,
@@ -59,6 +62,7 @@ export const monitorRowSchema = z
     attempt: z
       .object({
         attemptId: id,
+        readiness: readinessSchema.nullable(),
         state: attemptState,
         deviceGeneration: generation,
         lastContactAt: time.nullable(),
@@ -74,6 +78,11 @@ export const monitorRowSchema = z
   .refine((row) => {
     if (!row.attempt) return row.status === 'not_started';
     if (row.status === 'not_started') return false;
+    if (
+      row.attempt.readiness &&
+      row.attempt.readiness.deviceGeneration !== row.attempt.deviceGeneration
+    )
+      return false;
     const submitted = row.status === 'submitted';
     return (
       submitted === (row.attempt.state === 'submitted') &&

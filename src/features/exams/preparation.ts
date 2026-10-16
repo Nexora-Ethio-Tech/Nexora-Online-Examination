@@ -2,7 +2,7 @@ import { ApiError } from '@/lib/api-client';
 import type { examApi } from './api';
 import type { EncryptedPackage, Exam } from './schemas';
 import { retainedId, savePackage, storageKey } from './storage';
-import { ensureOfflineShell } from '@/lib/offline-shell';
+import { shellBuild, ensureOfflineShell } from '@/lib/offline-shell';
 export const preparationSteps = [
   { id: 'eligibility', label: 'Check exam availability' },
   { id: 'attempt', label: 'Register this browser and recover your attempt' },
@@ -10,6 +10,7 @@ export const preparationSteps = [
   { id: 'integrity', label: 'Verify the paper checksum' },
   { id: 'storage', label: 'Save the paper on this device' },
   { id: 'shell', label: 'Check offline app files' },
+  { id: 'report', label: 'Report verified preparation to your school' },
 ] as const;
 export type PreparationStep = (typeof preparationSteps)[number]['id'];
 export function decodeBase64url(value: string) {
@@ -135,5 +136,37 @@ export async function preparePaper(
     );
   }
   signal?.throwIfAborted();
+  if (shell === 'ready') {
+    step('report');
+    const body = {
+      packageId: packet.packageId,
+      sha256: packet.sha256,
+      examVersion: attempt.examVersion,
+      scheduleRevision: attempt.scheduleRevision,
+      deviceGeneration: attempt.deviceGeneration,
+      shellBuild,
+    };
+    const key = await retainedId(
+      storageKey(
+        owner.schoolId,
+        owner.userId,
+        attempt.attemptId,
+        JSON.stringify(body),
+        'readiness',
+      ),
+    );
+    const response = await api.ready(attempt.attemptId, body, key, signal);
+    if (
+      response.attemptId !== attempt.attemptId ||
+      Object.entries(body).some(
+        ([field, value]) => response.readiness[field as keyof typeof body] !== value,
+      )
+    )
+      throw new ApiError(
+        'READINESS_MISMATCH',
+        'The preparation report did not match this browser. Retry preparation.',
+      );
+    signal?.throwIfAborted();
+  }
   return { attempt, packageId: packet.packageId, shell };
 }

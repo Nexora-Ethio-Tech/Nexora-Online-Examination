@@ -140,6 +140,10 @@ function SittingInfo({ sitting: s }: { sitting: MonitorSitting }) {
       <p className="text-sm">
         Frozen roster: {s.rosterCount} students · Schedule revision {s.scheduleRevision}
       </p>
+      <p className="rounded-lg bg-muted p-3 text-sm">
+        Ready (last reported): <strong>{s.readyCount}</strong> of {s.counts.preparing} preparing
+        students. This is a subset, not an additional roster count.
+      </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {monitorStatus.options.map((status) => (
           <div key={status} className="rounded-lg bg-muted p-3 text-sm">
@@ -163,6 +167,13 @@ function StudentInfo({ student: s }: { student: MonitorRow }) {
         {s.studentName} · {s.loginId}
       </h3>
       <p className="font-medium">{statusLabels[s.status]}</p>
+      <p>
+        Preparation report:{' '}
+        {a?.readiness
+          ? `Verified checks reported at ${eatTime(a.readiness.receivedAt)}`
+          : 'No current verified report'}
+        . A report does not prove continuing connectivity or storage availability.
+      </p>
       <dl className="grid gap-3 sm:grid-cols-2">
         <div>
           <dt className="text-muted-foreground">Student deadline</dt>

@@ -1,4 +1,8 @@
-# Nexora API contract v0.11
+# Nexora API contract v0.12
+
+## Preparation readiness addendum
+
+v0.12, issued 15 October 2026: implement [BE-11](backend-readiness-task.md). Student POST /attempts/:id/readiness acknowledges verified local checks; BE-09 monitor sittings add readyCount and attempt metadata adds nullable readiness. Exact schemas/calls are exams/readiness.ts, exams/api.ts and exams/monitor/schemas.ts. Reports are version/device-bound, replayable, and invalidated on replacement. Ready is a subset of preparing, not a new exclusive status or proof of connectivity. Backend acceptance remains outstanding.
 
 ## Extra-time accommodations addendum
 
@@ -24,7 +28,7 @@ v0.7, issued 14 October 2026: implement [backend-recovery-task.md](backend-recov
 
 v0.6, issued 14 October 2026: implement [backend-results-task.md](backend-results-task.md) (BE-05), including the executable src/features/results/schemas.ts and api.ts. It defines official grading, revision snapshots, staff result lists/analytics, administrator publication and explicit unresolved-attempt exclusions, student release gates, complete scoped CSV and typed printable reports. These definitions supersede the previously unspecified publication/report/student-results inventory rows below. Earlier v0.5/v0.4/v0.3 interfaces are unchanged. Backend approval is not requested; real backend implementation remains unverified. The status paragraphs below document earlier increments.
 
-Status: issued implementation requirements, 14 October 2026. Current contract is v0.11 (BE-10 extra-time accommodations); earlier increments remain dependencies except where explicitly revised by the addenda above. Backend approval is not requested. No backend implementation was inspected.
+Status: issued implementation requirements, 14 October 2026. Current contract is v0.12 (BE-11 preparation readiness); earlier increments remain dependencies except where explicitly revised by the addenda above. Backend approval is not requested. No backend implementation was inspected.
 
 ## Administrator approval and scheduling addendum
 

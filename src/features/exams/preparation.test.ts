@@ -169,3 +169,45 @@ describe('student preparation integrity', () => {
     vi.restoreAllMocks();
   });
 });
+
+it('reports only after verified production shell checks and retains the report key after a lost response', async () => {
+  const check = vi.spyOn(shell, 'ensureOfflineShell').mockResolvedValue('ready');
+  let lost = true;
+  const { api, calls } = setup(async (response, url) => {
+    if (url.endsWith('/readiness') && lost) {
+      lost = false;
+      throw new TypeError('Lost response');
+    }
+    return response;
+  });
+  try {
+    const exam = (await api.detail('demo-session-4')).exam;
+    await expect(preparePaper(api, owner, exam)).rejects.toThrow();
+    await expect(preparePaper(api, owner, exam)).resolves.toMatchObject({ shell: 'ready' });
+    const reports = calls.filter((call) => call.url.endsWith('/readiness'));
+    expect(reports).toHaveLength(2);
+    expect(reports[0]?.init.body).toEqual(reports[1]?.init.body);
+    expect(new Headers(reports[0]?.init.headers).get('Idempotency-Key')).toBe(
+      new Headers(reports[1]?.init.headers).get('Idempotency-Key'),
+    );
+  } finally {
+    check.mockRestore();
+  }
+});
+it('never sends verified readiness when production shell verification is skipped or fails', async () => {
+  const check = vi
+    .spyOn(shell, 'ensureOfflineShell')
+    .mockResolvedValueOnce('development')
+    .mockRejectedValueOnce(new Error('Shell unavailable'));
+  const { api, calls } = setup();
+  try {
+    const exam = (await api.detail('demo-session-4')).exam;
+    await expect(preparePaper(api, owner, exam)).resolves.toMatchObject({ shell: 'development' });
+    await expect(preparePaper(api, owner, exam)).rejects.toMatchObject({
+      code: 'SHELL_UNAVAILABLE',
+    });
+    expect(calls.filter((call) => call.url.endsWith('/readiness'))).toHaveLength(0);
+  } finally {
+    check.mockRestore();
+  }
+});
