@@ -1,0 +1,27 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "routes": [
+    {
+      "src": "^/.*$",
+      "headers": {
+        "Cache-Control": "no-cache, max-age=0, must-revalidate"
+      },
+      "continue": true
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "^/(?:login|mfa|(?:student|teacher|admin)(?:/[^.]*)?)?/?$",
+      "dest": "/index.html"
+    },
+    {
+      "src": "^/.*$",
+      "status": 404
+    }
+  ]
+}
