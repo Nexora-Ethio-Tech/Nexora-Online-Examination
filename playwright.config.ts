@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
+  tsconfig: './tsconfig.node.json',
   testDir: './tests/e2e',
   timeout: 60000,
   expect: { timeout: 10000 },
@@ -29,6 +30,15 @@ export default defineConfig({
       use: {
         baseURL: 'http://127.0.0.1:5178',
         viewport: { width: 360, height: 800 },
+        hasTouch: true,
+      },
+    },
+    {
+      name: 'demo-landscape',
+      testMatch: /demo\.spec\.ts/,
+      use: {
+        baseURL: 'http://127.0.0.1:5178',
+        viewport: { width: 800, height: 360 },
         hasTouch: true,
       },
     },

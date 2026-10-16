@@ -108,6 +108,19 @@ test('teacher import and review through admin approval, scheduling and extra tim
   await page.getByLabel('Review comment or required corrections').fill('Reviewed and approved.');
   await page.getByRole('checkbox', { name: /I reviewed the questions/ }).check();
   await page.getByRole('button', { name: 'Approve paper', exact: true }).click();
+  const prep = page.getByLabel('Preparation date and time (EAT)', { exact: true });
+  const release = page.getByLabel('Planned results date and time (EAT)', { exact: true });
+  const originalPrep = await prep.inputValue();
+  const originalRelease = await release.inputValue();
+  await prep.fill('2020-01-01T10:00');
+  await expect(prep).toHaveAttribute('aria-invalid', 'true');
+  await expect(
+    page.getByText('Preparation must be later than the current EAT time shown above.'),
+  ).toBeVisible();
+  await prep.fill(originalPrep);
+  await release.fill(originalPrep);
+  await expect(release).toHaveAttribute('aria-invalid', 'true');
+  await release.fill(originalRelease);
   await page.getByRole('checkbox', { name: /I checked the EAT/ }).check();
   await page.getByRole('button', { name: 'Confirm schedule', exact: true }).click();
   await page.getByRole('link', { name: 'Manage extra time' }).click();
@@ -118,6 +131,63 @@ test('teacher import and review through admin approval, scheduling and extra tim
   await page.getByRole('button', { name: 'Save extra time', exact: true }).click();
   await expect(page.getByText(/Last change: 0 → 15/)).toBeVisible();
   await accessible(page);
+});
+
+test('workspace navigation stays reachable after scrolling and with enlarged text', async ({
+  page,
+}) => {
+  await login(page, 'STUDENT');
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const navigation = page.getByRole('link', { name: 'Navigation', exact: true });
+  await expect(navigation).toBeInViewport();
+  await navigation.focus();
+  await page.keyboard.press('Enter');
+  const workspace = page.getByRole('navigation', { name: 'Workspace', exact: true });
+  await expect(workspace).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(workspace.getByRole('link').first()).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/student\/device/);
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%';
+  });
+  await accessible(page);
+  await navigation.click();
+  await expect(workspace).toBeFocused();
+  expect(
+    await workspace.evaluate((element) => {
+      const header = document.querySelector('header');
+      return (
+        !!header && element.getBoundingClientRect().top >= header.getBoundingClientRect().bottom
+      );
+    }),
+  ).toBe(true);
+});
+
+test('teacher can recover from a rejected custom import without submitting an empty paper', async ({
+  page,
+}) => {
+  await login(page, 'TEACHER');
+  await page.getByRole('button', { name: 'New exam', exact: true }).click();
+  await page.getByLabel('Exam title', { exact: true }).fill('Import retry');
+  await page.getByLabel('Class and subject').selectOption('demo-math-10a');
+  await page.getByRole('button', { name: 'Create draft' }).click();
+  await page.getByLabel('Question template').setInputFiles({
+    name: 'edited.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: Buffer.from('Synthetic invalid document'),
+  });
+  await page.getByRole('button', { name: 'Upload and prepare questions' }).click();
+  await expect(
+    page.getByText(/Demo accepts only the unchanged downloadable examples/),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Submit for approval' })).toBeDisabled();
+  await accessible(page);
+  await page
+    .getByLabel('Question template')
+    .setInputFiles('public/templates/nexora-questions.xlsx');
+  await page.getByRole('button', { name: 'Upload and prepare questions' }).click();
+  await expect(page.getByText(/ready · 2 parsed · 2 AI suggestions ready/i)).toBeVisible();
 });
 
 test('administrator navigation, recovery and monitor screens are accessible', async ({ page }) => {

@@ -77,3 +77,7 @@ Copy `.env.example` to an untracked `.env.local`. Set `VITE_API_BASE_URL` to the
 Authentication requires GET /auth/me, GET /auth/csrf, POST /auth/login, POST /auth/mfa/verify and POST /auth/logout. CSRF bootstrap protects login; successful login/MFA fetches /auth/me for identity and a rotated token. Failed mutations are not automatically replayed. Logout failure stays visible; 401 expires the UI session without any blanket browser-storage clearing.
 
 Real HttpOnly/Secure cookies, server-side roles, CSRF enforcement, MFA enrollment and real-device checks still require backend integration. Do not use mock test results as security or release acceptance.
+
+### Navigation and frontend readiness
+
+See [navigation instructions and readiness status](docs/frontend-readiness.md) for the workspace menu versus question navigation, expanded browser coverage, mobile/human acceptance procedure and dependency/performance review. The frontend can proceed to real backend integration; synthetic test passes alone are not deployment acceptance.

@@ -108,3 +108,7 @@ exam-frontend@0.0.0 C:\Users\kaleab\Desktop\Frontend\exam-frontend
 - `src/lib/utils.ts` uses `clsx` + `tailwind-merge`. The npm package `cn` is not used.
 - Role colors override the shadcn `--primary` tokens through `data-role` on `<html>`.
 - Generated shadcn components import 'cn'. The module name 'cn' is aliased to src/lib/utils.ts in tsconfig.app.json and vite.config.ts. The npm package 'cn' is not installed.
+
+## Readiness review — 15 October 2026
+
+No dependency versions changed in this follow-up. npm audit was rerun and still reports seven high findings. The primary braces advisory lists no patched version; the proposed major shadcn downgrade was not applied. See frontend-readiness.md for the dependency path, build-tool exposure and outstanding remediation review.

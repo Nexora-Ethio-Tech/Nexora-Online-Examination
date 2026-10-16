@@ -27,3 +27,7 @@ Record commit/build ID and backend revision. Verify direct links and refresh on 
 Restore the previously accepted complete artifact and compatible API version atomically. Keep current and older hashed assets available; do not clear browser IndexedDB/cache, force a service-worker replacement or ask students to discard pending work. An already-controlled tab may keep its existing worker until closed: rollback is not an immediate client takeover. Avoid releases during active sittings; preserve evidence and coordinate unresolved submissions before asking users to reopen. Test the rollback procedure on the selected staging host before production. Record which artifact is active, affected sessions and recovery status.
 
 Local exam-data and old-shell cleanup remain disabled by the user's decision. See [retention-policy.md](retention-policy.md). Host asset removal also needs an agreed retention and active-session policy; this guide grants no deletion permission.
+
+## Split route assets
+
+Feature pages now load on demand. Deploy every emitted chunk together and retain the complete older artifact for open clients. The postbuild script verifies that the service-worker manifest matches final asset bytes; any mismatch fails the build. A failed page download shows reconnect/reload guidance and does not clear exam evidence. Full shell preparation still downloads all chunks. See [frontend-readiness.md](frontend-readiness.md) for measured sizes and unresolved dependency/device checks.

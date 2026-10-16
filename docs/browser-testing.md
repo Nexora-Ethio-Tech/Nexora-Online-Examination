@@ -17,3 +17,9 @@ Still required: real API journeys with multi-school/student isolation, publicati
 - Production artifact manifest: all 12 emitted-file hashes matched; this development verification build correctly records dirty:true. It is not a release artifact.
 - Existing Zod annotation and large-bundle build notices remain. npm audit also reports seven high findings in the existing shadcn/tooling dependency chain; see VERSIONS.md. No forced dependency downgrade was performed.
 - Real backend, actual Android/screen readers, hosting/rollback and execution of the newly added GitHub CI job remain unverified. No data or cache deletion was performed.
+
+## Readiness follow-up
+
+See [frontend-readiness.md](frontend-readiness.md) for navigation instructions, expanded negative-path coverage, the physical-phone and human accessibility procedure, and performance/dependency findings. The suite now includes 800×360 landscape in addition to portrait and desktop. Production tests exercise a lost final response and identical retry across reload using an intercepted synthetic API, as well as expiry, role redirects, lazy-file failure/retry and every cached shell asset while offline. This does not establish real backend behavior.
+
+The final follow-up run passed **26 browser cases and 181 unit/component tests**; see frontend-readiness.md for exact commands, fixes and remaining evidence. Earlier results above are historical.

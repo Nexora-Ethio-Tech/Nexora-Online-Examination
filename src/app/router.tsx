@@ -1,5 +1,4 @@
-import { AccommodationsPage } from '@/features/exams/admin/AccommodationsPage';
-import { useEffect } from 'react';
+import { lazy, useEffect } from 'react';
 import { Navigate, Outlet, useLocation, createBrowserRouter, type RouteObject } from 'react-router';
 import { isAttemptPath, rememberAttempt } from '@/features/auth/attempt-resume';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -7,32 +6,117 @@ import { LoginPage } from '@/features/auth/LoginPage';
 import { MfaPage } from '@/features/auth/MfaPage';
 import { roleHome } from '@/features/auth/role-home';
 import { RequireRole } from './RequireRole';
-import { SchoolSetupPage } from '@/features/school/SchoolSetupPage';
+
 import { DashboardLayout } from './DashboardLayout';
-import { AdminExamsPage } from '@/features/exams/admin/AdminExamsPage';
-import { AdminExamDetail } from '@/features/exams/admin/AdminExamDetail';
+
 import { ErrorState } from '@/components/shared/ErrorState';
 import { errorMessage } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
-import { ExamsPage } from '@/features/exams/ExamsPage';
-import { PreparationPage } from '@/features/exams/PreparationPage';
-import { DevicePage } from '@/features/exams/DevicePage';
-import {
-  MonitorPage,
-  MonitorSittingPage,
-  MonitorAttemptPage,
-} from '@/features/exams/monitor/MonitorPages';
-import { RunnerPage } from '@/features/runner/RunnerPage';
-import { TeacherPage } from '@/features/exams/authoring/TeacherPage';
-import { TeacherDetail } from '@/features/exams/authoring/TeacherDetail';
-import { ResultsPage, ResultDetail } from '@/features/results/ResultsPage';
-import { RecoveryPage, RecoveryDetailPage } from '@/features/exams/recovery/RecoveryPage';
-import {
-  AdminPracticePage,
-  PracticePage,
-  PracticeRunnerPage,
-} from '@/features/practice/PracticePages';
 
+const AccommodationsPage = lazy(() =>
+  import('@/features/exams/admin/AccommodationsPage').then((module) => ({
+    default: module.AccommodationsPage,
+  })),
+);
+const SchoolSetupPage = lazy(() =>
+  import('@/features/school/SchoolSetupPage').then((module) => ({
+    default: module.SchoolSetupPage,
+  })),
+);
+const AdminExamsPage = lazy(() =>
+  import('@/features/exams/admin/AdminExamsPage').then((module) => ({
+    default: module.AdminExamsPage,
+  })),
+);
+const AdminExamDetail = lazy(() =>
+  import('@/features/exams/admin/AdminExamDetail').then((module) => ({
+    default: module.AdminExamDetail,
+  })),
+);
+const ExamsPage = lazy(() =>
+  import('@/features/exams/ExamsPage').then((module) => ({ default: module.ExamsPage })),
+);
+const PreparationPage = lazy(() =>
+  import('@/features/exams/PreparationPage').then((module) => ({
+    default: module.PreparationPage,
+  })),
+);
+const DevicePage = lazy(() =>
+  import('@/features/exams/DevicePage').then((module) => ({ default: module.DevicePage })),
+);
+const MonitorPage = lazy(() =>
+  import('@/features/exams/monitor/MonitorPages').then((module) => ({
+    default: module.MonitorPage,
+  })),
+);
+const MonitorSittingPage = lazy(() =>
+  import('@/features/exams/monitor/MonitorPages').then((module) => ({
+    default: module.MonitorSittingPage,
+  })),
+);
+const MonitorAttemptPage = lazy(() =>
+  import('@/features/exams/monitor/MonitorPages').then((module) => ({
+    default: module.MonitorAttemptPage,
+  })),
+);
+const RunnerPage = lazy(() =>
+  import('@/features/runner/RunnerPage').then((module) => ({ default: module.RunnerPage })),
+);
+const TeacherPage = lazy(() =>
+  import('@/features/exams/authoring/TeacherPage').then((module) => ({
+    default: module.TeacherPage,
+  })),
+);
+const TeacherDetail = lazy(() =>
+  import('@/features/exams/authoring/TeacherDetail').then((module) => ({
+    default: module.TeacherDetail,
+  })),
+);
+const ResultsPage = lazy(() =>
+  import('@/features/results/ResultsPage').then((module) => ({ default: module.ResultsPage })),
+);
+const ResultDetail = lazy(() =>
+  import('@/features/results/ResultsPage').then((module) => ({ default: module.ResultDetail })),
+);
+const RecoveryPage = lazy(() =>
+  import('@/features/exams/recovery/RecoveryPage').then((module) => ({
+    default: module.RecoveryPage,
+  })),
+);
+const RecoveryDetailPage = lazy(() =>
+  import('@/features/exams/recovery/RecoveryPage').then((module) => ({
+    default: module.RecoveryDetailPage,
+  })),
+);
+const AdminPracticePage = lazy(() =>
+  import('@/features/practice/PracticePages').then((module) => ({
+    default: module.AdminPracticePage,
+  })),
+);
+const PracticePage = lazy(() =>
+  import('@/features/practice/PracticePages').then((module) => ({ default: module.PracticePage })),
+);
+const PracticeRunnerPage = lazy(() =>
+  import('@/features/practice/PracticePages').then((module) => ({
+    default: module.PracticeRunnerPage,
+  })),
+);
+
+function RouteFailure() {
+  return (
+    <main className="mx-auto max-w-lg space-y-4 px-6 py-20">
+      <h1 className="text-2xl font-semibold">This page couldn’t open</h1>
+      <p role="alert">Reconnect, then reload this page. If it still fails, contact your school.</p>
+      <p className="text-sm text-muted-foreground">
+        Keep this browser and its site storage. Saved exam work has not been cleared. Reopening an
+        exam requires online revalidation, and its original deadline still applies.
+      </p>
+      <Button className="min-h-11" onClick={() => window.location.reload()}>
+        Reload this page
+      </Button>
+    </main>
+  );
+}
 function SessionGate() {
   const auth = useAuth();
   const location = useLocation();
@@ -106,6 +190,7 @@ function NotFound() {
 export const routes: RouteObject[] = [
   {
     element: <SessionGate />,
+    errorElement: <RouteFailure />,
     children: [
       { index: true, element: <Home /> },
       { path: '/login', element: <LoginPage /> },

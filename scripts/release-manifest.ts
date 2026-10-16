@@ -25,7 +25,19 @@ const dirty =
 const worker = await readFile(path.join(root, 'sw.js'), 'utf8');
 const buildId = /const VERSION = "([^"]+)"/.exec(worker)?.[1];
 if (!buildId) throw new Error('Built service worker has no build identity.');
+const files = await inventory(root);
+const encodedManifest = /const MANIFEST = (.*);/.exec(worker)?.[1];
+if (!encodedManifest) throw new Error('Built service worker has no asset manifest.');
+const manifest: unknown = JSON.parse(encodedManifest);
+if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest))
+  throw new Error('Invalid offline asset manifest.');
+for (const file of files.filter(
+  (file) => file.file === 'index.html' || file.file.startsWith('assets/'),
+)) {
+  if (Reflect.get(manifest, `/${file.file}`) !== file.sha256)
+    throw new Error(`Offline checksum differs from final build output: ${file.file}`);
+}
 await writeFile(
   path.join(root, 'release.json'),
-  JSON.stringify({ commit, dirty, buildId, files: await inventory(root) }, null, 2) + '\n',
+  JSON.stringify({ commit, dirty, buildId, files }, null, 2) + '\n',
 );

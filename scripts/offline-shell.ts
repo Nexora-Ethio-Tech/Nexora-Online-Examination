@@ -6,28 +6,31 @@ export function offlineShell(buildId: string): Plugin {
     name: 'nexora-offline-shell',
     apply: 'build',
     enforce: 'post',
-    generateBundle(_options, bundle) {
-      const files = Object.keys(bundle)
-        .filter((name) => name === 'index.html' || name.startsWith('assets/'))
-        .map((name) => `/${name}`);
-      if (!files.includes('/index.html')) throw new Error('Offline shell requires index.html.');
-      const manifest = Object.fromEntries(
-        files.map((file) => {
-          const entry = bundle[file.slice(1)];
-          if (!entry) throw new Error('Missing shell asset.');
-          return [
-            file,
-            createHash('sha256')
-              .update(entry.type === 'chunk' ? entry.code : entry.source)
-              .digest('hex'),
-          ];
-        }),
-      );
-      this.emitFile({
-        type: 'asset',
-        fileName: 'sw.js',
-        source: offlineWorker(buildId, manifest),
-      });
+    generateBundle: {
+      order: 'post',
+      handler(_options, bundle) {
+        const files = Object.keys(bundle)
+          .filter((name) => name === 'index.html' || name.startsWith('assets/'))
+          .map((name) => `/${name}`);
+        if (!files.includes('/index.html')) throw new Error('Offline shell requires index.html.');
+        const manifest = Object.fromEntries(
+          files.map((file) => {
+            const entry = bundle[file.slice(1)];
+            if (!entry) throw new Error('Missing shell asset.');
+            return [
+              file,
+              createHash('sha256')
+                .update(entry.type === 'chunk' ? entry.code : entry.source)
+                .digest('hex'),
+            ];
+          }),
+        );
+        this.emitFile({
+          type: 'asset',
+          fileName: 'sw.js',
+          source: offlineWorker(buildId, manifest),
+        });
+      },
     },
   };
 }

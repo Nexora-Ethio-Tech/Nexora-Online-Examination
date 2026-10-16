@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Navigate, NavLink, Outlet } from 'react-router';
-import { GraduationCap, LayoutDashboard, LogOut } from 'lucide-react';
+import { GraduationCap, LayoutDashboard, LogOut, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { roleHome, roleLabel } from '@/features/auth/role-home';
@@ -10,6 +10,21 @@ import { useRoleTheme } from '@/lib/use-role-theme';
 export function DashboardLayout() {
   const auth = useAuth();
   const [error, setError] = useState<unknown>(null);
+  const container = useRef<HTMLDivElement>(null);
+  const header = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const element = header.current;
+    if (!element) return;
+    const measure = () =>
+      container.current?.style.setProperty(
+        '--workspace-header-height',
+        `${element.getBoundingClientRect().height}px`,
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   useRoleTheme(auth.session?.user.role ?? 'student');
   if (!auth.session) return <Navigate to="/login" replace />;
   const { user, school } = auth.session;
@@ -22,24 +37,30 @@ export function DashboardLayout() {
     }
   }
   return (
-    <div className="min-h-svh bg-muted/30">
+    <div ref={container} className="min-h-svh bg-muted/30">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-background focus:p-3 focus:text-foreground focus:ring-2"
       >
         Skip to main content
       </a>
-      <header className="border-b bg-background px-4 sm:px-8">
+      <header ref={header} className="sticky top-0 z-20 border-b bg-background px-4 sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <GraduationCap className="size-8 shrink-0" aria-hidden="true" />
-            <div>
+            <div className="min-w-0">
               <p className="text-lg font-semibold tracking-tight">Nexora</p>
               <p className="max-w-48 truncate text-xs text-muted-foreground sm:max-w-md">
                 {school.name}
               </p>
             </div>
           </div>
+          <Button asChild variant="outline" className="min-h-11">
+            <a href="#workspace-navigation">
+              <Menu aria-hidden="true" />
+              Navigation
+            </a>
+          </Button>
           <Button
             variant="outline"
             className="min-h-11"
@@ -52,11 +73,17 @@ export function DashboardLayout() {
         </div>
       </header>
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-8 lg:grid-cols-[200px_1fr] lg:gap-12 lg:py-10">
-        <aside>
+        <aside className="min-w-0 self-start lg:sticky lg:top-[calc(var(--workspace-header-height)+1rem)] lg:max-h-[calc(100svh-var(--workspace-header-height)-2rem)] lg:overflow-y-auto">
           <p className="mb-4 text-xs font-semibold tracking-widest text-muted-foreground">
             {roleLabel[user.role].toUpperCase()}
           </p>
-          <nav aria-label="Workspace">
+          <nav
+            id="workspace-navigation"
+            tabIndex={-1}
+            aria-label="Workspace"
+            className="scroll-mt-[calc(var(--workspace-header-height)+1rem)] rounded-lg border bg-background p-2 focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <p className="px-4 py-2 text-sm font-semibold">Workspace navigation</p>
             {user.role === 'school_admin' && (
               <NavLink
                 to="/admin/monitor"
@@ -120,7 +147,11 @@ export function DashboardLayout() {
             Exam schedules are shown in East Africa Time (EAT).
           </p>
         </aside>
-        <main id="main-content" tabIndex={-1} className="min-w-0">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="min-w-0 scroll-mt-[calc(var(--workspace-header-height)+1rem)] wrap-anywhere"
+        >
           {error ? (
             <div role="alert" className="mb-6 rounded-lg border border-destructive/30 p-4">
               <p className="text-sm text-destructive">{errorMessage(error)}</p>
@@ -136,7 +167,9 @@ export function DashboardLayout() {
               </Button>
             </div>
           ) : null}
-          <Outlet />
+          <Suspense fallback={<p role="status">Opening this page…</p>}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>
