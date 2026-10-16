@@ -7,8 +7,30 @@ import {
   decisionSchema,
 } from './schemas';
 import type { z } from 'zod';
+import {
+  accommodationChangeSchema,
+  accommodationListSchema,
+  accommodationResultSchema,
+  type AccommodationChange,
+} from './accommodation-schemas';
 export function adminExamApi(client: ApiClient) {
   return {
+    accommodations: (id: string, cursor: string | null = null, signal?: AbortSignal) =>
+      client.request(
+        `/admin/sessions/${encodeURIComponent(id)}/accommodations?limit=25${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+        accommodationListSchema,
+        { signal },
+      ),
+    setAccommodation: (id: string, body: AccommodationChange, key: string) =>
+      client.request(
+        `/sessions/${encodeURIComponent(id)}/accommodations`,
+        accommodationResultSchema,
+        {
+          method: 'PATCH',
+          body: accommodationChangeSchema.parse(body),
+          idempotencyKey: key,
+        },
+      ),
     list: (cursor: string | null, signal?: AbortSignal) =>
       client.request(
         `/admin/exams?limit=25${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,

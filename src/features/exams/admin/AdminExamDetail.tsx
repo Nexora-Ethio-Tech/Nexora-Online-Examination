@@ -57,6 +57,10 @@ export function ScheduleForm({
   const iso = parseEatInput(prep);
   const times = iso ? scheduleTimes(iso, detail.exam.durationMinutes) : null;
   const result = parseEatInput(release);
+  const extraMs = initial
+    ? Math.max(0, Date.parse(initial.latestDeadlineAt) - Date.parse(initial.endsAt))
+    : 0;
+  const latest = times ? new Date(Date.parse(times.endsAt) + extraMs).toISOString() : null;
   const prepError = !iso
     ? 'Enter a valid preparation date and time in EAT.'
     : Date.parse(iso) <= now()
@@ -64,8 +68,8 @@ export function ScheduleForm({
       : '';
   const releaseError = !result
     ? 'Enter a valid planned results date and time in EAT.'
-    : times && Date.parse(result) < Date.parse(times.endsAt)
-      ? 'Planned results must be at or after the common end shown below. The server also checks approved extra time.'
+    : latest && Date.parse(result) < Date.parse(latest)
+      ? 'Planned results must be at or after the latest student deadline shown below (including approved extra time).'
       : '';
   return (
     <form
@@ -86,7 +90,7 @@ export function ScheduleForm({
           !times ||
           !result ||
           Date.parse(iso) <= now() ||
-          Date.parse(result) < Date.parse(times.endsAt)
+          (latest && Date.parse(result) < Date.parse(latest))
         ) {
           setError('Correct the highlighted scheduling fields before confirming.');
           return;
@@ -194,6 +198,11 @@ export function ScheduleForm({
             Common end: <strong>{eatTime(times.endsAt)}</strong>
           </p>
           <p>Duration: {detail.exam.durationMinutes} minutes</p>
+          {latest && (
+            <p>
+              Latest student deadline: <strong>{eatTime(latest)}</strong>
+            </p>
+          )}
         </div>
       )}
       <p className="text-sm text-muted-foreground">
@@ -492,6 +501,12 @@ export function AdminExamDetail() {
           >
             Monitor this sitting
           </Link>
+          <Link
+            className="ml-4 underline"
+            to={`/admin/sessions/${encodeURIComponent(s.sessionId)}/accommodations`}
+          >
+            Manage extra time
+          </Link>
           <dl className="mt-3 space-y-2 text-sm">
             <div>
               <dt>Preparation</dt>
@@ -504,6 +519,10 @@ export function AdminExamDetail() {
             <div>
               <dt>Common end</dt>
               <dd>{eatTime(s.endsAt)}</dd>
+            </div>
+            <div>
+              <dt>Latest student deadline (including extra time)</dt>
+              <dd>{eatTime(s.latestDeadlineAt)}</dd>
             </div>
             <div>
               <dt>Planned results (publication approval still required)</dt>

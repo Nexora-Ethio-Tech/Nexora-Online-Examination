@@ -1,3 +1,4 @@
+import { AccommodationsPage } from '@/features/exams/admin/AccommodationsPage';
 import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation, createBrowserRouter, type RouteObject } from 'react-router';
 import { isAttemptPath, rememberAttempt } from '@/features/auth/attempt-resume';
@@ -145,6 +146,10 @@ export const routes: RouteObject[] = [
                       { path: 'results', element: <ResultsPage /> },
                       { path: 'results/:sessionId', element: <ResultDetail /> },
                       { path: 'exams/:examId', element: <AdminExamDetail /> },
+                      {
+                        path: 'sessions/:sessionId/accommodations',
+                        element: <AccommodationsPage />,
+                      },
                     ],
           },
         ],

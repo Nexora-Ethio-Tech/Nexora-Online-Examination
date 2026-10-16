@@ -1,3 +1,4 @@
+import { accommodationRoster, latestDeadline } from './accommodations';
 import { z } from 'zod';
 import { practiceAccess } from './practice';
 import {
@@ -41,6 +42,7 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
         .filter((s) => s.session.examId === id)
         .map((s) => ({
           ...s.session,
+          latestDeadlineAt: new Date(latestDeadline(s)).toISOString(),
           canReschedule: clock() < Date.parse(s.session.preparationVisibleAt),
         })),
       history: structuredClone(store.history.get(id) ?? []),
@@ -167,6 +169,7 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
       const v = rescheduleSchema.parse(body);
       if (
         !sitting ||
+        store.resultAttempts.has(sitting.session.sessionId) ||
         sitting.session.scheduleRevision !== v.scheduleRevision ||
         clock() >= Date.parse(sitting.session.preparationVisibleAt)
       )
@@ -175,7 +178,9 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
     const v = input.data;
     const start = Date.parse(v.preparationVisibleAt);
     const times = scheduleTimes(v.preparationVisibleAt, approved.draft.durationMinutes);
-    if (start <= clock() || Date.parse(v.resultsReleaseAt) < Date.parse(times.endsAt))
+    const extraMs = sitting ? latestDeadline(sitting) - Date.parse(sitting.session.endsAt) : 0;
+    const proposedDeadline = Date.parse(times.endsAt) + extraMs;
+    if (start <= clock() || Date.parse(v.resultsReleaseAt) < proposedDeadline)
       return fail(
         'Preparation must be in the future and planned results cannot precede the end.',
         'VALIDATION_ERROR',
@@ -185,8 +190,8 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
       (s) =>
         s.session.examId === id &&
         s !== sitting &&
-        start < Date.parse(s.session.endsAt) &&
-        Date.parse(times.endsAt) > Date.parse(s.session.preparationVisibleAt),
+        start < latestDeadline(s) &&
+        proposedDeadline > Date.parse(s.session.preparationVisibleAt),
     );
     if (overlap) return fail('This paper already has an overlapping sitting.');
     const session = {
@@ -196,11 +201,13 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
       scheduleRevision: (sitting?.session.scheduleRevision ?? 0) + 1,
       preparationVisibleAt: v.preparationVisibleAt,
       ...times,
+      latestDeadlineAt: new Date(proposedDeadline).toISOString(),
       resultsReleaseAt: v.resultsReleaseAt,
       rosterCount: 1,
       canReschedule: true,
     };
     const linked: DemoSitting = {
+      accommodations: sitting ? accommodationRoster(sitting) : undefined,
       session,
       title: approved.draft.title,
       durationMinutes: approved.draft.durationMinutes,
@@ -218,6 +225,7 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
         })),
       },
     };
+    linked.accommodations = accommodationRoster(linked);
     store.sessions.set(session.sessionId, linked);
     exam.revision++;
     audit(

@@ -1,5 +1,7 @@
 # Backend handoff: MVP implementation increments
 
+Current update (15 October): implement [BE-10 extra-time accommodations](backend-accommodations-task.md), contract v0.11, and follow [the testing guide](accommodations-testing.md). Send the task, updated API contract and executable admin schemas/API calls (or the accompanying BE-10 bundle). The task includes the message to send and required real-database delivery report. F-05 is now issued and implemented in the frontend/demo; F-06 readiness remains pending. Earlier status paragraphs below describe their historical increments and are superseded on F-05 by this update.
+
 Scheduling/reload update (15 October): send [backend-scheduling-reload-verification.md](backend-scheduling-reload-verification.md) and [scheduling-reload-testing.md](scheduling-reload-testing.md). Frontend EAT guidance and cold-reload recovery entry are implemented. No wire changes: backend must verify existing BE-02/BE-04 rules and return the specified integration evidence. This does not supply the still-pending F-05/F-06 contracts.
 
 Frontend-only update (15 October): collapsible student navigation and preparation phase feedback are implemented; see [student-navigation-progress.md](student-navigation-progress.md). No backend change or new document implementation is required for this slice. Progress is local to the browser and does not supply the future F-06 readiness acknowledgement. Continue v0.10 and the audit coordination requirements.

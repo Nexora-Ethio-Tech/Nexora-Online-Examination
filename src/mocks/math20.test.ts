@@ -211,6 +211,7 @@ describe('20-question math rehearsal', () => {
     expect(sitting).toMatchObject({
       startsAt: '2026-10-17T06:15:00.000Z',
       endsAt: '2026-10-17T06:35:00.000Z',
+      latestDeadlineAt: '2026-10-17T06:35:00.000Z',
       rosterCount: 1,
     });
     expect((await c.monitor.sitting(sitting.sessionId, null)).sitting.counts.not_started).toBe(1);

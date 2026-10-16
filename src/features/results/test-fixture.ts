@@ -35,6 +35,7 @@ export function resultsFixture() {
       preparationVisibleAt: '2026-10-17T05:50:00.000Z',
       startsAt: '2026-10-17T06:00:00.000Z',
       endsAt: '2026-10-17T06:20:00.000Z',
+      latestDeadlineAt: '2026-10-17T06:20:00.000Z',
       resultsReleaseAt: '2026-10-17T07:00:00.000Z',
       rosterCount: 1,
       canReschedule: false,

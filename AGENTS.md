@@ -1,5 +1,7 @@
 # Nexora frontend instructions
 
+Contract v0.11 adds BE-10 extra-time accommodations. Read docs/backend-accommodations-task.md and the executable admin/accommodation-schemas.ts and api.ts. BE-04 sessionSchema now requires latestDeadlineAt; history adds accommodation_changed. Preserve frozen membership and allowances on reschedule, reject new changes at preparation/delivery, and replay committed identical requests after cutoff. Publication/practice use the entire roster deadline including absent students. F-06 readiness is separate.
+
 ## Authority
 
 Follow current user instructions, then Final MVP Implementation Documentation v3.0 (12 October 2026), then aligned repository contracts. The user explicitly superseded the older plan on 13 October. Conflicting older instructions are invalid.

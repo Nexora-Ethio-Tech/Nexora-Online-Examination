@@ -6,8 +6,10 @@ import type { Report } from '@/features/results/schemas';
 import type { RecoveryDetail } from '@/features/exams/recovery/schemas';
 import type { PracticeAccess, PracticeAttempt } from '@/features/practice/schemas';
 import { createDirectoryStore } from './directory-store';
+import type { AccommodationStudent } from '@/features/exams/admin/accommodation-schemas';
 
 export type DemoSitting = {
+  accommodations?: AccommodationStudent[];
   session: Sitting;
   title: string;
   durationMinutes: number;

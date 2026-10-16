@@ -1,3 +1,4 @@
+import { latestDeadline } from './accommodations';
 import { z } from 'zod';
 import type { Role } from '@/features/auth/schemas';
 import {
@@ -57,7 +58,7 @@ export function practiceAccess(
       (s) =>
         clock() <=
         Math.max(
-          Date.parse(s.session.endsAt) + 5000,
+          latestDeadline(s) + 5000,
           Date.parse(
             store.resultAttempts.get(s.session.sessionId)?.attempt.finalAcceptUntil ??
               s.session.endsAt,

@@ -1,5 +1,7 @@
 # Frontend master-plan audit
 
+Follow-up F-05 (15 October): extra-time configuration is now implemented in frontend/demo and issued as [BE-10 v0.11](backend-accommodations-task.md), with [testing instructions](accommodations-testing.md). This closes the configuration gap in the original matrix below, not real-backend acceptance. It covers before-preparation edits, personal/latest deadlines, reschedule preview, audit/replay and downstream result/practice gates. F-06 and the acceptance/retention/deployment work remain open. Historical F-05 pending statements below are superseded by this follow-up.
+
 Audit date: 15 October 2026. Code baseline: `55c4891` on `main` (includes `f6731d7`). Authority: **Nexora Final MVP Implementation Documentation v3.0, 12 October 2026**, supplied as `Nexora_Final_MVP_Implementation.pdf` (25 pages). Page references below refer to that PDF. Older plans do not define remaining MVP scope.
 
 ## Conclusion and evidence limits

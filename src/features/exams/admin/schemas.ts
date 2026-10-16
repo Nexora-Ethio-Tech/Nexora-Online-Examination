@@ -12,6 +12,7 @@ export const sessionSchema = z.object({
   preparationVisibleAt: instant,
   startsAt: instant,
   endsAt: instant,
+  latestDeadlineAt: instant,
   resultsReleaseAt: instant,
   rosterCount: z.number().int().nonnegative(),
   canReschedule: z.boolean(),
@@ -31,7 +32,14 @@ export const adminDetailSchema = adminSummarySchema.extend({
   sessions: z.array(sessionSchema),
   history: z.array(
     z.object({
-      action: z.enum(['submitted', 'returned', 'approved', 'scheduled', 'rescheduled']),
+      action: z.enum([
+        'submitted',
+        'returned',
+        'approved',
+        'scheduled',
+        'rescheduled',
+        'accommodation_changed',
+      ]),
       actorName: id,
       at: instant,
       comment: z.string(),

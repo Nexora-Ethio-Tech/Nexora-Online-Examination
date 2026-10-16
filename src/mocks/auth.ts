@@ -4,6 +4,7 @@ import { createExamDemo } from './exams';
 import { createTeacherDemo } from './teacher';
 import { createAuthoringStore } from './authoring-store';
 import { createAdminDemo } from './admin';
+import { createAccommodationDemo } from './accommodations';
 import { createResultsDemo } from './results';
 import { captureRecovery, createRecoveryDemo } from './recovery';
 import { recoveryExample } from './recovery-example';
@@ -54,6 +55,7 @@ export function createDemoTransport(
   );
   const teacherDemo = createTeacherDemo(clock, store);
   const adminDemo = createAdminDemo(store, clock);
+  const accommodationDemo = createAccommodationDemo(store, clock);
   const schoolDemo = createSchoolDemo(store, clock);
   let role = initialRole;
   let actorId = initialRole ? `demo-${initialRole}` : undefined;
@@ -255,6 +257,16 @@ export function createDemoTransport(
         new Headers(init.headers),
         role,
       );
+    if (/^\/(?:admin\/)?sessions\/[^/]+\/accommodations$/.test(apiPath)) {
+      if (role !== 'school_admin')
+        return error(403, 'FORBIDDEN', 'Administrator access with MFA is required.');
+      return accommodationDemo(
+        new URL(url, 'http://localhost'),
+        method,
+        body,
+        new Headers(init.headers),
+      );
+    }
     if (
       apiPath.startsWith('/admin/exams') ||
       /^\/exams\/[^/]+\/(approve|return|sessions|package-retry)$/.test(apiPath) ||

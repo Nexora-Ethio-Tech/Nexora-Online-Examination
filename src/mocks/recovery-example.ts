@@ -81,6 +81,7 @@ export async function recoveryExample(store: AuthoringStore, clock = Date.now) {
       preparationVisibleAt: iso(-2100000),
       startsAt: attempt.startsAt,
       endsAt: attempt.deadlineAt,
+      latestDeadlineAt: attempt.deadlineAt,
       resultsReleaseAt: iso(60000),
       rosterCount: 1,
       canReschedule: false,

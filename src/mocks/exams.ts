@@ -1,3 +1,4 @@
+import { accommodationRoster } from './accommodations';
 import { z } from 'zod';
 import type { Attempt, EncryptedPackage, Exam } from '@/features/exams/schemas';
 import { answerSchema, finalSchema, type Paper, type FinalBody } from '@/features/runner/schemas';
@@ -143,7 +144,11 @@ export function createExamDemo(
             },
           ]
         : []),
-      ...scheduled().map(({ session: s, title, durationMinutes }): Exam => {
+      ...scheduled().map((sitting): Exam => {
+        const { session: s, title, durationMinutes } = sitting;
+        const deadline =
+          accommodationRoster(sitting).find((r) => r.studentId === 'demo-student')?.deadlineAt ??
+          s.endsAt;
         const attempt = attempts.get(s.sessionId);
         return {
           examId: s.examId,
@@ -155,14 +160,14 @@ export function createExamDemo(
           preparationVisibleAt: s.preparationVisibleAt,
           startsAt: s.startsAt,
           endsAt: s.endsAt,
-          deadlineAt: s.endsAt,
+          deadlineAt: deadline,
           scheduleRevision: s.scheduleRevision,
           phase:
             clock() < Date.parse(s.preparationVisibleAt)
               ? 'scheduled'
               : clock() < Date.parse(s.startsAt)
                 ? 'preparing'
-                : clock() < Date.parse(s.endsAt)
+                : clock() < Date.parse(deadline)
                   ? 'open'
                   : 'ended',
           attemptId: attempt?.attemptId ?? null,

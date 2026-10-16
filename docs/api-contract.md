@@ -1,4 +1,8 @@
-# Nexora API contract v0.10
+# Nexora API contract v0.11
+
+## Extra-time accommodations addendum
+
+v0.11, issued 15 October 2026: implement [BE-10](backend-accommodations-task.md). New administrator roster read and accommodation mutation use accommodation-schemas.ts and admin/api.ts. BE-04 session objects now require latestDeadlineAt; history adds accommodation_changed. Approved allowances can be edited only before preparation/delivery, with revisions, audit and replay. This narrow change supersedes earlier BE-04 accommodation immutability wording. Preserve deadlines throughout student delivery, rescheduling, monitoring, results and practice. Earlier addenda are historical; unchanged requirements remain dependencies. Real backend acceptance is outstanding.
 
 ## Live monitoring and device replacement addendum
 
@@ -20,7 +24,7 @@ v0.7, issued 14 October 2026: implement [backend-recovery-task.md](backend-recov
 
 v0.6, issued 14 October 2026: implement [backend-results-task.md](backend-results-task.md) (BE-05), including the executable src/features/results/schemas.ts and api.ts. It defines official grading, revision snapshots, staff result lists/analytics, administrator publication and explicit unresolved-attempt exclusions, student release gates, complete scoped CSV and typed printable reports. These definitions supersede the previously unspecified publication/report/student-results inventory rows below. Earlier v0.5/v0.4/v0.3 interfaces are unchanged. Backend approval is not requested; real backend implementation remains unverified. The status paragraphs below document earlier increments.
 
-Status: issued implementation requirements, 14 October 2026. Current contract is v0.10 (BE-09 monitoring and device replacement); earlier increments remain dependencies except where explicitly revised by the addenda above. Backend approval is not requested. No backend implementation was inspected.
+Status: issued implementation requirements, 14 October 2026. Current contract is v0.11 (BE-10 extra-time accommodations); earlier increments remain dependencies except where explicitly revised by the addenda above. Backend approval is not requested. No backend implementation was inspected.
 
 ## Administrator approval and scheduling addendum
 

@@ -1,3 +1,4 @@
+import { latestDeadline } from './accommodations';
 import type { Role } from '@/features/auth/schemas';
 import { z } from 'zod';
 import { publishSchema, type Report, type ResultRow } from '@/features/results/schemas';
@@ -75,7 +76,7 @@ export function createResultsDemo(store: AuthoringStore, clock = Date.now) {
         endsAt: sitting.session.endsAt,
         publishableAfter: new Date(
           Math.max(
-            Date.parse(sitting.session.endsAt) + 5000,
+            latestDeadline(sitting) + 5000,
             attempt ? Date.parse(attempt.finalAcceptUntil) : 0,
           ),
         ).toISOString(),
