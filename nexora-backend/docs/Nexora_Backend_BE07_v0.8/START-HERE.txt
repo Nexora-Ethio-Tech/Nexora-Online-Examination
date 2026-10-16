@@ -1,0 +1,9 @@
+Implement BE-07 under API contract v0.8 exactly as defined in docs/backend-practice-task.md. These are project-owner requirements, not interface options to approve.
+
+Read backend-practice-task.md first. src/features/practice/schemas.ts and api.ts define the exact JSON and calls. Add the practice metadata property to GET /me/results using the included results schema, and calculate bestPracticePercent from valid completed practice attempts. Implement the BE-04 scheduling interlock described in BE-07 section 1. Earlier official exam, receipt, grading and recovery payloads remain unchanged.
+
+Administrators configure access. Students only receive practice content after enablement, release time, approved/released official results and closure of all related sitting/accommodation windows. Save the FIRST answer atomically and only then return that item's approved feedback. Complete only fully answered attempts. Maintain the maximum valid completed score for the same school/student/exam/version under concurrency and recompute after correction/invalidation. Practice must never modify official records or reports.
+
+Persist access audits, attempts, answers, completion summaries and idempotency records. Enforce role/tenant/roster/ownership checks on every operation and replay. Prevent official reuse of a paper after practice release even if practice is later disabled. Implement the listed real-database race, rollback, restart, privacy and isolation tests. Do not implement synthetic demo routes in production or treat simulator tests as acceptance.
+
+Return the required implementation report from BE-07 section 8: exact endpoints/commit/migrations, staging configuration, real test results, sanitized database evidence and concrete remaining blockers. Continue unaffected work. docs/student-practice.md explains frontend testing and limitations; prior BE documents are dependencies, not replacements for the v0.8 instructions.

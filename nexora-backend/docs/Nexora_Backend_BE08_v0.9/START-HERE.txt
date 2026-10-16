@@ -1,0 +1,11 @@
+Implement BE-08 under API contract v0.9 exactly as defined in docs/backend-school-task.md. These are mandatory project-owner requirements, not interface options for approval.
+
+Read backend-school-task.md first. src/features/school/schemas.ts and api.ts define exact response shapes and requests; csv.ts shows the frontend credential export escaping. docs/school-setup.md explains the frontend workflow and local demo limits. The remaining BE documents are required integration dependencies; they do not replace this task. Earlier issued BE-06/07 tasks remain in force.
+
+Implement in this order: school-scoped persistence and audit; classes/subjects/accounts/teacher assignments; CSV preview and atomic commit; initial credentials and password reset/session revocation; teacher ownership and frozen-roster eligibility integration. Every directory operation requires school-admin MFA. Enforce CSRF, Origin, revisions, idempotency and same-school resource checks on the server.
+
+Credentials must be cryptographically generated with at least 128 bits of entropy. Persist only salted Argon2id hashes, never plaintext in DB, replay tables, logs or caches. The first successful credential response contains passwords. Every later identical retry returns the same metadata and affected account identities with credentials null, without retrieving or generating passwords. Staff must explicitly reset lost passwords. Account identities on replay are required so staff can locate the affected accounts.
+
+CSV preview creates no accounts. Commit all valid students or none and recheck uniqueness/class revision inside the transaction. Do not silently merge people. Edits, imports and resets must preserve frozen exam rosters, official receipts, saved answers and recovery evidence. Real scheduling must include every eligible student; the single-student frontend demo is not backend behavior.
+
+Return the mandatory report from BE-08 section 5: contract version, commits/migrations, completed endpoints, staging/allowed-origin setup, private synthetic account provisioning, commands/results, real-database concurrency/rollback/restart/isolation evidence, hash-only and revocation verification, and each concrete blocker with impact and next action. Continue unaffected work. Do not claim demo tests prove backend security, persistence, real multiuser delivery or load capacity.

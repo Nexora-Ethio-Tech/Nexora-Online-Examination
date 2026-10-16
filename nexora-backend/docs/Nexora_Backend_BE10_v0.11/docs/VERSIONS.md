@@ -1,5 +1,26 @@
 # Versions
 
+## Student preparation - 13 October 2026
+
+- idb 8.0.4: transactional browser identifiers and encrypted-package storage.
+- fake-indexeddb 6.2.5 (development only): persistence/retry/isolation tests.
+
+No existing direct dependency was intentionally upgraded. Node v24.14.1, npm 11.11.0. Authentication dependencies below remain in use.
+
+## Authentication foundation - 13 October 2026
+
+Installed with npm against the existing lockfile; Node v24.14.1, npm 11.11.0.
+
+- react-router 7.18.4: role routes and navigation.
+- @tanstack/react-query 5.104.2: session queries and auth mutations.
+- react-hook-form 7.90.0: login and MFA forms.
+- zod 4.6.7: request and response schemas; TypeScript types are inferred from them.
+- @hookform/resolvers 5.9.1: Zod form validation.
+
+RouterProvider and routing hooks use the same react-router entry point with explicit react-dom flushSync. This avoids the split module context observed with the /dom entry point in this Vitest environment while preserving DOM navigation behavior. See the official [RouterProvider documentation](https://reactrouter.com/api/data-routers/RouterProvider).
+
+No existing direct dependency was intentionally upgraded. npm resolved transitive dependencies in package-lock.json. idb and exam persistence are not part of this slice.
+
 Recorded by task W1-01 on 2026-10-11.
 
 - Node: v24.14.1

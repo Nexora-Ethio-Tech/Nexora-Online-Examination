@@ -1,0 +1,23 @@
+{
+  "headers": [
+    "external_id",
+    "type",
+    "question",
+    "option_a",
+    "option_b",
+    "option_c",
+    "option_d",
+    "answer",
+    "marks"
+  ],
+  "rows": [
+    ["MATH-001", "mcq_single", "Solve 2x + 3 = 11.", "2", "4", "5", "7", "B", "2"],
+    ["MATH-002", "true_false", "A triangle has three sides.", "", "", "", "", "TRUE", "2"]
+  ],
+  "expectedCount": 2,
+  "expectedTotalMarks": 4,
+  "sourceSha256": {
+    "docx": "a50e33c09065f017426971a6f069f51c314037e2e08128eeebc250b7c35e12d7",
+    "xlsx": "088190ca8ec31b99283794b050b1073b50ac204a41598e7f3e2e5af6a705d23d"
+  }
+}
