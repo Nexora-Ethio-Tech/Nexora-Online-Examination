@@ -2,6 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, SetMetadata, Inject } from '
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { DomainException } from '../errors/domain.exception';
+import { allowedOrigins } from '../security/origins';
 
 export const SKIP_CSRF_KEY = 'skipCsrf';
 export const SkipCsrf = () => SetMetadata(SKIP_CSRF_KEY, true);
@@ -9,6 +10,7 @@ export const SkipCsrf = () => SetMetadata(SKIP_CSRF_KEY, true);
 @Injectable()
 export class CsrfOriginGuard implements CanActivate {
   private readonly reflector: Reflector;
+  private readonly origins = allowedOrigins();
 
   constructor(@Inject(Reflector) reflector?: Reflector) {
     this.reflector = reflector || new Reflector();
@@ -33,26 +35,14 @@ export class CsrfOriginGuard implements CanActivate {
       return true;
     }
 
-    // 1. Origin check
-    const origin = (req.headers['origin'] as string) || (req.headers['referer'] as string);
-    const configuredOrigins = [
-      process.env.APP_ORIGIN,
-      process.env.CORS_ORIGIN,
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      'http://localhost:3000',
-    ].filter(Boolean) as string[];
-
-    if (origin) {
-      const isAllowedOrigin = configuredOrigins.some((allowed) => origin.startsWith(allowed));
-      if (!isAllowedOrigin) {
-        throw DomainException.csrfInvalid('Forbidden request origin');
-      }
+    const origin = req.headers.origin;
+    if (typeof origin !== 'string' || !this.origins.has(origin)) {
+      throw DomainException.csrfInvalid('Missing or forbidden request origin');
     }
 
     // 2. CSRF Token check
-    const csrfHeader = req.headers['x-csrf-token'] as string;
-    if (!csrfHeader || !req.csrfToken || csrfHeader !== req.csrfToken) {
+    const csrfHeader = req.headers['x-csrf-token'];
+    if (typeof csrfHeader !== 'string' || !req.csrfToken || csrfHeader !== req.csrfToken) {
       throw DomainException.csrfInvalid('Missing or invalid X-CSRF-Token header');
     }
 

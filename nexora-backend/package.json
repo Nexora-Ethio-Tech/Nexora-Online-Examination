@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/main.js",
-    "start:dev": "npm run build -- --incremental false && node dist/src/main.js",
+    "start:dev": "npm run build -- --incremental false && NODE_ENV=development node dist/src/main.js",
     "db:status": "tsx scripts/database-status.ts",
     "db:provision-runtime": "tsx scripts/provision-runtime.ts",
     "mfa:operator": "tsx scripts/mfa-operator.ts",

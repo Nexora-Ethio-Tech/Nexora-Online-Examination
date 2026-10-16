@@ -1,13 +1,28 @@
 # Backend implementation status
 
-Updated: 16 October 2026. Initial audit baseline: `23bc953`. Current task: `SEC-02` administrator MFA and protected provisioning/recovery, on branch `backend`.
+Updated: 16 October 2026. Initial audit baseline: `23bc953`. Current task: `SEC-03` exact frontend Origin enforcement, on branch `backend`.
 Scope: the actual backend in `nexora-backend/src`, its migrations, scripts and tests, compared with the supplied frontend handoffs through **BE-11 / API v0.12**.
 
 **The backend has a substantial BE-02 student-delivery implementation, but BE-02 is not yet contract-complete. Most later workflows still have no backend endpoints.** Some later features have supporting tables or small pieces of logic; those are identified separately below.
 
 The initial audit was source-only. The approved preparation repairs have now been verified against a disposable local PostgreSQL database: **81 backend tests and 10 frontend tests pass**, backend compilation passes, and root `npm run check` passes. This does not establish staging deployment, production browser, restricted-runtime-role, full MFA or complete BE-02 acceptance.
 
-## Latest completed task: SEC-02 administrator MFA
+## Latest completed task: SEC-03 exact Origin enforcement
+
+Implemented:
+
+- CORS and the mutation guard share one validated exact-origin allowlist. Prefix/lookalike hosts, altered ports/schemes, paths, opaque `null` origins and multiple-origin values are rejected. A valid session/CSRF token does not authorize a different Origin.
+- Every mutation requires an actual allowed Origin plus the current session-bound CSRF token. Missing Origin is rejected with 403 `CSRF_INVALID`, including when an allowed Referer is supplied. Referer no longer substitutes for Origin.
+- `APP_ORIGIN`/`CORS_ORIGIN` accept individual canonical HTTP(S) origins without credentials, paths, trailing slash, query, fragment, wildcard or comma-separated list. Outside explicit development/test, HTTPS and at least one configured origin are required. Local defaults exist only in development/test; `start:dev` now explicitly selects development mode.
+- Allowed CORS preflights support credentialed requests without wildcard origins. Disallowed origins return the contract error instead of a generic server error. Readiness remains accessible without an Origin. Login/logout and CSRF rotation remain functional; a focused live administrator MFA/session-rotation regression also passes.
+
+Verification: **13 live Supabase Origin/CSRF tests, 47 unit tests (including 16 configuration cases), and one targeted live MFA/session-rotation regression pass**. The mutation guard also rejects lookalikes independently of CORS middleware. Backend compilation and root `npm run check` pass (10 frontend tests). The MFA smoke command selects one existing case; it does not claim a rerun of the complete MFA suite. Only uniquely identified synthetic school/account/session fixtures were created and cleaned up. No schema migration, seed/reset or local database was used.
+
+New files: [shared Origin/CORS configuration](../src/common/security/origins.ts), [configuration tests](../test/unit/origins.spec.ts), [Supabase Origin/CSRF tests](../test/origin-security.e2e-spec.ts). Modified: startup, CSRF guard, development start command, README and this implementation record. No dependencies or wire formats changed.
+
+Remaining: real administrator enrollment/key backup, isolated Supabase targets for legacy destructive suites, browser/staging evidence and the existing BE-02B/BE-02C correctness gaps. Exact Origin enforcement is complete; full BE-02 acceptance is still outstanding.
+
+## Previous completed task: SEC-02 administrator MFA
 
 Implemented without changing the login/MFA JSON contract:
 
@@ -77,6 +92,7 @@ Implemented and verified:
 | G05: recovery decision schema defect | Fixed; existing accept/transfer regression suite passes. Full BE-06 revision/evidence work remains. |
 | G08: validation timing | Unlock and preparation timing fixed. Save/submit/transfer timing remains outstanding. |
 | G12: administrator MFA | SEC-02 implements encrypted secrets, five-minute challenges, durable limiter/step consumption and protected operator provisioning/recovery; 19 live MFA cases pass. Actual administrator enrollment remains a private operator action. |
+| G14: exact Origin checks | SEC-03 replaces CORS/CSRF prefix matching with a shared exact allowlist, requires Origin on mutations and removes Referer fallback. Live Supabase and configuration regressions cover rejection and permitted flows. |
 | G13: membership and RLS | Active membership/preparation repairs complete; SEC-01 subsequently added restricted-role auth/bootstrap and live Supabase tenant-isolation verification. Full workflow/browser evidence remains outstanding. |
 | G15: validation/errors | Preparation requests/pagination and generic error response improved. Validation of other mutations remains outstanding. |
 | Other baseline findings | Still open unless explicitly stated above. |
@@ -89,8 +105,8 @@ Files modified for this task: backend auth service/controller; delivery service/
 
 | Area | Status | Implemented in code | Work remaining |
 | --- | --- | --- | --- |
-| Foundation / operations | Partial | NestJS application, `/api/v1`, Supabase PostgreSQL service, migrations through 008, restricted runtime role, focused RLS/bootstrap verification, clock, crypto, MFA/operator provisioning, error/response handling and DB readiness route. | Exact Origin enforcement, remaining validation/error repairs, real deployment provisioning and deployment evidence. |
-| BE-02A: auth and preparation | Partial | Cookie sessions, CSRF, password login, encrypted admin TOTP with durable limiting/replay protection, protected operator bootstrap/enrollment/recovery, logout, device registration, assigned exams, attempt creation/retrieval, encrypted package, timed unlock, restricted-role auth/bootstrap. | Preparation, focused runtime isolation and MFA implementation slices are complete. Remaining acceptance includes real private administrator enrollment, exact Origin enforcement and real browser/staging verification. |
+| Foundation / operations | Partial | NestJS application, `/api/v1`, Supabase PostgreSQL service, migrations through 008, restricted runtime role, focused RLS/bootstrap verification, clock, crypto, MFA/operator provisioning, exact Origin/CORS enforcement, error/response handling and DB readiness route. | Remaining validation/error repairs, real deployment provisioning and deployment evidence. |
+| BE-02A: auth and preparation | Partial | Cookie sessions, exact Origin/CSRF checks, password login, encrypted admin TOTP with durable limiting/replay protection, protected operator bootstrap/enrollment/recovery, logout, device registration, assigned exams, attempt creation/retrieval, encrypted package, timed unlock, restricted-role auth/bootstrap. | Preparation, focused runtime isolation, MFA and exact Origin implementation slices are complete. Remaining acceptance includes real private administrator enrollment and real browser/staging verification. |
 | BE-02B: saves and final receipt | Partial | Row-locked saves, revision history, complete-snapshot validation, deterministic objective grading, atomic submission/result writes, digest and receipt reads/replay logic. | Cross-item sequence uniqueness, correct validation/arrival timing, device-expiry replay exception, stronger validation and concurrency evidence. |
 | BE-02C: recovery and transfer | Partial | Late evidence upload, decision/transfer handlers, receipt correlation, audit/replay code, sequence-zero answer inheritance. | Recovery decision SQL is fixed. Replay/concurrency gaps, BE-09 transfer contract, recovery evidence and result revisions remain. |
 | BE-03: teacher preparation | Schema groundwork only; API missing | Exam/version/item/topic tables and import/AI job tables; synthetic approved paper seed. | Teaching assignments API, drafts, real DOCX/XLSX import, AI workers, item review and submit-for-approval. |

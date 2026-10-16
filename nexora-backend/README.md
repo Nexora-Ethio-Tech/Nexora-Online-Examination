@@ -44,7 +44,22 @@ npm --prefix nexora-backend run start:dev
 
 Application startup does not run seeds or migrations automatically. `seed` explicitly inserts synthetic accounts/papers and can update seeded packages; it is not part of normal startup or migration.
 
-`start:dev` compiles with TypeScript before starting the backend; restart it after editing source files. NestJS constructor injection requires the emitted decorator metadata, which the previous `tsx watch` command did not emit. Production uses `npm run build` followed by `npm start`; both start commands use the compiler's actual `dist/src/main.js` entry point.
+`start:dev` compiles with TypeScript before starting the backend and explicitly sets `NODE_ENV=development`; restart it after editing source files. NestJS constructor injection requires the emitted decorator metadata, which the previous `tsx watch` command did not emit. Production uses `npm run build` followed by `NODE_ENV=production npm start`; both start commands use the compiler's actual `dist/src/main.js` entry point.
+
+## Frontend Origin and CSRF
+
+Set `APP_ORIGIN` and optionally `CORS_ORIGIN` to individual, exact frontend origins, such as `https://exam.example`. Each value must contain only the scheme, host and optional nondefault port: no trailing slash, path, credentials, query, fragment, wildcard or comma-separated list. Production requires HTTPS. Configure the browser-visible frontend origin, including when the API is behind a same-origin proxy; the API does not derive trust from Host, forwarded headers or Referer.
+
+Explicit development/test mode additionally permits `http://localhost:5173`, `http://127.0.0.1:5173` and `http://localhost:3000`. These defaults are absent in production. Startup rejects invalid configuration and requires at least one configured origin outside development/test.
+
+CORS and the mutation guard share this exact allowlist. Every mutation requires its allowed `Origin` header and the current session's `X-CSRF-Token`, including login, MFA and logout. Missing/forbidden Origin, Referer-only requests and incorrect tokens return 403 `CSRF_INVALID` after the applicable session checks. A valid token does not authorize another origin. CORS rejects disallowed origins rather than matching hostname prefixes; allowed preflights support credentials without wildcard origins. Readiness and other permitted reads continue to work without an Origin header.
+
+Focused Supabase verification creates and removes only its own synthetic school, account and sessions:
+
+```bash
+cd nexora-backend
+RUN_SUPABASE_ORIGIN_TESTS=true npm run test -- test/origin-security.e2e-spec.ts test/unit
+```
 
 ## Tests
 
