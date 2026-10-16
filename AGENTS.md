@@ -43,7 +43,7 @@ Contract v0.6 additionally issues BE-05 official results/publication. Read docs/
 
 ## Verification and delivery
 
-- Mocks support development only. Acceptance uses the real API/database; production disables mocks. The current placeholder e2e script is not an E2E test.
+- Mocks support development only. Acceptance uses the real API/database; production disables mocks. npm run e2e runs isolated synthetic Playwright/axe journeys and production-shell checks. It is not real API acceptance. Keep browser failures visible and do not disable accessibility rules to obtain a pass. Local data/cache cleanup remains disabled by explicit user decision; see docs/retention-policy.md.
 - Run npm run check and npm run build for implementation changes. For documentation, format changed files and run the existing check suite. Never weaken tests or edit node_modules/cache to bypass failures.
 - Add meaningful integrity, timing, persistence and recovery tests as features are implemented. Real phone/network checks remain separate evidence.
 - Work on a task branch; preserve unrelated work. No force pushes or secrets in commits.

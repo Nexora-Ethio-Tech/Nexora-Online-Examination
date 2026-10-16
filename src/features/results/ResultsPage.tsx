@@ -351,7 +351,12 @@ export function ReportView({ report }: { report: Report }) {
           Ranks use competition ranking within this sitting and class (1, 2, 2, 4). Status rows have
           no score or rank.
         </p>
-        <div className="mt-4 overflow-x-auto">
+        <div
+          className="mt-4 overflow-x-auto rounded focus-visible:outline-2 focus-visible:outline-primary"
+          role="region"
+          aria-label="Scrollable official marks and class ranks"
+          tabIndex={0}
+        >
           <table className="w-full text-left text-sm">
             <caption className="sr-only">Official marks and class ranks</caption>
             <thead>

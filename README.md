@@ -1,5 +1,7 @@
 # exam-frontend
 
+Browser verification: `npm ci`, `npx playwright install chromium`, then `npm run e2e`. See [browser testing](docs/browser-testing.md), [deployment preparation](docs/deploy.md) and [retention decision](docs/retention-policy.md). These tests use synthetic data; real backend acceptance remains outstanding. Production builds now write dist/release.json with commit/build identity and file hashes.
+
 Frontend of a multi-tenant online examination platform for schools. React 19, TypeScript, Vite.
 
 ## Requirements

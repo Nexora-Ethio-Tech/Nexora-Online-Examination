@@ -23,6 +23,12 @@ export function DashboardLayout() {
   }
   return (
     <div className="min-h-svh bg-muted/30">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-background focus:p-3 focus:text-foreground focus:ring-2"
+      >
+        Skip to main content
+      </a>
       <header className="border-b bg-background px-4 sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 py-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -114,7 +120,7 @@ export function DashboardLayout() {
             Exam schedules are shown in East Africa Time (EAT).
           </p>
         </aside>
-        <main id="main-content" className="min-w-0">
+        <main id="main-content" tabIndex={-1} className="min-w-0">
           {error ? (
             <div role="alert" className="mb-6 rounded-lg border border-destructive/30 p-4">
               <p className="text-sm text-destructive">{errorMessage(error)}</p>

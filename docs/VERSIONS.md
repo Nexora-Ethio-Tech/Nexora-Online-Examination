@@ -1,5 +1,7 @@
 # Versions
 
+Browser verification additions, 15 October 2026: @playwright/test 1.64.1 and @axe-core/playwright 4.14.0 (dev dependencies), Node 24.14.1, npm 11.11.0. npm audit reported seven high findings in the existing shadcn/registry/ts-morph/glob dependency chain; no forced downgrade or unrelated dependency upgrade was applied. This remains a dependency review item before release.
+
 ## Student preparation - 13 October 2026
 
 - idb 8.0.4: transactional browser identifiers and encrypted-package storage.
