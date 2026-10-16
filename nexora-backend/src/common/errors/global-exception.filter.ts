@@ -20,11 +20,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    console.error('GLOBAL_FILTER_CAUGHT:', exception);
-
-    const requestId =
-      (request.headers['x-request-id'] as string) ||
-      crypto.randomUUID();
+    const requestId = (request.headers['x-request-id'] as string) || crypto.randomUUID();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let code: PermittedErrorCode = 'INTERNAL_ERROR';
@@ -65,7 +61,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       }
     } else if (exception instanceof Error) {
       this.logger.error(`Unhandled Exception: ${exception.message}`, exception.stack);
-      message = exception.message;
     }
 
     const payload: {

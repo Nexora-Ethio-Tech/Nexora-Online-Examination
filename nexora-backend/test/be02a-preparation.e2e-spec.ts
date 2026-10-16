@@ -4,30 +4,37 @@ dotenv.config();
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
+import { randomUUID } from 'crypto';
+import { responseCookies, responseCookie, requireDisposableDatabase } from './http-helpers';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
+import { DbService } from '../src/common/db/db.service';
 import { ClockService } from '../src/common/clock/clock.service';
 import { decryptExamPackage } from '../src/common/crypto/package-cipher';
 
-describe('BE-02A: Student Exam Delivery E2E (Supabase Real DB)', () => {
+describe('BE-02A: Student Exam Delivery E2E (PostgreSQL)', () => {
   let app: INestApplication;
   let clock: ClockService;
 
   let sessionCookie: string;
   let csrfToken: string;
   let deviceCookie: string;
-  const deviceId = 'test-browser-device-uuid-001';
+  const deviceId = randomUUID();
 
   let preparingSessionId: string;
   let createdAttemptId: string;
-  let encryptedPackage: any;
+  let encryptedPackage: { packageId: string; ciphertext: string; iv: string };
 
   beforeAll(async () => {
+    requireDisposableDatabase();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(ClockService)
+      .useValue(new ClockService())
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.use(cookieParser());
@@ -35,11 +42,16 @@ describe('BE-02A: Student Exam Delivery E2E (Supabase Real DB)', () => {
     await app.init();
 
     clock = app.get(ClockService);
+    await app
+      .get(DbService)
+      .query(
+        "DELETE FROM attempts WHERE student_id IN (SELECT id FROM users WHERE login_id = 'HILL-STU01')",
+      );
   });
 
   afterAll(async () => {
     if (clock) clock.reset();
-    await app.close();
+    if (app) await app.close();
   });
 
   it('1. GET /api/v1/health & /ready should verify database connection', async () => {
@@ -101,10 +113,10 @@ describe('BE-02A: Student Exam Delivery E2E (Supabase Real DB)', () => {
 
     const rawCookies = devRes.headers['set-cookie'];
     expect(rawCookies).toBeDefined();
-    const cookieList = Array.isArray(rawCookies) ? rawCookies : [rawCookies as string];
+    const cookieList = responseCookies(devRes);
     const credCookie = cookieList.find((c: string) => c.startsWith('nexora_device_cred='));
     expect(credCookie).toBeDefined();
-    deviceCookie = credCookie!.split(';')[0];
+    deviceCookie = responseCookie(devRes, 'nexora_device_cred');
   });
 
   it('5. GET /api/v1/me/exams lists eligible sittings', async () => {
@@ -138,6 +150,7 @@ describe('BE-02A: Student Exam Delivery E2E (Supabase Real DB)', () => {
   it('7. POST /api/v1/sessions/:sessionId/attempts creates unique attempt (201)', async () => {
     const res = await request(app.getHttpServer())
       .post(`/api/v1/sessions/${preparingSessionId}/attempts`)
+      .set('Idempotency-Key', randomUUID())
       .set('Cookie', [sessionCookie, deviceCookie])
       .set('x-csrf-token', csrfToken)
       .send({ deviceId });
@@ -200,7 +213,7 @@ describe('BE-02A: Student Exam Delivery E2E (Supabase Real DB)', () => {
     expect(res.body.optionOrders).toBeDefined();
 
     // Verify decryption of the downloaded package with the released key
-    const decrypted = decryptExamPackage<any>(
+    const decrypted = decryptExamPackage<{ title: string; items: Record<string, unknown>[] }>(
       encryptedPackage.ciphertext,
       encryptedPackage.iv,
       res.body.key,

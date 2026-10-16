@@ -2,10 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ClockService } from '../../src/common/clock/clock.service';
-import {
-  encryptExamPackage,
-  decryptExamPackage,
-} from '../../src/common/crypto/package-cipher';
+import { encryptExamPackage, decryptExamPackage } from '../../src/common/crypto/package-cipher';
 import {
   canonicalJsonStringify,
   computeCanonicalDigest,
@@ -16,7 +13,6 @@ import {
   verifyPassword,
   generateCsprngPassword,
   formatLoginId,
-  hashSha256,
 } from '../../src/common/crypto/password';
 
 describe('Phase 1 Core Foundations', () => {
@@ -49,11 +45,7 @@ describe('Phase 1 Core Foundations', () => {
     expect(enc.sha256).toBeDefined();
     expect(enc.keyBase64url).toBeDefined();
 
-    const decrypted = decryptExamPackage<typeof payload>(
-      enc.ciphertext,
-      enc.iv,
-      enc.keyBase64url,
-    );
+    const decrypted = decryptExamPackage<typeof payload>(enc.ciphertext, enc.iv, enc.keyBase64url);
 
     expect(decrypted).toEqual(payload);
   });

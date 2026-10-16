@@ -40,7 +40,10 @@ export function generateCsprngPassword(length = 12): string {
  * e.g., 'SCH-001' or 'SCH-4891'
  */
 export function formatLoginId(prefix: string, sequenceOrSuffix: string | number): string {
-  const cleanPrefix = prefix.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const cleanPrefix = prefix
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
   const seqStr = String(sequenceOrSuffix).padStart(3, '0');
   return `${cleanPrefix}-${seqStr}`;
 }

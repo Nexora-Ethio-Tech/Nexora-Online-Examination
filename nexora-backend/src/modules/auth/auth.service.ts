@@ -1,17 +1,18 @@
-import { Injectable, HttpStatus } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { authenticator } from 'otplib';
 import { DbService } from '../../common/db/db.service';
 import { ClockService } from '../../common/clock/clock.service';
-import {
-  generateOpaqueToken,
-  hashSha256,
-  verifyPassword,
-} from '../../common/crypto/password';
+import { generateOpaqueToken, hashSha256, verifyPassword } from '../../common/crypto/password';
 import { DomainException } from '../../common/errors/domain.exception';
+import {
+  deviceCookieName,
+  deviceCredential,
+  DEVICE_TTL_MS,
+} from '../../common/crypto/device-credential';
+import { deviceRequestSchema, parsePreparationInput } from '../delivery/preparation-schemas';
 
 const SESSION_COOKIE_NAME = 'nexora_session';
-const DEVICE_COOKIE_NAME = 'nexora_device_cred';
 
 // 7 days session lifetime for authenticated users, 15 minutes for MFA challenges and anonymous sessions
 const AUTH_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -25,12 +26,7 @@ export class AuthService {
     private readonly clock: ClockService,
   ) {}
 
-  private setCookie(
-    res: Response,
-    name: string,
-    value: string,
-    maxAgeMs: number,
-  ) {
+  private setCookie(res: Response, name: string, value: string, maxAgeMs: number) {
     res.cookie(name, value, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -90,11 +86,7 @@ export class AuthService {
     };
   }
 
-  async login(
-    req: Request,
-    res: Response,
-    body: { loginId: string; password?: string },
-  ) {
+  async login(req: Request, res: Response, body: { loginId: string; password?: string }) {
     if (!body.loginId || !body.password) {
       throw DomainException.authRequired('Invalid login credentials');
     }
@@ -120,10 +112,9 @@ export class AuthService {
     const oldCookie = req.cookies?.[SESSION_COOKIE_NAME];
     if (oldCookie) {
       const oldHash = hashSha256(oldCookie);
-      await this.db.query(
-        `UPDATE auth_sessions SET revoked_at = NOW() WHERE token_hash = $1`,
-        [oldHash],
-      );
+      await this.db.query(`UPDATE auth_sessions SET revoked_at = NOW() WHERE token_hash = $1`, [
+        oldHash,
+      ]);
     }
 
     // Create fresh session
@@ -165,11 +156,7 @@ export class AuthService {
     };
   }
 
-  async verifyMfa(
-    req: Request,
-    res: Response,
-    body: { code: string },
-  ) {
+  async verifyMfa(req: Request, res: Response, body: { code: string }) {
     const sessionCookie = req.cookies?.[SESSION_COOKIE_NAME];
     if (!sessionCookie) {
       throw DomainException.authRequired('No active session');
@@ -209,10 +196,7 @@ export class AuthService {
     }
 
     // Rotate session token on privilege escalation
-    await this.db.query(
-      `UPDATE auth_sessions SET revoked_at = NOW() WHERE id = $1`,
-      [session.id],
-    );
+    await this.db.query(`UPDATE auth_sessions SET revoked_at = NOW() WHERE id = $1`, [session.id]);
 
     const newToken = generateOpaqueToken(32);
     const newTokenHash = hashSha256(newToken);
@@ -250,73 +234,79 @@ export class AuthService {
     const sessionCookie = req.cookies?.[SESSION_COOKIE_NAME];
     if (sessionCookie) {
       const tokenHash = hashSha256(sessionCookie);
-      await this.db.query(
-        `UPDATE auth_sessions SET revoked_at = NOW() WHERE token_hash = $1`,
-        [tokenHash],
-      );
+      await this.db.query(`UPDATE auth_sessions SET revoked_at = NOW() WHERE token_hash = $1`, [
+        tokenHash,
+      ]);
     }
 
     this.clearCookie(res, SESSION_COOKIE_NAME);
   }
 
-  async registerDevice(
-    req: Request,
-    res: Response,
-    body: { deviceId: string },
-  ) {
-    if (!req.sessionUser || !req.school) {
-      throw DomainException.authRequired();
-    }
+  async registerDevice(req: Request, res: Response, body: unknown) {
+    const student = req.sessionUser;
+    const school = req.school;
+    if (!student || !school) throw DomainException.authRequired();
+    if (student.role !== 'student') throw DomainException.forbidden();
+    const { deviceId } = parsePreparationInput(deviceRequestSchema, body);
+    const credential = deviceCredential(req);
 
-    const { deviceId } = body;
-    if (!deviceId) {
-      throw DomainException.validationError('deviceId is required', [
-        { path: 'deviceId', message: 'Required' },
+    const issued = await this.db.withTenantTransaction(school.id, async (client) => {
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+        `browser-device:${deviceId}`,
       ]);
-    }
-
-    const existingCredCookie = req.cookies?.[DEVICE_COOKIE_NAME];
-    let credToSet = existingCredCookie;
-
-    if (existingCredCookie) {
-      const credHash = hashSha256(existingCredCookie);
-      const existing = await this.db.query(
-        `SELECT id FROM device_bindings
-         WHERE school_id = $1 AND user_id = $2 AND device_id = $3 AND credential_hash = $4`,
-        [req.school.id, req.sessionUser.id, deviceId, credHash],
+      let now = this.clock.now();
+      const membership = await client.query(
+        `SELECT u.id FROM users u JOIN schools s ON s.id = u.school_id
+         WHERE u.id = $1 AND u.school_id = $2 AND u.role = 'student'
+           AND u.status = 'active' AND s.status = 'active'
+         FOR SHARE OF u, s`,
+        [student.id, school.id],
       );
-
-      if (existing.rows.length > 0) {
-        await this.db.query(
-          `UPDATE device_bindings SET last_seen_at = NOW() WHERE id = $1`,
-          [existing.rows[0].id],
+      if (membership.rows.length === 0) throw DomainException.authRequired();
+      const existing = await client.query<{
+        credential_hash: string;
+        expires_at: Date;
+        revoked_at: Date | null;
+      }>(
+        'SELECT credential_hash, expires_at, revoked_at FROM browser_devices WHERE device_id = $1 FOR UPDATE',
+        [deviceId],
+      );
+      now = this.clock.now();
+      const browser = existing.rows[0];
+      let token: string | undefined;
+      let credentialHash: string;
+      if (browser) {
+        if (
+          !credential ||
+          hashSha256(credential) !== browser.credential_hash ||
+          browser.revoked_at ||
+          browser.expires_at <= now
+        ) {
+          throw DomainException.conflict(
+            'DEVICE_REPLACED',
+            'Use a new browser ID and request school assistance for an existing attempt',
+          );
+        }
+        credentialHash = browser.credential_hash;
+      } else {
+        token = generateOpaqueToken(32);
+        credentialHash = hashSha256(token);
+        await client.query(
+          `INSERT INTO browser_devices (device_id, credential_hash, expires_at, created_at)
+           VALUES ($1, $2, $3, $4)`,
+          [deviceId, credentialHash, new Date(now.getTime() + DEVICE_TTL_MS), now],
         );
-        return {
-          deviceId,
-          serverNow: this.clock.isoString(),
-        };
       }
-    }
-
-    // Generate new credential
-    credToSet = generateOpaqueToken(32);
-    const credHash = hashSha256(credToSet);
-
-    await this.db.query(
-      `INSERT INTO device_bindings (school_id, user_id, device_id, credential_hash, last_seen_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       ON CONFLICT (school_id, user_id, device_id)
-       DO UPDATE SET credential_hash = EXCLUDED.credential_hash, last_seen_at = NOW()`,
-      [req.school.id, req.sessionUser.id, deviceId, credHash],
-    );
-
-    // Device credentials persist for 1 year
-    const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
-    this.setCookie(res, DEVICE_COOKIE_NAME, credToSet, ONE_YEAR_MS);
-
-    return {
-      deviceId,
-      serverNow: this.clock.isoString(),
-    };
+      await client.query(
+        `INSERT INTO device_bindings (school_id, user_id, device_id, credential_hash, last_seen_at)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (school_id, user_id, device_id)
+         DO NOTHING`,
+        [school.id, student.id, deviceId, credentialHash, now],
+      );
+      return token;
+    });
+    if (issued) this.setCookie(res, deviceCookieName(), issued, DEVICE_TTL_MS);
+    return { deviceId };
   }
 }

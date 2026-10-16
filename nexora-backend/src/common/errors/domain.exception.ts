@@ -60,11 +60,21 @@ export class DomainException extends HttpException {
   }
 
   static validationError(message: string, details: ErrorDetail[] = []): DomainException {
-    return new DomainException(HttpStatus.UNPROCESSABLE_ENTITY, 'VALIDATION_ERROR', message, details);
+    return new DomainException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'VALIDATION_ERROR',
+      message,
+      details,
+    );
   }
 
   static validation(details: ErrorDetail[], message = 'Validation failed'): DomainException {
-    return new DomainException(HttpStatus.UNPROCESSABLE_ENTITY, 'VALIDATION_ERROR', message, details);
+    return new DomainException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'VALIDATION_ERROR',
+      message,
+      details,
+    );
   }
 
   static conflict(

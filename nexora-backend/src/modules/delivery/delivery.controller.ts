@@ -22,28 +22,26 @@ import {
 } from './delivery.service';
 import { Request, Response } from 'express';
 import { Roles } from '../../common/guards/roles.guard';
+import { PreparationService } from './preparation.service';
 import { DeviceBindingGuard } from '../../common/guards/device-binding.guard';
 
 @Controller()
 export class DeliveryController {
-  constructor(private readonly deliveryService: DeliveryService) {}
+  constructor(
+    private readonly deliveryService: DeliveryService,
+    private readonly preparationService: PreparationService,
+  ) {}
 
   @Roles('student')
   @Get('me/exams')
-  async getMyExams(
-    @Req() req: Request,
-    @Query() query: { limit?: string; cursor?: string },
-  ) {
-    return this.deliveryService.getMyExams(req, query);
+  async getMyExams(@Req() req: Request, @Query() query: { limit?: string; cursor?: string }) {
+    return this.preparationService.getMyExams(req, query);
   }
 
   @Roles('student')
   @Get('me/exams/:sessionId')
-  async getMyExamDetail(
-    @Req() req: Request,
-    @Param('sessionId') sessionId: string,
-  ) {
-    return this.deliveryService.getMyExamDetail(req, sessionId);
+  async getMyExamDetail(@Req() req: Request, @Param('sessionId') sessionId: string) {
+    return this.preparationService.getMyExamDetail(req, sessionId);
   }
 
   @Roles('student')
@@ -52,28 +50,28 @@ export class DeliveryController {
     @Req() req: Request,
     @Res() res: Response,
     @Param('sessionId') sessionId: string,
-    @Body() body: { deviceId: string },
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body() body: unknown,
   ) {
-    const result = await this.deliveryService.createOrGetAttempt(req, sessionId, body);
+    const result = await this.preparationService.createOrGetAttempt(
+      req,
+      sessionId,
+      idempotencyKey,
+      body,
+    );
     return res.status(result.statusCode).json(result.data);
   }
 
   @Roles('student')
   @Get('attempts/:attemptId')
-  async getAttempt(
-    @Req() req: Request,
-    @Param('attemptId') attemptId: string,
-  ) {
-    return this.deliveryService.getAttempt(req, attemptId);
+  async getAttempt(@Req() req: Request, @Param('attemptId') attemptId: string) {
+    return this.preparationService.getAttempt(req, attemptId);
   }
 
   @Roles('student')
   @Get('attempts/:attemptId/package')
-  async getPackage(
-    @Req() req: Request,
-    @Param('attemptId') attemptId: string,
-  ) {
-    return this.deliveryService.getPackage(req, attemptId);
+  async getPackage(@Req() req: Request, @Param('attemptId') attemptId: string) {
+    return this.preparationService.getPackage(req, attemptId);
   }
 
   @Roles('student')
@@ -82,15 +80,9 @@ export class DeliveryController {
   async unlockAttempt(
     @Req() req: Request,
     @Param('attemptId') attemptId: string,
-    @Body()
-    body: {
-      packageId: string;
-      examVersion: number;
-      scheduleRevision: number;
-      deviceGeneration: number;
-    },
+    @Body() body: unknown,
   ) {
-    return this.deliveryService.unlockAttempt(req, attemptId, body);
+    return this.preparationService.unlockAttempt(req, attemptId, body);
   }
 
   @Roles('student')
@@ -120,10 +112,7 @@ export class DeliveryController {
 
   @Roles('student')
   @Get('attempts/:attemptId/receipt')
-  async getReceipt(
-    @Req() req: Request,
-    @Param('attemptId') attemptId: string,
-  ) {
+  async getReceipt(@Req() req: Request, @Param('attemptId') attemptId: string) {
     return this.deliveryService.getReceipt(req, attemptId);
   }
 

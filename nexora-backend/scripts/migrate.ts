@@ -1,9 +1,11 @@
+import { Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
+const logger = new Logger('migrate');
 
 const connectionString =
   process.env.MIGRATION_DATABASE_URL ||
@@ -25,7 +27,7 @@ async function runMigrations() {
   const client = await pool.connect();
 
   try {
-    console.log('[Migrate] Connecting to database...');
+    logger.log('[Migrate] Connecting to database...');
     await client.query('BEGIN');
     await client.query(`SET app.is_migration_or_admin = 'true';`);
 
@@ -47,22 +49,22 @@ async function runMigrations() {
 
     for (const file of files) {
       if (appliedSet.has(file)) {
-        console.log(`[Migrate] Skipping already applied: ${file}`);
+        logger.log(`[Migrate] Skipping already applied: ${file}`);
         continue;
       }
 
-      console.log(`[Migrate] Applying migration: ${file}...`);
+      logger.log(`[Migrate] Applying migration: ${file}...`);
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
       await client.query(sql);
       await client.query(`INSERT INTO schema_migrations (version) VALUES ($1)`, [file]);
-      console.log(`[Migrate] Applied: ${file}`);
+      logger.log(`[Migrate] Applied: ${file}`);
     }
 
     await client.query('COMMIT');
-    console.log('[Migrate] All migrations applied successfully.');
+    logger.log('[Migrate] All migrations applied successfully.');
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('[Migrate] Migration failed:', err);
+    logger.error('[Migrate] Migration failed:', err);
     process.exit(1);
   } finally {
     client.release();

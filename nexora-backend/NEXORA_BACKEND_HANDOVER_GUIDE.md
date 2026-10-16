@@ -10,20 +10,20 @@
 
 ## 1. Technology Stack
 
-| Layer | Technology | Version | Purpose / Architecture Rationale |
-|---|---|---|---|
-| **Runtime & Language** | **Node.js** (v20+) + **TypeScript** | 5.7.3 | Strict type safety, decorators, and clean modular domain architecture. |
-| **Framework** | **NestJS** | 10.4.15 | Dependency injection, modular boundary encapsulation, interceptors, guards, and custom filters. |
-| **Execution Tooling** | **tsx** | 4.19.2 | High-speed zero-config TypeScript execution for scripts and migrations. |
-| **Database & Pooling** | **PostgreSQL** + **pg** (`node-postgres`) | 8.13.1 | Real ACID transactions with row locking (`FOR UPDATE` / `FOR SHARE`) and connection pool management. |
-| **Tenant Isolation** | **PostgreSQL Row-Level Security (RLS)** | Native | `FORCE ROW LEVEL SECURITY` on all tenant-scoped tables with session context `app.current_school_id`. |
-| **Cloud Database Host** | **Supabase** (EU West Ireland) | Cloud | Live PostgreSQL database with Session Pooler on port `5432`. |
-| **Password Security** | **Argon2id** (`argon2`) | 0.41.1 | State-of-the-art password hashing conforming to OWASP guidelines. |
-| **Admin 2FA / MFA** | **otplib** | 12.0.1 | RFC 6238 Time-based One-Time Password (TOTP) generation and verification (30s window, HMAC-SHA1). |
-| **Package Encryption** | **Node.js Crypto** (`aes-256-gcm`) | Native | Student exam package payload encryption using AES-256-GCM with unpadded Base64URL encoding. |
-| **Canonical Digest** | **Node.js Crypto** (`sha256`) | Native | RFC-compliant compact UTF-8 JSON tuple serialization and SHA-256 digest calculation (`nexora-final-v1`). |
-| **Request Parsing** | **cookie-parser** | 1.4.7 | HttpOnly cookie session management (`nexora_session`, `nexora_device_cred`). |
-| **Testing Framework** | **Vitest** + **Supertest** | 3.0.4 / 7.0.0 | High-performance E2E testing against the live PostgreSQL database with mockable clock boundaries. |
+| Layer                   | Technology                                | Version       | Purpose / Architecture Rationale                                                                         |
+| ----------------------- | ----------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------- |
+| **Runtime & Language**  | **Node.js** (v20+) + **TypeScript**       | 5.7.3         | Strict type safety, decorators, and clean modular domain architecture.                                   |
+| **Framework**           | **NestJS**                                | 10.4.15       | Dependency injection, modular boundary encapsulation, interceptors, guards, and custom filters.          |
+| **Execution Tooling**   | **tsx**                                   | 4.19.2        | High-speed zero-config TypeScript execution for scripts and migrations.                                  |
+| **Database & Pooling**  | **PostgreSQL** + **pg** (`node-postgres`) | 8.13.1        | Real ACID transactions with row locking (`FOR UPDATE` / `FOR SHARE`) and connection pool management.     |
+| **Tenant Isolation**    | **PostgreSQL Row-Level Security (RLS)**   | Native        | `FORCE ROW LEVEL SECURITY` on all tenant-scoped tables with session context `app.current_school_id`.     |
+| **Cloud Database Host** | **Supabase** (EU West Ireland)            | Cloud         | Live PostgreSQL database with Session Pooler on port `5432`.                                             |
+| **Password Security**   | **Argon2id** (`argon2`)                   | 0.41.1        | State-of-the-art password hashing conforming to OWASP guidelines.                                        |
+| **Admin 2FA / MFA**     | **otplib**                                | 12.0.1        | RFC 6238 Time-based One-Time Password (TOTP) generation and verification (30s window, HMAC-SHA1).        |
+| **Package Encryption**  | **Node.js Crypto** (`aes-256-gcm`)        | Native        | Student exam package payload encryption using AES-256-GCM with unpadded Base64URL encoding.              |
+| **Canonical Digest**    | **Node.js Crypto** (`sha256`)             | Native        | RFC-compliant compact UTF-8 JSON tuple serialization and SHA-256 digest calculation (`nexora-final-v1`). |
+| **Request Parsing**     | **cookie-parser**                         | 1.4.7         | HttpOnly cookie session management (`nexora_session`, `nexora_device_cred`).                             |
+| **Testing Framework**   | **Vitest** + **Supertest**                | 3.0.4 / 7.0.0 | High-performance E2E testing against the live PostgreSQL database with mockable clock boundaries.        |
 
 ---
 
@@ -32,6 +32,7 @@
 All four master migrations are fully written and applied to the Supabase instance:
 
 ### Migration 001: Tenants, Auth & Row-Level Security (`001_tenants_auth_and_rls.sql`)
+
 - Creates `schools` (tenants), `users` (students, teachers, admins), `auth_sessions`, `device_bindings`, and `audit_events`.
 - Enforces `FORCE ROW LEVEL SECURITY` across tenant tables.
 - Implements PostgreSQL security policies:
@@ -46,15 +47,18 @@ All four master migrations are fully written and applied to the Supabase instanc
 - Uses `set_config('app.current_school_id', $1, true)` inside NestJS transactions to bind every query to the verified tenant.
 
 ### Migration 002: Directory & Content (`002_directory_and_content.sql`)
+
 - Creates academic calendar structures: `academic_years`, `terms`, `grade_levels`, `sections`, `subjects`, `enrollments`.
 - Content authoring: `exam_papers`, `exam_versions`, `exam_items`, `rubrics`.
 
 ### Migration 003: Sessions & Exam Delivery (`003_sessions_and_delivery.sql`)
+
 - Creates `exam_sessions`, `session_roster` (accommodations, extra time, admission status).
 - Creates `exam_packages` (AES-256-GCM encrypted bundles and encrypted release keys).
 - Creates delivery tracking: `attempts`, `attempt_answers`, `submissions`, `idempotency_keys`.
 
 ### Migration 004: Results, Practice & Jobs (`004_results_practice_jobs.sql`)
+
 - Creates `recovery_uploads` (for late disconnected submissions), `official_results`, `practice_sessions`, `practice_answers`, `background_jobs`.
 
 ---
@@ -62,6 +66,7 @@ All four master migrations are fully written and applied to the Supabase instanc
 ## 3. What Was Completed & Verified
 
 ### A. Foundations & Core Services
+
 1. **`DbService` (`src/common/db/db.service.ts`)**:
    - Manages connection pool to Supabase.
    - Provides `withTenantTransaction(schoolId, async (client) => { ... })` ensuring `set_config('app.current_school_id', schoolId, true)` is executed in the transaction before running any application queries.
@@ -89,6 +94,7 @@ All four master migrations are fully written and applied to the Supabase instanc
 ---
 
 ### B. BE-02A: Authentication, Sittings & Exam Preparation (11/11 Tests Passing)
+
 - **`GET /api/v1/health` & `GET /api/v1/ready`**: Production health checks and database pool warming.
 - **`GET /api/v1/auth/csrf`**: Issues session-bound CSRF token in header and anonymous cookie.
 - **`POST /api/v1/auth/login`**: Authenticates credentials via Argon2id. Students/teachers receive immediate authenticated session; school admins receive MFA challenge status (`mfa_required`).
@@ -111,6 +117,7 @@ All four master migrations are fully written and applied to the Supabase instanc
 ---
 
 ### C. BE-02B: Runner Auto-Saves, Atomic Submit & Durable Receipt (11/11 Tests Passing)
+
 - **`POST /api/v1/attempts/:attemptId/answers`**:
   - Atomic revision batch upsert into `attempt_answers`.
   - Enforces `clientSeq` monotonically increasing per item.
@@ -133,6 +140,7 @@ All four master migrations are fully written and applied to the Supabase instanc
 ---
 
 ### D. BE-02C: Late Recovery, Admin Decisions & Device Transfer
+
 - **`POST /api/v1/attempts/:attemptId/recovery`**:
   - Gated by `serverNow > finalAcceptUntil`. Calling before deadline returns 409 `REVISION_CONFLICT` with `retryAt`.
   - Once deadline passes, accepts late complete snapshot with audit reason and Idempotency-Key.
@@ -155,12 +163,14 @@ All four master migrations are fully written and applied to the Supabase instanc
 ## 4. What Remains To Be Done (Your Implementation Roadmap)
 
 ### Immediate Next Step
+
 - **Finalize BE-02C Test Execution (`test/be02c-recovery-transfer.e2e-spec.ts`)**:
   - The endpoints and tests are written. Run `npx vitest run test/be02c-recovery-transfer.e2e-spec.ts` to confirm 11/11 tests pass.
 
 ---
 
 ### Module BE-03: Exam Authoring, Imports & AI Tagging
+
 1. **Teacher Exam Authoring API**:
    - `POST /api/v1/authoring/papers`: Create new exam paper metadata (title, subject, grade, duration, instructions).
    - `POST /api/v1/authoring/papers/:paperId/versions`: Create new draft version.
@@ -180,6 +190,7 @@ All four master migrations are fully written and applied to the Supabase instanc
 ---
 
 ### Module BE-04: Workflow, Approvals, Scheduling & Results Publishing
+
 1. **Approval Workflow State Machine**:
    - Transitions: `draft` -> `submitted_for_review` -> `approved` -> `frozen`.
    - `POST /api/v1/authoring/versions/:versionId/submit-review`: Teacher submits.
@@ -200,6 +211,7 @@ All four master migrations are fully written and applied to the Supabase instanc
 ---
 
 ### Module BE-05: Practice Mode, Student Analytics & Grade Exports
+
 1. **Self-Paced Practice Engine**:
    - `POST /api/v1/practice/sessions`: Start un-timed or timed practice sitting from question bank.
    - `POST /api/v1/practice/sessions/:id/answers`: Immediate check with explanations, rationale, and topic hints.
@@ -214,10 +226,13 @@ All four master migrations are fully written and applied to the Supabase instanc
 ## 5. Environment & Credentials Reference
 
 ### Configuration (`.env`)
+
+Keep live values in an untracked environment file. The following values are placeholders:
+
 ```env
-DATABASE_URL="postgresql://postgres.lyayegcssorznzxotcuw:%26*aEuVMhT%24c2!7t@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
-MIGRATION_DATABASE_URL="postgresql://postgres.lyayegcssorznzxotcuw:%26*aEuVMhT%24c2!7t@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
-SESSION_SECRET="nexora-secret-session-key-32bytes-long-super-safe"
+DATABASE_URL="postgresql://<runtime-user>:<password>@<host>:5432/<database>"
+MIGRATION_DATABASE_URL="postgresql://<migration-user>:<password>@<host>:5432/<database>"
+SESSION_SECRET="<random-server-only-secret>"
 APP_ORIGIN="http://localhost:5173"
 CORS_ORIGIN="http://localhost:5173"
 PORT=3000
@@ -225,17 +240,21 @@ NODE_ENV="development"
 DB_POOL_MAX=5
 ```
 
+Credentials previously included in this guide require operator-managed rotation. Removing them from this document does not rotate them or remove them from Git history.
+
 ### Seeded Synthetic Test Accounts
-| School | Role | Login ID | Password | 2FA / TOTP Secret |
-|---|---|---|---|---|
-| **Hillside Academy** | School Admin | `HILL-ADM01` | `AdminPass123!` | `JBSWY3DPEHPK3PXP` |
-| **Hillside Academy** | Teacher | `HILL-TCH01` | `TeacherPass123!` | None |
-| **Hillside Academy** | Student 1 | `HILL-STU01` | `StudentPass123!` | None |
-| **Hillside Academy** | Student 2 | `HILL-STU02` | `StudentPass123!` | None |
-| **St. Mary Academy** | School Admin | `MARY-ADM01` | `AdminPass123!` | `JBSWY3DPEHPK3PXP` |
-| **St. Mary Academy** | Student | `MARY-STU01` | `StudentPass123!` | None |
+
+| School               | Role         | Login ID     | Password          | 2FA / TOTP Secret  |
+| -------------------- | ------------ | ------------ | ----------------- | ------------------ |
+| **Hillside Academy** | School Admin | `HILL-ADM01` | `AdminPass123!`   | `JBSWY3DPEHPK3PXP` |
+| **Hillside Academy** | Teacher      | `HILL-TCH01` | `TeacherPass123!` | None               |
+| **Hillside Academy** | Student 1    | `HILL-STU01` | `StudentPass123!` | None               |
+| **Hillside Academy** | Student 2    | `HILL-STU02` | `StudentPass123!` | None               |
+| **St. Mary Academy** | School Admin | `MARY-ADM01` | `AdminPass123!`   | `JBSWY3DPEHPK3PXP` |
+| **St. Mary Academy** | Student      | `MARY-STU01` | `StudentPass123!` | None               |
 
 ### Useful CLI Commands
+
 ```bash
 # Apply SQL migrations to Supabase
 npm run migrate
@@ -258,6 +277,7 @@ npm run start:dev
 ---
 
 ## 6. Golden Rules for Continuing Development
+
 1. **Never mock repositories**: Always run real queries against PostgreSQL inside `withTenantTransaction`.
 2. **Never leak answers or unreleased scores**: Student packages are encrypted with AES-256-GCM. Plaintext items never include `correct_key`, `correct`, or `explanation`. Official scores are never returned until officially published.
 3. **Direct JSON only**: Return direct objects or arrays (e.g. `{ items: [...] }`), never `{ data: { ... } }`. Empty successes return `204 No Content`.

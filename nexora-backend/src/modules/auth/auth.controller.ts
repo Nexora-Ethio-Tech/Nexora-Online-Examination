@@ -1,16 +1,8 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Req,
-  Res,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { Public } from '../../common/guards/session-auth.guard';
+import { Roles } from '../../common/guards/roles.guard';
 import { SkipCsrf } from '../../common/guards/csrf-origin.guard';
 
 @Controller('auth')
@@ -53,19 +45,17 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(req, res);
   }
 
+  @Roles('student')
   @Post('device')
   @HttpCode(HttpStatus.OK)
   async registerDevice(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-    @Body() body: { deviceId: string },
+    @Body() body: unknown,
   ) {
     return this.authService.registerDevice(req, res, body);
   }

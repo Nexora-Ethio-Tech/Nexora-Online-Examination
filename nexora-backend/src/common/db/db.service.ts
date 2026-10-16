@@ -8,8 +8,7 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     const connectionString =
-      process.env.DATABASE_URL ||
-      'postgres://postgres:postgres@localhost:5432/nexora_exam';
+      process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/nexora_exam';
 
     const max = parseInt(process.env.DB_POOL_MAX || '5', 10);
     const isRemote =
@@ -39,9 +38,9 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
   /**
    * Executes a standalone query using a pooled connection.
    */
-  async query<R extends QueryResultRow = any>(
+  async query<R extends QueryResultRow = QueryResultRow>(
     text: string,
-    params?: any[],
+    params?: unknown[],
   ): Promise<QueryResult<R>> {
     return this.pool.query<R>(text, params);
   }

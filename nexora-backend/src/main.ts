@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import * as dotenv from 'dotenv';
@@ -43,7 +44,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`Nexora Backend running on port ${port} with prefix /api/v1`);
+  Logger.log(`Nexora Backend running on port ${port} with prefix /api/v1`);
 }
 
 bootstrap();

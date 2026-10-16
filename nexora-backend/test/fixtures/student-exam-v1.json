@@ -78,20 +78,9 @@
       }
     ]
   },
-  "questionOrder": [
-    "q1",
-    "q2"
-  ],
+  "questionOrder": ["q1", "q2"],
   "optionOrders": {
-    "q1": [
-      "option-a",
-      "option-b",
-      "option-c",
-      "option-d"
-    ],
-    "q2": [
-      "true",
-      "false"
-    ]
+    "q1": ["option-a", "option-b", "option-c", "option-d"],
+    "q2": ["true", "false"]
   }
 }

@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  SetMetadata,
-  Inject,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, SetMetadata, Inject } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { DbService } from '../db/db.service';
@@ -34,6 +28,7 @@ declare module 'express' {
     sessionId?: string;
     csrfToken?: string;
     isMfaChallenge?: boolean;
+    deviceId?: string;
   }
 }
 
@@ -77,6 +72,8 @@ export class SessionAuthGuard implements CanActivate {
         u.login_id,
         u.display_name,
         u.role,
+        u.status AS user_status,
+        sch.status AS school_status,
         sch.name AS school_name,
         sch.timezone AS school_timezone
       FROM auth_sessions s
@@ -97,7 +94,10 @@ export class SessionAuthGuard implements CanActivate {
 
     const session = result.rows[0];
 
-    if (session.revoked_at) {
+    if (
+      session.revoked_at ||
+      (session.user_id && (session.user_status !== 'active' || session.school_status !== 'active'))
+    ) {
       if (isPublic) return true;
       throw DomainException.authRequired('Session has been revoked');
     }

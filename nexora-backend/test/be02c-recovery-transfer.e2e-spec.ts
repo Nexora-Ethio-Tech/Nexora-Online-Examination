@@ -4,6 +4,8 @@ dotenv.config();
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
+import { randomUUID } from 'crypto';
+import { responseCookies, responseCookie, requireDisposableDatabase } from './http-helpers';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
@@ -11,10 +13,9 @@ import { AppModule } from '../src/app.module';
 import { ClockService } from '../src/common/clock/clock.service';
 import { DbService } from '../src/common/db/db.service';
 import { decryptExamPackage } from '../src/common/crypto/package-cipher';
-import { randomUUID } from 'crypto';
 import { authenticator } from 'otplib';
 
-describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (Supabase Real DB)', () => {
+describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (PostgreSQL)', () => {
   let app: INestApplication;
   let clock: ClockService;
 
@@ -22,8 +23,8 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
   let stuSessionCookie: string;
   let stuCsrfToken: string;
   let stuDeviceCookie: string;
-  const initialDeviceId = 'test-c-device-primary-' + Date.now();
-  const replacementDeviceId = 'test-c-device-replacement-' + Date.now();
+  const initialDeviceId = randomUUID();
+  const replacementDeviceId = randomUUID();
 
   // Admin (HILL-ADM01) credentials
   let adminSessionCookie: string;
@@ -35,9 +36,7 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
   let examVersion: number;
   let scheduleRevision: number;
   let finalAcceptUntil: Date;
-  let deadlineAt: Date;
   let questionOrder: string[];
-  let optionOrders: Record<string, string[]>;
   let recoveryUploadId: string;
 
   const recoveryIdempotencyKey = randomUUID();
@@ -45,9 +44,13 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
   const transferIdempotencyKey = randomUUID();
 
   beforeAll(async () => {
+    requireDisposableDatabase();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(ClockService)
+      .useValue(new ClockService())
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.use(cookieParser());
@@ -70,7 +73,7 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
 
   afterAll(async () => {
     if (clock) clock.reset();
-    await app.close();
+    if (app) await app.close();
   });
 
   it('1. Setup: Authenticate student HILL-STU01 and enroll primary + backup devices', async () => {
@@ -78,7 +81,7 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
     const csrfRes = await request(app.getHttpServer()).get('/api/v1/auth/csrf');
     expect(csrfRes.status).toBe(200);
     stuCsrfToken = csrfRes.body.csrfToken;
-    stuSessionCookie = (csrfRes.headers['set-cookie'] as string[])[0].split(';')[0];
+    stuSessionCookie = responseCookies(csrfRes)[0].split(';')[0];
 
     // 2. Student Login
     const loginRes = await request(app.getHttpServer())
@@ -90,7 +93,7 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
         password: 'StudentPass123!',
       });
     expect(loginRes.status).toBe(200);
-    stuSessionCookie = (loginRes.headers['set-cookie'] as string[])[0].split(';')[0];
+    stuSessionCookie = responseCookies(loginRes)[0].split(';')[0];
 
     // Fresh CSRF
     const meRes = await request(app.getHttpServer())
@@ -107,11 +110,10 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
       .send({ deviceId: initialDeviceId });
     expect(devRes1.status).toBe(200);
 
-    const rawCookies1 = devRes1.headers['set-cookie'];
-    const cookieList1 = Array.isArray(rawCookies1) ? rawCookies1 : [rawCookies1 as string];
+    const cookieList1 = responseCookies(devRes1);
     const credCookie = cookieList1.find((c: string) => c.startsWith('nexora_device_cred='));
     expect(credCookie).toBeDefined();
-    stuDeviceCookie = credCookie!.split(';')[0];
+    stuDeviceCookie = responseCookie(devRes1, 'nexora_device_cred');
 
     // 4. Also enroll replacement device binding for the student ahead of time
     const devRes2 = await request(app.getHttpServer())
@@ -127,7 +129,7 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
     const csrfRes = await request(app.getHttpServer()).get('/api/v1/auth/csrf');
     expect(csrfRes.status).toBe(200);
     const adminInitCsrf = csrfRes.body.csrfToken;
-    let adminInitCookie = (csrfRes.headers['set-cookie'] as string[])[0].split(';')[0];
+    const adminInitCookie = responseCookies(csrfRes)[0].split(';')[0];
 
     // 2. Admin password login -> triggers MFA challenge
     const loginRes = await request(app.getHttpServer())
@@ -143,7 +145,7 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
     expect(loginRes.body.csrfToken).toBeDefined();
 
     const mfaCsrf = loginRes.body.csrfToken;
-    const challengeCookie = (loginRes.headers['set-cookie'] as string[])[0].split(';')[0];
+    const challengeCookie = responseCookies(loginRes)[0].split(';')[0];
 
     // 3. Generate valid RFC 6238 TOTP code using seeded secret 'JBSWY3DPEHPK3PXP'
     const totpCode = authenticator.generate('JBSWY3DPEHPK3PXP');
@@ -157,7 +159,7 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
     expect(mfaRes.status).toBe(200);
     expect(mfaRes.body.status).toBe('authenticated');
 
-    adminSessionCookie = (mfaRes.headers['set-cookie'] as string[])[0].split(';')[0];
+    adminSessionCookie = responseCookies(mfaRes)[0].split(';')[0];
 
     // 5. Fetch admin identity and fresh CSRF
     const meRes = await request(app.getHttpServer())
@@ -177,7 +179,6 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
 
     const exam = listRes.body.items[0];
     targetSessionId = exam.sessionId;
-    examVersion = exam.examVersion;
     scheduleRevision = exam.scheduleRevision;
 
     // Fast-forward into preparation window
@@ -187,15 +188,14 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
     // Create attempt
     const attRes = await request(app.getHttpServer())
       .post(`/api/v1/sessions/${targetSessionId}/attempts`)
+      .set('Idempotency-Key', randomUUID())
       .set('Cookie', [stuSessionCookie, stuDeviceCookie])
       .set('x-csrf-token', stuCsrfToken)
       .send({ deviceId: initialDeviceId });
     expect(attRes.status).toBe(201);
     attemptId = attRes.body.attemptId;
-    questionOrder = attRes.body.questionOrder;
-    optionOrders = attRes.body.optionOrders;
+    examVersion = attRes.body.examVersion;
     finalAcceptUntil = new Date(attRes.body.finalAcceptUntil);
-    deadlineAt = new Date(attRes.body.deadlineAt);
 
     // Download encrypted package
     const pkgRes = await request(app.getHttpServer())
@@ -220,9 +220,14 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
       });
     expect(unlockRes.status).toBe(200);
 
+    questionOrder = unlockRes.body.questionOrder;
+
     // Verify paper decryption
-    const decryptedJson = decryptExamPackage(pkgRes.body.ciphertext, pkgRes.body.iv, unlockRes.body.key);
-    const paper = JSON.parse(decryptedJson);
+    const paper = decryptExamPackage<{ items: unknown[] }>(
+      pkgRes.body.ciphertext,
+      pkgRes.body.iv,
+      unlockRes.body.key,
+    );
     expect(paper.items.length).toBe(10);
 
     // Save initial answers via runner auto-save
@@ -265,10 +270,14 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
 
     expect(earlyRes.status).toBe(409);
     expect(earlyRes.body.code).toBe('REVISION_CONFLICT');
-    expect(earlyRes.body.message).toContain('Recovery upload opens only after final submission deadline has passed');
+    expect(earlyRes.body.message).toContain(
+      'Recovery upload opens only after final submission deadline has passed',
+    );
     expect(earlyRes.body.context).toBeDefined();
     expect(earlyRes.body.context.retryAt).toBeDefined();
-    expect(new Date(earlyRes.body.context.retryAt).getTime()).toBeGreaterThan(finalAcceptUntil.getTime());
+    expect(new Date(earlyRes.body.context.retryAt).getTime()).toBeGreaterThan(
+      finalAcceptUntil.getTime(),
+    );
   });
 
   it('5. POST /api/v1/attempts/:attemptId/submit AFTER finalAcceptUntil returns 409 RECOVERY_REQUIRED without creating receipt', async () => {
@@ -486,6 +495,7 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
     // Create fresh attempt on primary device
     const newAttRes = await request(app.getHttpServer())
       .post(`/api/v1/sessions/${exam.sessionId}/attempts`)
+      .set('Idempotency-Key', randomUUID())
       .set('Cookie', [stuSessionCookie, stuDeviceCookie])
       .set('x-csrf-token', stuCsrfToken)
       .send({ deviceId: initialDeviceId });
@@ -505,7 +515,7 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
       .set('x-csrf-token', stuCsrfToken)
       .send({
         packageId: pkgRes2.body.packageId,
-        examVersion: exam.examVersion,
+        examVersion: newAttRes.body.examVersion,
         scheduleRevision: exam.scheduleRevision,
         deviceGeneration: 1,
       });
@@ -517,12 +527,10 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
       .set('Cookie', [stuSessionCookie, stuDeviceCookie])
       .set('x-csrf-token', stuCsrfToken)
       .send({
-        examVersion: exam.examVersion,
+        examVersion: newAttRes.body.examVersion,
         scheduleRevision: exam.scheduleRevision,
         deviceGeneration: 1,
-        answers: [
-          { itemId: newAttRes.body.questionOrder[0], value: 'opt_a', clientSeq: 1 },
-        ],
+        answers: [{ itemId: unlockRes.body.questionOrder[0], value: 'opt_a', clientSeq: 1 }],
       });
     expect(saveRes.status).toBe(200);
 
@@ -548,19 +556,17 @@ describe('BE-02C: Late Recovery, Audited Admin Decision & Device Transfer E2E (S
       .set('Cookie', [stuSessionCookie, stuDeviceCookie])
       .set('x-csrf-token', stuCsrfToken)
       .send({
-        examVersion: exam.examVersion,
+        examVersion: newAttRes.body.examVersion,
         scheduleRevision: exam.scheduleRevision,
         deviceGeneration: 1,
-        answers: [
-          { itemId: newAttRes.body.questionOrder[1], value: 'opt_c', clientSeq: 2 },
-        ],
+        answers: [{ itemId: unlockRes.body.questionOrder[1], value: 'opt_c', clientSeq: 2 }],
       });
     expect(oldDeviceSaveRes.status).toBe(409);
     expect(oldDeviceSaveRes.body.code).toBe('DEVICE_REPLACED');
 
     // 4. Verify previous server-confirmed answer was carried into generation 2 with clientSeq = 0
     const checkAnswersRes = await db.query(
-      `SELECT item_id, answer_value, device_generation, client_seq 
+      `SELECT item_id, value, device_generation, client_seq
        FROM attempt_answers 
        WHERE attempt_id = $1`,
       [transferAttemptId],

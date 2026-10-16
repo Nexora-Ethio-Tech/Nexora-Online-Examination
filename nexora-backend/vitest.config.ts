@@ -7,10 +7,10 @@ dotenv.config();
 export default defineConfig({
   test: {
     include: ['test/**/*.{test,spec,e2e-spec}.ts'],
+    // Legacy suites share seeded accounts; races use independent requests within a suite.
+    fileParallelism: false,
     testTimeout: 30000,
     hookTimeout: 30000,
   },
-  plugins: [
-    swc.vite(),
-  ],
+  plugins: [swc.vite()],
 });

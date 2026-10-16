@@ -32,7 +32,7 @@ export class IdempotencyService {
   ): Promise<{ statusCode: number; response: T }> {
     const payloadDigest = computeCanonicalDigest(scope.payload);
 
-    const runQuery = (text: string, params?: any[]) =>
+    const runQuery = (text: string, params?: unknown[]) =>
       client ? client.query(text, params) : this.db.query(text, params);
 
     const existing = await runQuery(

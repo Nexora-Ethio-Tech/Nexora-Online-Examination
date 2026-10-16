@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  SetMetadata,
-  Inject,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, SetMetadata, Inject } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { DomainException } from '../errors/domain.exception';

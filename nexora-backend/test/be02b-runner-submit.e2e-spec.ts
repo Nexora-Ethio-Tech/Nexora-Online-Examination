@@ -4,6 +4,8 @@ dotenv.config();
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
+import { randomUUID } from 'crypto';
+import { responseCookies, responseCookie, requireDisposableDatabase } from './http-helpers';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
@@ -11,16 +13,15 @@ import { AppModule } from '../src/app.module';
 import { ClockService } from '../src/common/clock/clock.service';
 import { DbService } from '../src/common/db/db.service';
 import { computeFinalSnapshotDigest } from '../src/common/crypto/canonical-digest';
-import { randomUUID } from 'crypto';
 
-describe('BE-02B: Runner Saves, Atomic Submit & Durable Receipt E2E (Supabase Real DB)', () => {
+describe('BE-02B: Runner Saves, Atomic Submit & Durable Receipt E2E (PostgreSQL)', () => {
   let app: INestApplication;
   let clock: ClockService;
 
   let sessionCookie: string;
   let csrfToken: string;
   let deviceCookie: string;
-  const deviceId = 'test-runner-device-b-' + Date.now();
+  const deviceId = randomUUID();
 
   let openSessionId: string;
   let attemptId: string;
@@ -33,9 +34,13 @@ describe('BE-02B: Runner Saves, Atomic Submit & Durable Receipt E2E (Supabase Re
   const subIdempotencyKey = randomUUID();
 
   beforeAll(async () => {
+    requireDisposableDatabase();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(ClockService)
+      .useValue(new ClockService())
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.use(cookieParser());
@@ -57,7 +62,7 @@ describe('BE-02B: Runner Saves, Atomic Submit & Durable Receipt E2E (Supabase Re
 
   afterAll(async () => {
     if (clock) clock.reset();
-    await app.close();
+    if (app) await app.close();
   });
 
   it('1. Setup: Authenticate student HILL-STU02 and enroll device', async () => {
@@ -65,7 +70,7 @@ describe('BE-02B: Runner Saves, Atomic Submit & Durable Receipt E2E (Supabase Re
     const csrfRes = await request(app.getHttpServer()).get('/api/v1/auth/csrf');
     expect(csrfRes.status).toBe(200);
     csrfToken = csrfRes.body.csrfToken;
-    sessionCookie = (csrfRes.headers['set-cookie'] as string[])[0].split(';')[0];
+    sessionCookie = responseCookies(csrfRes)[0].split(';')[0];
 
     // Login
     const loginRes = await request(app.getHttpServer())
@@ -77,7 +82,7 @@ describe('BE-02B: Runner Saves, Atomic Submit & Durable Receipt E2E (Supabase Re
         password: 'StudentPass123!',
       });
     expect(loginRes.status).toBe(200);
-    sessionCookie = (loginRes.headers['set-cookie'] as string[])[0].split(';')[0];
+    sessionCookie = responseCookies(loginRes)[0].split(';')[0];
 
     // Fresh CSRF
     const meRes = await request(app.getHttpServer())
@@ -94,11 +99,10 @@ describe('BE-02B: Runner Saves, Atomic Submit & Durable Receipt E2E (Supabase Re
       .send({ deviceId });
     expect(devRes.status).toBe(200);
 
-    const rawCookies = devRes.headers['set-cookie'];
-    const cookieList = Array.isArray(rawCookies) ? rawCookies : [rawCookies as string];
+    const cookieList = responseCookies(devRes);
     const credCookie = cookieList.find((c: string) => c.startsWith('nexora_device_cred='));
     expect(credCookie).toBeDefined();
-    deviceCookie = credCookie!.split(';')[0];
+    deviceCookie = responseCookie(devRes, 'nexora_device_cred');
   });
 
   it('2. Find open/preparing exam session and obtain unlocked active attempt', async () => {
@@ -122,6 +126,7 @@ describe('BE-02B: Runner Saves, Atomic Submit & Durable Receipt E2E (Supabase Re
     // Create unique attempt
     const attRes = await request(app.getHttpServer())
       .post(`/api/v1/sessions/${openSessionId}/attempts`)
+      .set('Idempotency-Key', randomUUID())
       .set('Cookie', [sessionCookie, deviceCookie])
       .set('Origin', 'http://localhost:3000')
       .set('X-CSRF-Token', csrfToken)
