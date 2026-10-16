@@ -1,6 +1,6 @@
 # Frontend deployment and rollback runbook
 
-Status: Vercel staging setup with partial host verification reported by the project owner; not production acceptance. The repository is [codifex11/Nexora-Online-Examination](https://github.com/codifex11/Nexora-Online-Examination), formerly exam-frontend. Vercel is selected; the exact staging URL and real API remain to be recorded. Do not label the MVP production-ready until the host/backend acceptance below passes.
+Status: Vercel staging setup with partial host verification reported by the project owner; not production acceptance. The repository is [Nexora-Ethio-Tech/Nexora-Online-Examination](https://github.com/Nexora-Ethio-Tech/Nexora-Online-Examination), formerly exam-frontend. Vercel is selected; the exact staging URL and real API remain to be recorded. Do not label the MVP production-ready until the host/backend acceptance below passes.
 
 ## Staging evidence and open diagnostics — 16 October 2026
 
@@ -24,7 +24,7 @@ Run `npm run check` (including temporary-Git-repository tests for the source che
 
 After the fix is pushed, open the new protected Preview's `/release.json`. Confirm its full commit matches the deployment and dirty is false. If true persists, collect the changed-file list rather than widening exclusions. Owner-reported hosted verification passed on the redeployed Preview for `33454ec`: commit `33454ec8cbb0aa75c912a672651f015049054362`, `dirty:false`, buildId `1ee71179-a400-4d5b-9633-0c4300a58e3f`. Dashboard Build Command Override is confirmed off. This closes the reported manifest diagnostic; no backend or protected-worker acceptance is implied. Keep the dashboard Build Command Override off.
 
-GitHub CI is no longer unverified: commit `7da5995` passed both check and browser jobs in [run 38867189918](https://github.com/codifex11/Nexora-Online-Examination/actions/runs/38867189918), verified in the preceding repository review. This does not establish CI results for later diagnostic commits.
+GitHub CI is no longer unverified: commit `7da5995` passed both check and browser jobs in [run 38867189918](https://github.com/Nexora-Ethio-Tech/Nexora-Online-Examination/actions/runs/38867189918), verified in the preceding repository review. This does not establish CI results for later diagnostic commits.
 
 ## Build a reviewable release
 
@@ -68,7 +68,7 @@ Feature pages now load on demand. Deploy every emitted chunk together and retain
 
 ## Merge readiness after the manifest verification
 
-GitHub CI for `33454ec` passed both `check` and `browser` jobs in [run 38886123546](https://github.com/codifex11/Nexora-Online-Examination/actions/runs/38886123546), independently checked during this documentation update. A fresh fetch showed main at `8589408`, with the feature branch ten commits ahead and zero behind before this documentation commit; no rebase or conflict resolution was needed at that point. Recheck the final PR state if either branch changes.
+GitHub CI for `33454ec` passed both `check` and `browser` jobs in [run 38886123546](https://github.com/Nexora-Ethio-Tech/Nexora-Online-Examination/actions/runs/38886123546), independently checked during this documentation update. A fresh fetch showed main at `8589408`, with the feature branch ten commits ahead and zero behind before this documentation commit; no rebase or conflict resolution was needed at that point. Recheck the final PR state if either branch changes.
 
 Before merging, push all intended documentation commits and require successful checks on the final PR head. Review the complete diff and confirm the intended main deployment behavior: main is the configured Production branch, so merging can trigger a Production deployment. A protected Preview does not establish that Production domains are private. Keep an unfinished frontend private or deliberately accept its limited, no-backend availability before merging into an automatically deployed branch.
 
@@ -92,4 +92,14 @@ This record itself creates a newer branch commit than `75b8e15`. Push it before 
 
 The owner reports `a9d54a6`, `75b8e15` and `99b07b1` pushed, with `99b07b1` the GitHub feature-branch head at the time of that report. All Deployments protection is now confirmed saved. The repository rename, Vercel setup, initial main deployment, diagnostic history, manifest fix and exact hosted 33454ec verification remain recorded above; their historical SHAs/build IDs are unchanged. Protected worker installation/cache population and real backend integration remain untested. No PR merge or new Production verification is claimed by this update.
 
-The local origin is confirmed as `https://github.com/codifex11/Nexora-Online-Examination.git`; the existing local folder remains `exam-frontend`. The GitHub rename alone requires no local folder rename or recreation of the Vercel project. The owner clarified that the proposed move is a transfer to another GitHub account or organization, not a local folder move. The destination and whether Vercel should remain in team Nexora are awaiting clarification; no transfer has been performed. This documentation update creates a later local commit: push it and check that final PR revision before merging. Subsequent routine CI progress can be recorded in the PR rather than generating a new documentation commit for each status change; add final deployment evidence after the merge.
+The local origin is confirmed as `https://github.com/Nexora-Ethio-Tech/Nexora-Online-Examination.git`; the existing local folder remains `exam-frontend`. The GitHub rename alone requires no local folder rename or recreation of the Vercel project. The repository transfer to Nexora-Ethio-Tech is complete and the local remote is updated. The Vercel project remains under team Nexora. This documentation update creates a later local commit: push it and check that final PR revision before merging. Subsequent routine CI progress can be recorded in the PR rather than generating a new documentation commit for each status change; add final deployment evidence after the merge.
+
+## Post-transfer verification
+
+The repository is now `Nexora-Ethio-Tech/Nexora-Online-Examination`; branches and historical commit identities are preserved. The local remote was independently inspected and matches the new owner. Current repository and CI links have been updated; the existing workflow has no hard-coded old owner requiring a code change.
+
+For `e9a81045ddd77c5dde0149b31a0f96a283b12b26`, GitHub reports [CI run 38893677386](https://github.com/Nexora-Ethio-Tech/Nexora-Online-Examination/actions/runs/38893677386) completed successfully and a successful Vercel deployment at [the post-transfer Preview](https://nexora-online-examination-oa7otmpm8-nexora-130f.vercel.app). The owner also reported Ready. A fresh, unauthenticated in-app browser visit to that Preview's `/release.json` independently redirected to Vercel login, confirming that this tested Preview path is protected.
+
+The authenticated manifest, route responses and cache headers on this exact Preview remain pending verification: the verification browser currently requires Vercel sign-in. Earlier 33454ec results remain historical evidence and must not be relabeled as tests of e9a8104. All Deployments is owner-reported enabled; its current dashboard setting has not been independently rechecked in this pass. An unauthenticated visit to https://nexora-online-examination.vercel.app/login also independently redirected to Vercel login, confirming access protection for that tested Production path. Successful deployment establishes this repository connection works for this project; it is not a general guarantee about Hobby eligibility for other repositories.
+
+No PR was merged by this verification. After the final documentation commit is pushed, require successful CI on that final PR revision. The protected worker/backend limitations above remain open.

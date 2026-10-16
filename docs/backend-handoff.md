@@ -38,7 +38,7 @@ The newest issued task is BE-09 above. Complete all still-outstanding BE-02 thro
 
 ## Ownership and milestone
 
-Frontend repository: https://github.com/codifex11/Nexora-Online-Examination. The authentication, school setup, authoring, approval/scheduling, runner, results, practice, recovery and monitoring frontend workflows now exist. See master-plan-audit.md for remaining frontend gaps and evidence limits; real backend acceptance remains outstanding. Separate backend developer owns API, migrations, isolation, jobs and hosting. Frontend owns screens, client, local persistence and recovery UI.
+Frontend repository: https://github.com/Nexora-Ethio-Tech/Nexora-Online-Examination. The authentication, school setup, authoring, approval/scheduling, runner, results, practice, recovery and monitoring frontend workflows now exist. See master-plan-audit.md for remaining frontend gaps and evidence limits; real backend acceptance remains outstanding. Separate backend developer owns API, migrations, isolation, jobs and hosting. Frontend owns screens, client, local persistence and recovery UI.
 
 First milestone: generated test student logs in, prepares encrypted seeded objective paper, unlocks at common start, answers during interruption, reconnects and receives one durable receipt for the complete snapshot.
 

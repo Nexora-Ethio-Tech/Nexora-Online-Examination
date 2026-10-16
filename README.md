@@ -1,6 +1,6 @@
 # Nexora Online Examination — frontend
 
-Repository: [codifex11/Nexora-Online-Examination](https://github.com/codifex11/Nexora-Online-Examination). Existing local checkout folders and the private npm package may still be named `exam-frontend`; they do not need to match the GitHub repository name. See [deployment status](docs/deploy.md) for Vercel Preview evidence and outstanding checks.
+Repository: [Nexora-Ethio-Tech/Nexora-Online-Examination](https://github.com/Nexora-Ethio-Tech/Nexora-Online-Examination). Existing local checkout folders and the private npm package may still be named `exam-frontend`; they do not need to match the GitHub repository name. See [deployment status](docs/deploy.md) for Vercel Preview evidence and outstanding checks.
 
 Browser verification: `npm ci`, `npx playwright install chromium`, then `npm run e2e`. See [browser testing](docs/browser-testing.md), [deployment preparation](docs/deploy.md) and [retention decision](docs/retention-policy.md). These tests use synthetic data; real backend acceptance remains outstanding. Production builds now write dist/release.json with commit/build identity and file hashes.
 
