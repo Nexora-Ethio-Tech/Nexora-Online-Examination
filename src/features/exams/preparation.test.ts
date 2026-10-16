@@ -11,7 +11,7 @@ import { retainedId, storageKey } from './storage';
 import * as storage from './storage';
 import * as shell from '@/lib/offline-shell';
 import { clockSample, serverTime } from './PreparationPage';
-import fixture from '../../../docs/fixtures/student-exam-v1.json';
+import fixture from '../../../nexora-backend/docs/Nexora_Backend_BE10_v0.11/docs/fixtures/student-exam-v1.json';
 
 beforeEach(() => {
   vi.stubGlobal('crypto', webcrypto);

@@ -7,7 +7,7 @@ import { createDemoTransport } from '@/mocks/auth';
 import { examApi } from '@/features/exams/api';
 import { preparePaper } from '@/features/exams/preparation';
 import { packageSchema, type Attempt } from '@/features/exams/schemas';
-import fixture from '../../../docs/fixtures/student-exam-v1.json';
+import fixture from '../../../nexora-backend/docs/Nexora_Backend_BE10_v0.11/docs/fixtures/student-exam-v1.json';
 import { paperSchema, type Unlock } from './schemas';
 import { decryptPaper, snapshotDigest } from './crypto';
 import { ExamClock } from './clock';
