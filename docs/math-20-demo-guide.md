@@ -6,7 +6,7 @@ This is an additional bundled demo example. Upload the downloaded file unchanged
 
 ## Start once and keep the same tab
 
-Run `npm run dev:demo` in the `exam-frontend` repository. Load the updated app before beginning. Keep one browser tab open for the entire rehearsal. Use Sign out and Sign in to switch roles. Reloading the browser, opening a second tab or restarting the development server resets the in-memory demo and can break continuity with saved browser attempts.
+Run `npm run dev:demo` in the `Nexora-Online-Examination` frontend checkout (the existing local folder may still be named `exam-frontend`). Load the updated app before beginning. Keep one browser tab open for the entire rehearsal. Use Sign out and Sign in to switch roles. Reloading the browser, opening a second tab or restarting the development server resets the in-memory demo and can break continuity with saved browser attempts.
 
 | Role          | User ID      | Password    | MFA code     |
 | ------------- | ------------ | ----------- | ------------ |

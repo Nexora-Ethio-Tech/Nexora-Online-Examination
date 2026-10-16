@@ -1,6 +1,22 @@
 # Frontend deployment and rollback runbook
 
-Status: deployment preparation, not a deployed/host-verified release. The hosting provider, domain and real API are not selected or verified here. Do not label the MVP production-ready until the host/backend acceptance below passes. No deployment is authorized by generating this guide.
+Status: Vercel staging setup with partial host verification reported by the project owner; not production acceptance. The repository is [codifex11/Nexora-Online-Examination](https://github.com/codifex11/Nexora-Online-Examination), formerly exam-frontend. Vercel is selected; the exact staging URL and real API remain to be recorded. Do not label the MVP production-ready until the host/backend acceptance below passes.
+
+## Staging evidence and open diagnostics — 16 October 2026
+
+The following hosting results were reported by the project owner, not independently repeated in this documentation update:
+
+- Vercel project is under team Nexora. Preview and Production variables are `VITE_USE_MOCKS=false` and `VITE_API_BASE_URL=/api/v1`. Standard Protection is enabled; an unauthenticated private-window visit showed Vercel login. This verifies protection for the tested URL, not every Production domain.
+- The initial Production deployment built main at `8589408`. Feature branch `feat/browser-verification` contains routing configuration commit `f63f665`; Preview trigger commits `f3ffb5e` and `be77c11` reached Ready. Ready means hosting build/deployment success, not full application acceptance.
+- On Preview `f3ffb5e`, `/admin/exams/example` returned the app; `/assets/missing.js` and `/api/v1/auth/me` returned 404; `/sw.js` returned JavaScript; `/release.json` was served as a file. Cache-header values have not been reported as verified. No real backend is connected, so the API 404 is expected at this stage.
+- That Preview's release manifest identifies `f3ffb5e61e059f98b3db16296dd6e08da49b1c4` but reports `dirty:true`. The owner's local build of the different commit `7da5995` reported false. The changed-file list and cause remain unknown. Do not waive the clean-source release gate or force false for Vercel.
+- Protected-Preview service-worker installation remains unverified, including whether shell fetches using `credentials: 'omit'` work behind deployment authentication. All real backend acceptance remains outstanding.
+
+The intended committed build command is `npm run build`. A dashboard override attempted to append Git status, but the owner saw no output and could not establish execution. Vercel's [configuration reference](https://vercel.com/docs/project-configuration/vercel-json) confirms that `vercel.json`'s `buildCommand` overrides the dashboard setting. The owner plans a temporary committed diagnostic command with `GIT-STATUS-START` and `GIT-STATUS-END` markers around `git status --porcelain --untracked-files=all`. This is diagnostic only: restore `npm run build` and disable the dashboard Override afterward. Do not treat marker absence as a clean checkout.
+
+Wait for the marked changed-file output before selecting a fix. The current postbuild script requires Git metadata and checks status after building; absent metadata would fail rather than yield true. Vercel's commit SHA can identify deployment provenance but does not prove source cleanliness. Only narrowly identified generated files may be excluded after investigation; tracked source or lockfile changes must remain visible. If Git status cannot be verified, do not report false. Any revised manifest semantics and release gate must be documented and tested together.
+
+GitHub CI is no longer unverified: commit `7da5995` passed both check and browser jobs in [run 38867189918](https://github.com/codifex11/Nexora-Online-Examination/actions/runs/38867189918), verified in the preceding repository review. This does not establish CI results for later diagnostic commits.
 
 ## Build a reviewable release
 
