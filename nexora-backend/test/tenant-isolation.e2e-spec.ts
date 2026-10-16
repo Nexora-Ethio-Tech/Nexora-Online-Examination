@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { DbService } from '../src/common/db/db.service';
 import { databasePoolConfig } from '../src/common/db/database-config';
+import { encryptMfaSecret, newMfaSecret } from '../src/common/crypto/mfa';
 import { hashPassword, hashSha256 } from '../src/common/crypto/password';
 import { responseCookie } from './http-helpers';
 
@@ -85,6 +86,21 @@ describe.runIf(process.env.RUN_SUPABASE_ISOLATION_TESTS === 'true')(
            VALUES ($1, $2, $3, 'Isolation staff', $4, $5)`,
             [account.id, account.schoolId, account.loginId, account.role, passwordHash],
           );
+          if (account.role === 'school_admin') {
+            const version = randomUUID();
+            await client.query(
+              'UPDATE users SET mfa_secret_enc = $1, mfa_secret_version = $2, mfa_enrolled_at = NOW() WHERE id = $3',
+              [
+                encryptMfaSecret(newMfaSecret(), {
+                  schoolId: account.schoolId,
+                  userId: account.id,
+                  version,
+                }),
+                version,
+                account.id,
+              ],
+            );
+          }
         }
         await client.query(
           `INSERT INTO classes (school_id, name, code_or_year)

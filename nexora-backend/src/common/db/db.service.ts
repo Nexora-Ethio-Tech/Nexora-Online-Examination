@@ -65,6 +65,13 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
     text: string,
     params?: unknown[],
   ): Promise<QueryResult<R>> {
+    return this.withAuthTransaction(context, (client) => client.query<R>(text, params));
+  }
+
+  async withAuthTransaction<T>(
+    context: { tokenHash?: string; loginId?: string },
+    fn: (client: PoolClient) => Promise<T>,
+  ): Promise<T> {
     return this.withTransaction(async (client) => {
       await client.query(
         `SELECT set_config('app.current_school_id', '', true),
@@ -72,7 +79,7 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
                 set_config('app.auth_login_id', $2, true)`,
         [context.tokenHash ?? '', context.loginId ?? ''],
       );
-      return client.query<R>(text, params);
+      return fn(client);
     });
   }
 

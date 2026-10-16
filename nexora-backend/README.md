@@ -63,3 +63,46 @@ RUN_SUPABASE_ISOLATION_TESTS=true npm run test -- test/tenant-isolation.e2e-spec
 ```
 
 It uses the configured Supabase runtime/migration connections, creates uniquely identified synthetic schools/accounts and removes only its own records afterward. It checks all roles in two schools, login/session/device/logout behavior, cross-school SQL denial, transaction-context cleanup, disabled legacy bypass, Data API grants, rejected DDL/role escalation and refusal to start with privileged credentials. It is opt-in because it writes temporary fixtures to Supabase. This is focused verification, not full BE-02 acceptance or authorization to run the legacy reset suites on this database.
+
+## Administrator MFA
+
+Migration 008 retires unverified legacy/plaintext MFA secrets, disables those administrators and revokes their sessions. Student and teacher accounts retain their existing authentication flow. New synthetic seed administrators are inactive until protected enrollment; there is no default MFA secret or fallback code.
+
+Generate the server-only encryption key once before starting the backend:
+
+```bash
+npm --prefix nexora-backend run mfa:operator -- init-key
+```
+
+The command saves a random 32-byte `MFA_ENCRYPTION_KEY` privately in backend `.env` without printing it. Back it up in the deployment secret store and use the same value on every API instance. Startup rejects missing/invalid keys. Do not regenerate it on restart: changing it makes existing enrollment secrets unreadable and requires a planned recovery process.
+
+Operator commands require `MIGRATION_DATABASE_URL` and a private interactive terminal. Restrict host/secret access to authorized support operators. Verify the administrator using the school's established support contact before typing `VERIFIED`; the command records the operator identity, administrator and reason. Do not run through CI, terminal recording, shared screens, redirected output or application logs.
+
+For a new school and first administrator:
+
+```bash
+npm --prefix nexora-backend run mfa:operator -- bootstrap --school-name "Example School" --school-slug example-school --login-id EXAMPLE-ADM01 --display-name "Example Administrator" --operator "support-operator-id" --reason "Verified initial provisioning"
+```
+
+This creates the school and inactive administrator atomically with a generated password. The initial password and authenticator secret/URI appear only in the private terminal. Deliver the password privately to the verified administrator, have them add the authenticator through that private session and enter their six-digit code when prompted. Nothing activates until that code verifies. If confirmation fails, the account remains inactive. Do not place enrollment material or passwords in Git, chat, tickets or implementation reports.
+
+For an existing inactive administrator (including a legacy seed account):
+
+```bash
+npm --prefix nexora-backend run mfa:operator -- enroll --school-id SCHOOL_UUID --admin-id ADMIN_UUID --operator "support-operator-id" --reason "Verified administrator enrollment"
+```
+
+For lost-authenticator recovery, use the same command with `recover` instead of `enroll`, after verifying the support contact. Recovery immediately disables the account, retires the old secret and revokes all existing auth/challenge sessions. A fresh secret must be confirmed before reactivation. `enroll` refuses to replace a verified enrollment implicitly.
+
+Enrollment expires after five minutes and locks after five bad confirmation attempts. If a pending enrollment is still valid, rerun with `confirm` to enter a code without displaying the secret again; supply the same school/admin/operator/reason flags. Otherwise restart enrollment/recovery through the verified operator procedure. A code used to confirm enrollment is consumed: wait for a fresh 30-second code before the first login.
+
+Web verification uses six digits, HMAC-SHA1, 30-second steps and at most one adjacent step in each direction, following [RFC 6238](https://www.rfc-editor.org/rfc/rfc6238). Secrets use AES-256-GCM bound to school/admin/enrollment version. Five failed attempts per account within five minutes apply across all challenges and API restarts; subsequent verification returns 429 `RATE_LIMITED` with `Retry-After`. Challenge expiry is five minutes, checked after database locks. Code consumption, challenge revocation, verified-session creation and audit commit together. The existing login/MFA JSON contract is unchanged.
+
+Focused Supabase verification (temporary, explicitly scoped synthetic records only):
+
+```bash
+cd nexora-backend
+RUN_SUPABASE_MFA_TESTS=true RUN_SUPABASE_ISOLATION_TESTS=true npm run test -- test/admin-mfa.e2e-spec.ts test/tenant-isolation.e2e-spec.ts test/unit
+```
+
+The legacy seed-based recovery suite's fixed-secret setup is historical and must be ported to protected synthetic enrollment with the rest of those guarded suites before remote execution. It was not run against this application database.

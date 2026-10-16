@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Req, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { Public } from '../../common/guards/session-auth.guard';
+import { AllowMfaChallenge, Public } from '../../common/guards/session-auth.guard';
 import { Roles } from '../../common/guards/roles.guard';
 import { SkipCsrf } from '../../common/guards/csrf-origin.guard';
 
@@ -27,7 +27,7 @@ export class AuthController {
     return this.authService.login(req, res, body);
   }
 
-  @Public()
+  @AllowMfaChallenge()
   @Post('mfa/verify')
   @HttpCode(HttpStatus.OK)
   async verifyMfa(

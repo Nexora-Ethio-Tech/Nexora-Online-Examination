@@ -1,13 +1,30 @@
 # Backend implementation status
 
-Updated: 16 October 2026. Initial audit baseline: `23bc953`. Current task: `SEC-01` restricted runtime role and tenant isolation, on branch `backend`.
+Updated: 16 October 2026. Initial audit baseline: `23bc953`. Current task: `SEC-02` administrator MFA and protected provisioning/recovery, on branch `backend`.
 Scope: the actual backend in `nexora-backend/src`, its migrations, scripts and tests, compared with the supplied frontend handoffs through **BE-11 / API v0.12**.
 
 **The backend has a substantial BE-02 student-delivery implementation, but BE-02 is not yet contract-complete. Most later workflows still have no backend endpoints.** Some later features have supporting tables or small pieces of logic; those are identified separately below.
 
 The initial audit was source-only. The approved preparation repairs have now been verified against a disposable local PostgreSQL database: **81 backend tests and 10 frontend tests pass**, backend compilation passes, and root `npm run check` passes. This does not establish staging deployment, production browser, restricted-runtime-role, full MFA or complete BE-02 acceptance.
 
-## Latest completed task: SEC-01 restricted runtime and tenant isolation
+## Latest completed task: SEC-02 administrator MFA
+
+Implemented without changing the login/MFA JSON contract:
+
+- Six-digit RFC 6238 HMAC-SHA1 codes, 30-second steps, a random 20-byte secret and at most one adjacent step in either direction. Unit tests match all six published SHA1 vectors reduced to the required six digits.
+- AES-256-GCM encrypted secrets with fresh nonces and authenticated school/admin/enrollment-version binding. No plaintext or fixed-secret fallback remains. Startup validates the server-only `MFA_ENCRYPTION_KEY`; a private key was generated in the ignored backend `.env` without being printed or committed.
+- Five-minute challenges; verification rechecks challenge expiry, active school/admin and enrollment after database locks. A dedicated challenge guard allows unfinished MFA only at the existing verification route and rejects revoked/absent/non-challenge sessions with 401 before CSRF validation.
+- Durable account-level verification limits: five failures within five minutes across all challenges/process restarts, then 429 `RATE_LIMITED` with `Retry-After`. Malformed/reused codes cannot grant access. Successful-step consumption, challenge revocation, verified-session creation and audit commit atomically under the account lock; concurrent requests cannot consume a step twice. Forced failure rolls back the whole escalation.
+- Protected operator commands for first-school/first-admin bootstrap, enrollment, confirmation and lost-authenticator recovery. They require migration credentials and a private interactive terminal with support-contact identity verification. Account activation requires a valid TOTP; recovery disables the account, revokes all auth/challenge sessions, rotates the secret and requires proof before reactivation. Operator/admin/reason are audited. Initial passwords and enrollment material appear only in the protected terminal. Full commands/private delivery instructions are in [README](../README.md#administrator-mfa).
+- Migration `008_admin_mfa.sql` is applied on Supabase, adding enrollment/limiter fields and tenant-scoped successful-step history. It retired unverified legacy plaintext MFA, disabled legacy administrators and revoked their sessions. Real administrators now require protected enrollment; none were enrolled impersonally during this task. Synthetic seed administrators also start inactive without a shared MFA secret.
+
+Verification: **19 live Supabase MFA cases pass**, covering valid/invalid/boundary codes, repeated steps, same/different-challenge concurrency, limiter restart persistence, atomic rollback, corrupt-secret denial, private enrollment, recovery, wrong-school/unprivileged provisioning, atomic first-admin bootstrap and enrollment expiry/lockout. The CLI separately refused noninteractive enrollment before account access. Backend compilation and root `npm run check` pass (10 frontend tests). The complete selected run passes **63 tests across five files**: 19 live MFA, 13 live tenant-isolation and 31 unit cases. Its two synthetic MFA schools, bootstrap school and isolated accounts/sessions were cleaned up; legacy application records were not reset. Supabase records migration 008 with no pending migrations, and the runtime remains `nexora_runtime` with no RLS bypass.
+
+New files: migration 008, [MFA crypto helper](../src/common/crypto/mfa.ts), [verification transaction](../src/modules/auth/mfa-verification.ts), [operator operations](../src/modules/auth/mfa-operator.ts), [protected CLI](../scripts/mfa-operator.ts), [MFA unit vectors](../test/unit/mfa.spec.ts), [Supabase MFA suite](../test/admin-mfa.e2e-spec.ts). Modified: auth service/controller, session guard, DB authentication transaction helper, synthetic seed, isolation fixtures, package script, environment example, README and this implementation record. No dependencies changed.
+
+Remaining: real operator-assisted administrator enrollment and private key backup/deployment configuration, exact Origin enforcement, broader frontend/browser evidence, and the existing save/submit/recovery/transfer gaps. Legacy destructive seed/reset suites remain blocked from this Supabase application database and need an isolated Supabase target plus protected synthetic enrollment fixtures before they can run. This completes the MFA implementation slice, not full BE-02 acceptance.
+
+## Previous completed task: SEC-01 restricted runtime and tenant isolation
 
 Implemented and applied on Supabase:
 
@@ -59,6 +76,7 @@ Implemented and verified:
 | G04: attempt creation idempotency/concurrency/reconciliation | Fixed and verified, including restart and complete receipt/recovery metadata. |
 | G05: recovery decision schema defect | Fixed; existing accept/transfer regression suite passes. Full BE-06 revision/evidence work remains. |
 | G08: validation timing | Unlock and preparation timing fixed. Save/submit/transfer timing remains outstanding. |
+| G12: administrator MFA | SEC-02 implements encrypted secrets, five-minute challenges, durable limiter/step consumption and protected operator provisioning/recovery; 19 live MFA cases pass. Actual administrator enrollment remains a private operator action. |
 | G13: membership and RLS | Active membership/preparation repairs complete; SEC-01 subsequently added restricted-role auth/bootstrap and live Supabase tenant-isolation verification. Full workflow/browser evidence remains outstanding. |
 | G15: validation/errors | Preparation requests/pagination and generic error response improved. Validation of other mutations remains outstanding. |
 | Other baseline findings | Still open unless explicitly stated above. |
@@ -71,8 +89,8 @@ Files modified for this task: backend auth service/controller; delivery service/
 
 | Area | Status | Implemented in code | Work remaining |
 | --- | --- | --- | --- |
-| Foundation / operations | Partial | NestJS application, `/api/v1`, Supabase PostgreSQL service, migrations through 007, restricted runtime role, focused RLS/bootstrap verification, clock, crypto, error/response handling and DB readiness route. | Exact Origin enforcement, remaining validation/error repairs, production provisioning and deployment evidence. |
-| BE-02A: auth and preparation | Partial | Cookie sessions, CSRF, password login, admin TOTP challenge, logout, device registration, assigned exams, attempt creation/retrieval, encrypted package, timed unlock, restricted-role auth/bootstrap. | Approved preparation repairs and focused runtime isolation verification are complete. Remaining BE-02A acceptance includes full MFA/operator provisioning and real browser/staging verification. |
+| Foundation / operations | Partial | NestJS application, `/api/v1`, Supabase PostgreSQL service, migrations through 008, restricted runtime role, focused RLS/bootstrap verification, clock, crypto, MFA/operator provisioning, error/response handling and DB readiness route. | Exact Origin enforcement, remaining validation/error repairs, real deployment provisioning and deployment evidence. |
+| BE-02A: auth and preparation | Partial | Cookie sessions, CSRF, password login, encrypted admin TOTP with durable limiting/replay protection, protected operator bootstrap/enrollment/recovery, logout, device registration, assigned exams, attempt creation/retrieval, encrypted package, timed unlock, restricted-role auth/bootstrap. | Preparation, focused runtime isolation and MFA implementation slices are complete. Remaining acceptance includes real private administrator enrollment, exact Origin enforcement and real browser/staging verification. |
 | BE-02B: saves and final receipt | Partial | Row-locked saves, revision history, complete-snapshot validation, deterministic objective grading, atomic submission/result writes, digest and receipt reads/replay logic. | Cross-item sequence uniqueness, correct validation/arrival timing, device-expiry replay exception, stronger validation and concurrency evidence. |
 | BE-02C: recovery and transfer | Partial | Late evidence upload, decision/transfer handlers, receipt correlation, audit/replay code, sequence-zero answer inheritance. | Recovery decision SQL is fixed. Replay/concurrency gaps, BE-09 transfer contract, recovery evidence and result revisions remain. |
 | BE-03: teacher preparation | Schema groundwork only; API missing | Exam/version/item/topic tables and import/AI job tables; synthetic approved paper seed. | Teaching assignments API, drafts, real DOCX/XLSX import, AI workers, item review and submit-for-approval. |

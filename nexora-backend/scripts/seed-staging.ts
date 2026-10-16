@@ -40,18 +40,15 @@ async function seedStaging() {
     const teacherPassHash = await hashPassword('TeacherPass123!');
     const studentPassHash = await hashPassword('StudentPass123!');
 
-    // Base32 TOTP secret for admin: 'JBSWY3DPEHPK3PXP'
-    const adminMfaSecret = 'JBSWY3DPEHPK3PXP';
-
     logger.log('[Seed] Seeding Users for School 1...');
     // School 1 Admin
     await client.query(
       `
       INSERT INTO users (id, school_id, login_id, display_name, role, password_hash, mfa_secret_enc, status)
-      VALUES ('11111111-aaaa-4111-8111-111111111111', $1, 'HILL-ADM01', 'Hillside Admin', 'school_admin', $2, $3, 'active')
+      VALUES ('11111111-aaaa-4111-8111-111111111111', $1, 'HILL-ADM01', 'Hillside Admin', 'school_admin', $2, NULL, 'inactive')
       ON CONFLICT (login_id) DO UPDATE SET password_hash = EXCLUDED.password_hash;
     `,
-      [school1Id, adminPassHash, adminMfaSecret],
+      [school1Id, adminPassHash],
     );
 
     // School 1 Teacher
@@ -94,10 +91,10 @@ async function seedStaging() {
     await client.query(
       `
       INSERT INTO users (id, school_id, login_id, display_name, role, password_hash, mfa_secret_enc, status)
-      VALUES ('22222222-aaaa-4222-8222-222222222222', $1, 'MARY-ADM01', 'St Mary Admin', 'school_admin', $2, $3, 'active')
+      VALUES ('22222222-aaaa-4222-8222-222222222222', $1, 'MARY-ADM01', 'St Mary Admin', 'school_admin', $2, NULL, 'inactive')
       ON CONFLICT (login_id) DO UPDATE SET password_hash = EXCLUDED.password_hash;
     `,
-      [school2Id, adminPassHash, adminMfaSecret],
+      [school2Id, adminPassHash],
     );
 
     // School 2 Student

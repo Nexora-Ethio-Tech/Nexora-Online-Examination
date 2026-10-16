@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Response, Request } from 'express';
-import { authenticator } from 'otplib';
+import { mfaEncryptionKey, MFA_WINDOW_MS } from '../../common/crypto/mfa';
+import { verifyAdminMfa } from './mfa-verification';
 import { DbService } from '../../common/db/db.service';
 import { ClockService } from '../../common/clock/clock.service';
 import { generateOpaqueToken, hashSha256, verifyPassword } from '../../common/crypto/password';
@@ -14,17 +15,21 @@ import { deviceRequestSchema, parsePreparationInput } from '../delivery/preparat
 
 const SESSION_COOKIE_NAME = 'nexora_session';
 
-// 7 days session lifetime for authenticated users, 15 minutes for MFA challenges and anonymous sessions
+// Challenge expiry is independent of the authenticated session lifetime.
 const AUTH_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const MFA_CHALLENGE_TTL_MS = 15 * 60 * 1000;
+const MFA_CHALLENGE_TTL_MS = MFA_WINDOW_MS;
 const ANON_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   constructor(
     private readonly db: DbService,
     private readonly clock: ClockService,
   ) {}
+
+  onModuleInit() {
+    mfaEncryptionKey();
+  }
 
   private setCookie(res: Response, name: string, value: string, maxAgeMs: number) {
     res.cookie(name, value, {
@@ -95,7 +100,7 @@ export class AuthService {
 
     const userRes = await this.db.authQuery(
       { loginId: body.loginId.trim() },
-      `SELECT u.id, u.school_id, u.login_id, u.display_name, u.role, u.password_hash, u.mfa_secret_enc, u.status
+      `SELECT u.id, u.school_id, u.login_id, u.display_name, u.role, u.password_hash, u.mfa_secret_enc, u.mfa_enrolled_at, u.status
        FROM users u JOIN schools sch ON sch.id = u.school_id
        WHERE u.login_id = $1 AND sch.status = 'active'`,
       [body.loginId.trim()],
@@ -130,13 +135,23 @@ export class AuthService {
     if (user.role === 'school_admin') {
       // MFA challenge session
       const expiresAt = new Date(this.clock.now().getTime() + MFA_CHALLENGE_TTL_MS);
-      await this.db.tenantQuery(
-        user.school_id,
-        `INSERT INTO auth_sessions (
-           school_id, user_id, token_hash, csrf_token, is_mfa_challenge, expires_at
-         ) VALUES ($1, $2, $3, $4, TRUE, $5)`,
-        [user.school_id, user.id, tokenHash, newCsrf, expiresAt],
-      );
+      await this.db.withTenantTransaction(user.school_id, async (client) => {
+        const eligible = await client.query(
+          `SELECT u.id FROM users u JOIN schools sch ON sch.id = u.school_id
+           WHERE u.id = $1 AND u.school_id = $2 AND u.status = 'active' AND sch.status = 'active'
+             AND u.role = 'school_admin' AND u.password_hash = $3
+             AND u.mfa_enrolled_at IS NOT NULL AND u.mfa_secret_enc LIKE 'v1.%'
+           FOR UPDATE OF u FOR SHARE OF sch`,
+          [user.id, user.school_id, user.password_hash],
+        );
+        if (!eligible.rows[0])
+          throw DomainException.authRequired('Administrator enrollment required');
+        await client.query(
+          `INSERT INTO auth_sessions (school_id, user_id, token_hash, csrf_token, is_mfa_challenge, expires_at)
+           VALUES ($1, $2, $3, $4, TRUE, $5)`,
+          [user.school_id, user.id, tokenHash, newCsrf, expiresAt],
+        );
+      });
 
       this.setCookie(res, SESSION_COOKIE_NAME, newToken, MFA_CHALLENGE_TTL_MS);
 
@@ -163,71 +178,17 @@ export class AuthService {
     };
   }
 
-  async verifyMfa(req: Request, res: Response, body: { code: string }) {
-    const sessionCookie = req.cookies?.[SESSION_COOKIE_NAME];
-    if (!sessionCookie) {
+  async verifyMfa(req: Request, res: Response, body: unknown) {
+    const cookie: unknown = req.cookies?.[SESSION_COOKIE_NAME];
+    if (typeof cookie !== 'string' || !cookie)
       throw DomainException.authRequired('No active session');
+    const result = await verifyAdminMfa(this.db, hashSha256(cookie), body, () => this.clock.now());
+    if ('error' in result) {
+      if (result.retryAfter) res.setHeader('Retry-After', result.retryAfter.toString());
+      throw result.error;
     }
-
-    const tokenHash = hashSha256(sessionCookie);
-    const sRes = await this.db.authQuery(
-      { tokenHash },
-      `SELECT s.id, s.school_id, s.user_id, s.is_mfa_challenge, s.expires_at, s.revoked_at, u.mfa_secret_enc
-       FROM auth_sessions s
-       JOIN users u ON u.id = s.user_id
-       WHERE s.token_hash = $1`,
-      [tokenHash],
-    );
-
-    if (sRes.rows.length === 0 || sRes.rows[0].revoked_at) {
-      throw DomainException.authRequired('Invalid session');
-    }
-
-    const session = sRes.rows[0];
-    if (new Date(session.expires_at) <= this.clock.now()) {
-      throw DomainException.authRequired('MFA challenge expired');
-    }
-
-    if (!session.is_mfa_challenge) {
-      // Already verified
-      return { status: 'authenticated' };
-    }
-
-    // Validate TOTP code
-    const mfaSecret = session.mfa_secret_enc || 'TESTMFASECRET123456';
-    const isValid = authenticator.check(body.code.trim(), mfaSecret);
-
-    if (!isValid) {
-      throw DomainException.validationError('Invalid MFA verification code', [
-        { path: 'code', message: 'Incorrect TOTP code.' },
-      ]);
-    }
-
-    // Rotate session token on privilege escalation
-    await this.db.authQuery(
-      { tokenHash },
-      `UPDATE auth_sessions SET revoked_at = NOW() WHERE id = $1`,
-      [session.id],
-    );
-
-    const newToken = generateOpaqueToken(32);
-    const newTokenHash = hashSha256(newToken);
-    const newCsrf = generateOpaqueToken(24);
-    const expiresAt = new Date(this.clock.now().getTime() + AUTH_SESSION_TTL_MS);
-
-    await this.db.tenantQuery(
-      session.school_id,
-      `INSERT INTO auth_sessions (
-         school_id, user_id, token_hash, csrf_token, is_mfa_challenge, mfa_verified_at, expires_at
-       ) VALUES ($1, $2, $3, $4, FALSE, $5, $6)`,
-      [session.school_id, session.user_id, newTokenHash, newCsrf, this.clock.now(), expiresAt],
-    );
-
-    this.setCookie(res, SESSION_COOKIE_NAME, newToken, AUTH_SESSION_TTL_MS);
-
-    return {
-      status: 'authenticated',
-    };
+    this.setCookie(res, SESSION_COOKIE_NAME, result.token, AUTH_SESSION_TTL_MS);
+    return { status: 'authenticated' };
   }
 
   async getMe(req: Request) {

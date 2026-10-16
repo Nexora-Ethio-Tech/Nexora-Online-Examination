@@ -7,6 +7,8 @@ import { DomainException } from '../errors/domain.exception';
 
 export const IS_PUBLIC_KEY = 'isPublic';
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+const ALLOW_MFA_CHALLENGE_KEY = 'allowMfaChallenge';
+export const AllowMfaChallenge = () => SetMetadata(ALLOW_MFA_CHALLENGE_KEY, true);
 
 export interface RequestUser {
   id: string;
@@ -49,6 +51,10 @@ export class SessionAuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
+    const allowMfaChallenge = reflector.getAllAndOverride<boolean>(ALLOW_MFA_CHALLENGE_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     const req = context.switchToHttp().getRequest<Request>();
     const sessionCookie = req.cookies?.['nexora_session'];
@@ -67,12 +73,14 @@ export class SessionAuthGuard implements CanActivate {
         s.user_id,
         s.csrf_token,
         s.is_mfa_challenge,
+        s.mfa_verified_at,
         s.expires_at,
         s.revoked_at,
         u.login_id,
         u.display_name,
         u.role,
         u.status AS user_status,
+        u.mfa_enrolled_at,
         sch.status AS school_status,
         sch.name AS school_name,
         sch.timezone AS school_timezone
@@ -96,7 +104,13 @@ export class SessionAuthGuard implements CanActivate {
 
     if (
       session.revoked_at ||
-      (session.user_id && (session.user_status !== 'active' || session.school_status !== 'active'))
+      (session.user_id &&
+        (session.user_status !== 'active' || session.school_status !== 'active')) ||
+      (session.role === 'school_admin' &&
+        (!session.mfa_enrolled_at ||
+          (!session.is_mfa_challenge &&
+            (!session.mfa_verified_at ||
+              new Date(session.mfa_verified_at) < new Date(session.mfa_enrolled_at)))))
     ) {
       if (isPublic) return true;
       throw DomainException.authRequired('Session has been revoked');
@@ -132,7 +146,10 @@ export class SessionAuthGuard implements CanActivate {
       return true;
     }
 
-    if (session.is_mfa_challenge) {
+    if (allowMfaChallenge && (!session.is_mfa_challenge || session.role !== 'school_admin')) {
+      throw DomainException.authRequired('MFA challenge required');
+    }
+    if (session.is_mfa_challenge && !allowMfaChallenge) {
       throw DomainException.authRequired('MFA verification challenge required');
     }
 
