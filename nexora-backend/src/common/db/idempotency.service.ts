@@ -33,7 +33,7 @@ export class IdempotencyService {
     const payloadDigest = computeCanonicalDigest(scope.payload);
 
     const runQuery = (text: string, params?: unknown[]) =>
-      client ? client.query(text, params) : this.db.query(text, params);
+      client ? client.query(text, params) : this.db.tenantQuery(scope.schoolId, text, params);
 
     const existing = await runQuery(
       `SELECT payload_digest, status_code, response_body

@@ -1,13 +1,30 @@
 # Backend implementation status
 
-Updated: 16 October 2026. Initial audit baseline: `23bc953`. Current task: `DB-01` persistent Supabase configuration and migration verification, on branch `backend`.
+Updated: 16 October 2026. Initial audit baseline: `23bc953`. Current task: `SEC-01` restricted runtime role and tenant isolation, on branch `backend`.
 Scope: the actual backend in `nexora-backend/src`, its migrations, scripts and tests, compared with the supplied frontend handoffs through **BE-11 / API v0.12**.
 
 **The backend has a substantial BE-02 student-delivery implementation, but BE-02 is not yet contract-complete. Most later workflows still have no backend endpoints.** Some later features have supporting tables or small pieces of logic; those are identified separately below.
 
 The initial audit was source-only. The approved preparation repairs have now been verified against a disposable local PostgreSQL database: **81 backend tests and 10 frontend tests pass**, backend compilation passes, and root `npm run check` passes. This does not establish staging deployment, production browser, restricted-runtime-role, full MFA or complete BE-02 acceptance.
 
-## Latest completed task: DB-01 Supabase configuration
+## Latest completed task: SEC-01 restricted runtime and tenant isolation
+
+Implemented and applied on Supabase:
+
+- Migration `006_restricted_runtime.sql` creates a restricted runtime role, enables/forces RLS on all application tables, replaces the legacy tenant policies and removes publishable-key Data API access to application tables. `app.is_migration_or_admin` no longer bypasses tenant policies. The migration ledger is inaccessible to the runtime role.
+- Migration `007_school_membership_locks.sql` supplies the tenant-scoped school UPDATE permission/policy needed by existing membership `FOR SHARE` locks. The first live enrollment test identified this missing permission; its regression now passes.
+- `db:provision-runtime` generates a private runtime password and replaces only `DATABASE_URL` in the ignored backend `.env` with permissions 0600. The existing administrative `MIGRATION_DATABASE_URL` remains unchanged. The provisioning command refuses implicit password rotation.
+- The running API uses `nexora_runtime`, with no superuser, RLS-bypass, database-creation or role-creation privileges. Startup rejects privileged, schema-creation, table-owner or elevated-membership runtime credentials; this rejection is verified against the actual migration connection.
+- Authentication uses transaction-local login-ID or hashed-cookie lookup context before a school is known. Session restoration, anonymous CSRF bootstrap, login, enrollment and logout work with the restricted connection. Inactive-school login is rejected. Existing standalone submission/recovery/receipt and idempotency queries now enter tenant context explicitly.
+- Tenant and authentication contexts are transaction-local and separate. Unscoped SQL returns no tenant rows. Shared browser credentials remain global to the backend role; verified student enrollment/ownership remains tenant-scoped. This preserves the shared-browser model without exposing the registry to browser Data API roles.
+
+Verification: **13 live Supabase isolation tests and 21 backend unit tests pass**, backend compilation passes, and root `npm run check` passes (10 frontend tests). The new opt-in suite creates randomly identified schools/accounts, tests both schools/all roles (including denial before admin MFA), cross-school reads/writes, the disabled bypass, transaction-context cleanup, denied DDL/role escalation, bootstrap-table Data API permissions and restricted-role login/device/logout. Cleanup removes only this suite's own synthetic school/account/device/session records. No local database or legacy seed/reset suite was used.
+
+Command: `RUN_SUPABASE_ISOLATION_TESTS=true npm run test -- test/tenant-isolation.e2e-spec.ts test/unit` from the backend directory. This is focused real-database evidence, not full student-runner/browser/BE-02 acceptance. The legacy destructive suites remain guarded and require a separate isolated Supabase target before use. Full MFA/operator provisioning, exact Origin enforcement and the previously identified save/submit/recovery/transfer gaps remain open.
+
+New files: migrations 006/007, [runtime provisioning script](../scripts/provision-runtime.ts), [Supabase isolation suite](../test/tenant-isolation.e2e-spec.ts). Modified: DB service and idempotency service, session guard, auth service, delivery service, database-status script, backend package scripts, README and this implementation record. No dependencies changed; no credentials are tracked.
+
+## Previous completed task: DB-01 Supabase configuration
 
 Supabase is the database for ongoing backend development, application data and migrations. The private backend `.env` is ignored by Git. Both `DATABASE_URL` and `MIGRATION_DATABASE_URL` now connect successfully to the intended Supabase project through its Session pooler on port 5432. No credentials are included in this report.
 
@@ -19,7 +36,7 @@ Fixed the startup prerequisite exposed by this check: `tsx watch` did not emit c
 
 Backend compilation, root `npm run check` (10 frontend tests) and 21 backend unit tests pass, including 14 database-configuration tests. The previously reported 81-test integration result below remains the earlier local PostgreSQL verification; it is not a Supabase result. No local database was used by DB-01. Existing destructive test guards remain in place until a separately isolated Supabase test target is configured.
 
-Still outstanding: the runtime connection currently uses the same privileged role as migrations (`bypassrls: true`). Restricted runtime privileges and authorized auth/bootstrap access must be completed and verified before claiming tenant isolation. Full BE-02A MFA/operator provisioning also remains incomplete; subsequent backend work follows the handoff's dependency order. This setup does not mark BE-02 accepted.
+At DB-01 completion, the runtime connection still used the privileged migration role. SEC-01 above subsequently separated these credentials and verified focused runtime isolation/bootstrap behavior. Full BE-02A MFA/operator provisioning remains incomplete. Neither setup task marks BE-02 accepted.
 
 ## Latest completed task: BE-02A preparation repairs
 
@@ -42,7 +59,7 @@ Implemented and verified:
 | G04: attempt creation idempotency/concurrency/reconciliation | Fixed and verified, including restart and complete receipt/recovery metadata. |
 | G05: recovery decision schema defect | Fixed; existing accept/transfer regression suite passes. Full BE-06 revision/evidence work remains. |
 | G08: validation timing | Unlock and preparation timing fixed. Save/submit/transfer timing remains outstanding. |
-| G13: membership and RLS | Active membership and preparation tenant transactions improved. Restricted-role auth/bootstrap isolation remains unverified/incomplete. |
+| G13: membership and RLS | Active membership/preparation repairs complete; SEC-01 subsequently added restricted-role auth/bootstrap and live Supabase tenant-isolation verification. Full workflow/browser evidence remains outstanding. |
 | G15: validation/errors | Preparation requests/pagination and generic error response improved. Validation of other mutations remains outstanding. |
 | Other baseline findings | Still open unless explicitly stated above. |
 
@@ -54,8 +71,8 @@ Files modified for this task: backend auth service/controller; delivery service/
 
 | Area | Status | Implemented in code | Work remaining |
 | --- | --- | --- | --- |
-| Foundation / operations | Partial | NestJS application, `/api/v1`, Supabase PostgreSQL service, six recorded SQL migrations, clock, crypto, error/response handling, verified local backend DB readiness route. | Restricted-runtime-role/RLS verification, exact Origin enforcement, safe errors, production provisioning and deployment evidence. |
-| BE-02A: auth and preparation | Partial | Cookie sessions, CSRF, password login, admin TOTP challenge, logout, device registration, assigned exams, attempt creation/retrieval, encrypted package, timed unlock. | Approved preparation repairs are complete. Remaining BE-02A acceptance includes full MFA/operator provisioning, restricted-runtime-role auth/bootstrap and real browser/staging verification. |
+| Foundation / operations | Partial | NestJS application, `/api/v1`, Supabase PostgreSQL service, migrations through 007, restricted runtime role, focused RLS/bootstrap verification, clock, crypto, error/response handling and DB readiness route. | Exact Origin enforcement, remaining validation/error repairs, production provisioning and deployment evidence. |
+| BE-02A: auth and preparation | Partial | Cookie sessions, CSRF, password login, admin TOTP challenge, logout, device registration, assigned exams, attempt creation/retrieval, encrypted package, timed unlock, restricted-role auth/bootstrap. | Approved preparation repairs and focused runtime isolation verification are complete. Remaining BE-02A acceptance includes full MFA/operator provisioning and real browser/staging verification. |
 | BE-02B: saves and final receipt | Partial | Row-locked saves, revision history, complete-snapshot validation, deterministic objective grading, atomic submission/result writes, digest and receipt reads/replay logic. | Cross-item sequence uniqueness, correct validation/arrival timing, device-expiry replay exception, stronger validation and concurrency evidence. |
 | BE-02C: recovery and transfer | Partial | Late evidence upload, decision/transfer handlers, receipt correlation, audit/replay code, sequence-zero answer inheritance. | Recovery decision SQL is fixed. Replay/concurrency gaps, BE-09 transfer contract, recovery evidence and result revisions remain. |
 | BE-03: teacher preparation | Schema groundwork only; API missing | Exam/version/item/topic tables and import/AI job tables; synthetic approved paper seed. | Teaching assignments API, drafts, real DOCX/XLSX import, AI workers, item review and submit-for-approval. |

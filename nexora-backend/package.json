@@ -8,6 +8,7 @@
     "start": "node dist/src/main.js",
     "start:dev": "npm run build -- --incremental false && node dist/src/main.js",
     "db:status": "tsx scripts/database-status.ts",
+    "db:provision-runtime": "tsx scripts/provision-runtime.ts",
     "migrate": "tsx scripts/migrate.ts",
     "seed": "tsx scripts/seed-staging.ts",
     "test": "vitest run",

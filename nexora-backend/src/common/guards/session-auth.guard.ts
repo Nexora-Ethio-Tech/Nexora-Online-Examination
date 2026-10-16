@@ -86,7 +86,7 @@ export class SessionAuthGuard implements CanActivate {
       throw new Error('DbService not injected');
     }
 
-    const result = await this.db.query(query, [tokenHash]);
+    const result = await this.db.authQuery({ tokenHash }, query, [tokenHash]);
     if (result.rows.length === 0) {
       if (isPublic) return true;
       throw DomainException.authRequired('Invalid session token');

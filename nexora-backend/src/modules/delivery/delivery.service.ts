@@ -303,7 +303,8 @@ export class DeliveryService {
     }
 
     // 3. Fast check for existing committed submission (Replay / ALREADY_FINALIZED)
-    const existingSubRes = await this.db.query(
+    const existingSubRes = await this.db.tenantQuery(
+      school.id,
       `SELECT s.*, a.student_id
        FROM submissions s
        JOIN attempts a ON a.id = s.attempt_id AND a.school_id = s.school_id
@@ -596,7 +597,8 @@ export class DeliveryService {
       throw DomainException.authRequired();
     }
 
-    const res = await this.db.query(
+    const res = await this.db.tenantQuery(
+      school.id,
       `SELECT a.id AS attempt_id, a.state,
               s.id AS receipt_id, s.accepted_at, s.snapshot_digest, s.idempotency_key, s.final_seq
        FROM attempts a
@@ -611,7 +613,8 @@ export class DeliveryService {
 
     const att = res.rows[0];
 
-    const recoveryRes = await this.db.query(
+    const recoveryRes = await this.db.tenantQuery(
+      school.id,
       `SELECT id, status, received_at
        FROM recovery_uploads
        WHERE attempt_id = $1 AND school_id = $2
@@ -686,7 +689,8 @@ export class DeliveryService {
     }
 
     // Check existing recovery replay
-    const existingRec = await this.db.query(
+    const existingRec = await this.db.tenantQuery(
+      school.id,
       `SELECT r.*, a.student_id
        FROM recovery_uploads r
        JOIN attempts a ON a.id = r.attempt_id AND a.school_id = r.school_id

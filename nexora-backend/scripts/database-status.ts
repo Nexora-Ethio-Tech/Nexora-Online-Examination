@@ -14,8 +14,16 @@ async function inspect(mode: 'runtime' | 'migration') {
     const client = await pool.connect();
     try {
       await client.query('BEGIN READ ONLY');
-      const role = await client.query<{ database: string; superuser: boolean; bypassrls: boolean }>(
-        `SELECT current_database() AS database, rolsuper AS superuser, rolbypassrls AS bypassrls
+      const role = await client.query<{
+        database: string;
+        role: string;
+        superuser: boolean;
+        bypassrls: boolean;
+        createrole: boolean;
+        createdb: boolean;
+      }>(
+        `SELECT current_database() AS database, current_user AS role,
+         rolsuper AS superuser, rolbypassrls AS bypassrls, rolcreaterole AS createrole, rolcreatedb AS createdb
          FROM pg_roles WHERE rolname = current_user`,
       );
       const tables = await client.query<{ table_name: string }>(
@@ -39,8 +47,9 @@ async function inspect(mode: 'runtime' | 'migration') {
             connected: true,
             ...role.rows[0],
             tables: tables.rows.map((row) => row.table_name),
-            appliedMigrations: [...recorded],
-            pendingMigrations: files.filter((file) => !recorded.has(file)),
+            migrationHistoryAccessible: ledger,
+            appliedMigrations: ledger ? [...recorded] : null,
+            pendingMigrations: ledger ? files.filter((file) => !recorded.has(file)) : null,
           },
           null,
           2,

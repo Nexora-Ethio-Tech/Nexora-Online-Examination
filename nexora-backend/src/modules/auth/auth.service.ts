@@ -49,7 +49,8 @@ export class AuthService {
     const existingCookie = req.cookies?.[SESSION_COOKIE_NAME];
     if (existingCookie) {
       const tokenHash = hashSha256(existingCookie);
-      const resDb = await this.db.query(
+      const resDb = await this.db.authQuery(
+        { tokenHash },
         `SELECT id, csrf_token, expires_at, revoked_at FROM auth_sessions WHERE token_hash = $1`,
         [tokenHash],
       );
@@ -72,7 +73,8 @@ export class AuthService {
     const csrfToken = generateOpaqueToken(24);
     const expiresAt = new Date(this.clock.now().getTime() + ANON_SESSION_TTL_MS);
 
-    await this.db.query(
+    await this.db.authQuery(
+      { tokenHash },
       `INSERT INTO auth_sessions (token_hash, csrf_token, is_mfa_challenge, expires_at)
        VALUES ($1, $2, FALSE, $3)`,
       [tokenHash, csrfToken, expiresAt],
@@ -91,10 +93,11 @@ export class AuthService {
       throw DomainException.authRequired('Invalid login credentials');
     }
 
-    const userRes = await this.db.query(
+    const userRes = await this.db.authQuery(
+      { loginId: body.loginId.trim() },
       `SELECT u.id, u.school_id, u.login_id, u.display_name, u.role, u.password_hash, u.mfa_secret_enc, u.status
-       FROM users u
-       WHERE u.login_id = $1`,
+       FROM users u JOIN schools sch ON sch.id = u.school_id
+       WHERE u.login_id = $1 AND sch.status = 'active'`,
       [body.loginId.trim()],
     );
 
@@ -112,9 +115,11 @@ export class AuthService {
     const oldCookie = req.cookies?.[SESSION_COOKIE_NAME];
     if (oldCookie) {
       const oldHash = hashSha256(oldCookie);
-      await this.db.query(`UPDATE auth_sessions SET revoked_at = NOW() WHERE token_hash = $1`, [
-        oldHash,
-      ]);
+      await this.db.authQuery(
+        { tokenHash: oldHash },
+        `UPDATE auth_sessions SET revoked_at = NOW() WHERE token_hash = $1`,
+        [oldHash],
+      );
     }
 
     // Create fresh session
@@ -125,7 +130,8 @@ export class AuthService {
     if (user.role === 'school_admin') {
       // MFA challenge session
       const expiresAt = new Date(this.clock.now().getTime() + MFA_CHALLENGE_TTL_MS);
-      await this.db.query(
+      await this.db.tenantQuery(
+        user.school_id,
         `INSERT INTO auth_sessions (
            school_id, user_id, token_hash, csrf_token, is_mfa_challenge, expires_at
          ) VALUES ($1, $2, $3, $4, TRUE, $5)`,
@@ -142,7 +148,8 @@ export class AuthService {
 
     // Student or Teacher session
     const expiresAt = new Date(this.clock.now().getTime() + AUTH_SESSION_TTL_MS);
-    await this.db.query(
+    await this.db.tenantQuery(
+      user.school_id,
       `INSERT INTO auth_sessions (
          school_id, user_id, token_hash, csrf_token, is_mfa_challenge, expires_at
        ) VALUES ($1, $2, $3, $4, FALSE, $5)`,
@@ -163,7 +170,8 @@ export class AuthService {
     }
 
     const tokenHash = hashSha256(sessionCookie);
-    const sRes = await this.db.query(
+    const sRes = await this.db.authQuery(
+      { tokenHash },
       `SELECT s.id, s.school_id, s.user_id, s.is_mfa_challenge, s.expires_at, s.revoked_at, u.mfa_secret_enc
        FROM auth_sessions s
        JOIN users u ON u.id = s.user_id
@@ -196,14 +204,19 @@ export class AuthService {
     }
 
     // Rotate session token on privilege escalation
-    await this.db.query(`UPDATE auth_sessions SET revoked_at = NOW() WHERE id = $1`, [session.id]);
+    await this.db.authQuery(
+      { tokenHash },
+      `UPDATE auth_sessions SET revoked_at = NOW() WHERE id = $1`,
+      [session.id],
+    );
 
     const newToken = generateOpaqueToken(32);
     const newTokenHash = hashSha256(newToken);
     const newCsrf = generateOpaqueToken(24);
     const expiresAt = new Date(this.clock.now().getTime() + AUTH_SESSION_TTL_MS);
 
-    await this.db.query(
+    await this.db.tenantQuery(
+      session.school_id,
       `INSERT INTO auth_sessions (
          school_id, user_id, token_hash, csrf_token, is_mfa_challenge, mfa_verified_at, expires_at
        ) VALUES ($1, $2, $3, $4, FALSE, $5, $6)`,
@@ -234,9 +247,11 @@ export class AuthService {
     const sessionCookie = req.cookies?.[SESSION_COOKIE_NAME];
     if (sessionCookie) {
       const tokenHash = hashSha256(sessionCookie);
-      await this.db.query(`UPDATE auth_sessions SET revoked_at = NOW() WHERE token_hash = $1`, [
-        tokenHash,
-      ]);
+      await this.db.authQuery(
+        { tokenHash },
+        `UPDATE auth_sessions SET revoked_at = NOW() WHERE token_hash = $1`,
+        [tokenHash],
+      );
     }
 
     this.clearCookie(res, SESSION_COOKIE_NAME);
