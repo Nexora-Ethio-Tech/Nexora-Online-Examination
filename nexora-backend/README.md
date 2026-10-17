@@ -130,10 +130,20 @@ Local Windows-compatible API startup: `npm run start:dev`. Continuous durable im
 
 ### Database TLS before hosting
 
-Production and Vercel connections require certificate verification. Supply `DB_SSL_CA_FILE` pointing to a trusted PostgreSQL CA PEM file when the runtime does not already trust the issuer. Obtain this certificate through the database provider's authenticated settings or your organization's trusted certificate administrator. Never copy a certificate from an unverified connection merely to silence the error. The current local connection's strict check returned `self-signed certificate in certificate chain`; hosted TLS acceptance remains outstanding. Explicit non-Vercel development/test mode retains the previous unverified encrypted connection behavior if no CA file is provided. Do not use development mode to host real school data.
+Production and Vercel connections require certificate verification. On Vercel, set `DB_SSL_CA` to the full trusted PostgreSQL CA certificate in PEM format, including BEGIN/END CERTIFICATE lines. Both actual newlines and literal \n separators are supported. Alternatively, supply `DB_SSL_CA_FILE` pointing to an included trusted PEM file. Configure only one of these variables. Obtain this certificate through the database provider's authenticated settings or your organization's trusted certificate administrator. Never copy a certificate from an unverified connection merely to silence the error. The current local connection's strict check returned `self-signed certificate in certificate chain`; hosted TLS acceptance remains outstanding. Explicit non-Vercel development/test mode retains the previous unverified encrypted connection behavior if no CA file is provided. Do not use development mode to host real school data.
 
 ### Request limits
 
 Migration 018 adds durable counters, separate from official exam writes. Login allows ten attempts per login ID per five minutes; practice mutations allow 120 per student/school per minute. A limited request returns 429 with `Retry-After`. Counters survive API restarts and contain hashed scope identifiers, not passwords. Configure host-level connection/IP limits as well, particularly for anonymous CSRF bootstrap and multipart requests. Counter housekeeping may remove expired counter rows; it must never delete academic recovery or pending-submission evidence.
 
 Backend deployment builds use tsconfig.build.json and compile src/ plus operator/worker scripts only. Browser integration tests remain in tsconfig.json and are type-checked separately in CI after the root frontend dependencies are installed. A backend-only Vercel install does not require Playwright.
+
+### Resolve Vercel SELF_SIGNED_CERT_IN_CHAIN
+
+1. In the correct Supabase project, open Database Settings and download the server root/SSL certificate. See [Supabase connection documentation](https://supabase.com/docs/guides/database/psql).
+2. Open that downloaded certificate as text; copy its complete PEM content including BEGIN/END CERTIFICATE lines.
+3. In the backend Vercel project, open Settings > Environment Variables and add `DB_SSL_CA` with that content for Production and Preview. If `DB_SSL_CA_FILE` was set to a local computer path, remove it; Vercel cannot read local Windows files.
+4. Deploy the code supporting `DB_SSL_CA`, then redeploy after saving environment changes. Preserve `DATABASE_URL` using the restricted runtime role and keep certificate verification enabled. Do not set NODE_TLS_REJECT_UNAUTHORIZED=0 or switch production to development mode.
+5. The backend's `/api/v1/auth/me` should return an application JSON response (normally 401 when signed out), rather than a function invocation failure. Configure exact HTTPS `APP_ORIGIN`/`CORS_ORIGIN` values if startup next reports an origin configuration error.
+
+The 17 October runtime log confirmed this failure during `DbService.onModuleInit`; it is separate from frontend proxy routing. Hosted recovery requires the actual trusted provider CA to be supplied by the operator.
