@@ -6,6 +6,7 @@ export type ErrorDetail = {
 };
 
 export type PermittedErrorCode =
+  | 'LEGACY_EXAM_REPAIR_REQUIRED'
   | 'PRACTICE_INCOMPLETE'
   | 'ALREADY_ANSWERED'
   | 'ACCOMMODATIONS_LOCKED'

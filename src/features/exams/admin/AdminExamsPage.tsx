@@ -58,9 +58,16 @@ export function AdminExamsPage() {
               {row.exam.itemCount} questions · {row.exam.totalMarks} marks ·{' '}
               {row.exam.durationMinutes} minutes
             </p>
-            <Button asChild variant="outline" className="mt-4 min-h-11">
-              <Link to={`/admin/exams/${row.exam.examId}`}>Review and schedule</Link>
-            </Button>
+            {row.exam.assignmentId === null ? (
+              <p role="status" className="mt-4 text-sm text-destructive">
+                Legacy paper: teacher assignment missing. Recreate and review this paper under a
+                valid teacher assignment before approval or scheduling.
+              </p>
+            ) : (
+              <Button asChild variant="outline" className="mt-4 min-h-11">
+                <Link to={`/admin/exams/${row.exam.examId}`}>Review and schedule</Link>
+              </Button>
+            )}
           </article>
         ))}
       </div>

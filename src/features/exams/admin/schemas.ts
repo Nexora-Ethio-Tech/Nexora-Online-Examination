@@ -18,7 +18,7 @@ export const sessionSchema = z.object({
   canReschedule: z.boolean(),
 });
 export const adminSummarySchema = z.object({
-  exam: draftSchema,
+  exam: draftSchema.extend({ assignmentId: id.nullable() }),
   teacherName: id,
   subjectName: id,
   className: id,
