@@ -1,3 +1,6 @@
+import { OperationalService } from './operational.service';
+import { RecoveryReviewService } from './recovery-review.service';
+import { MonitorService } from './monitor.service';
 import { SupervisionService } from './supervision.service';
 import {
   Controller,
@@ -19,7 +22,6 @@ import {
   SubmitAttemptDto,
   UploadRecoveryDto,
   DecideRecoveryDto,
-  TransferDeviceDto,
 } from './delivery.service';
 import { Request, Response } from 'express';
 import { Roles } from '../../common/guards/roles.guard';
@@ -29,10 +31,53 @@ import { DeviceBindingGuard } from '../../common/guards/device-binding.guard';
 @Controller()
 export class DeliveryController {
   constructor(
+    private readonly recoveryReview: RecoveryReviewService,
+    private readonly operations: OperationalService,
+    private readonly monitor: MonitorService,
     private readonly supervision: SupervisionService,
     private readonly deliveryService: DeliveryService,
     private readonly preparationService: PreparationService,
   ) {}
+
+  @Roles('school_admin') @Get('admin/recovery') recoveryList(
+    @Req() req: Request,
+    @Query() query: unknown,
+  ) {
+    return this.recoveryReview.list(req, query);
+  }
+  @Roles('school_admin') @Get('admin/recovery/:id') recoveryDetail(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ) {
+    return this.recoveryReview.detail(req, id);
+  }
+
+  @Roles('student')
+  @HttpCode(HttpStatus.OK)
+  @Post('attempts/:attemptId/readiness')
+  readiness(
+    @Req() req: Request,
+    @Param('attemptId') id: string,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: string | undefined,
+  ) {
+    return this.operations.readiness(req, id, body, key);
+  }
+  @Roles('school_admin')
+  @Get('admin/monitor/sessions')
+  monitorList(@Req() req: Request, @Query() query: unknown) {
+    return this.monitor.list(req, query);
+  }
+  @Roles('school_admin')
+  @Get('admin/monitor/sessions/:id')
+  monitorSitting(@Req() req: Request, @Param('id') id: string, @Query() query: unknown) {
+    return this.monitor.detail(req, id, query);
+  }
+  @Roles('school_admin')
+  @Get('admin/monitor/attempts/:id')
+  monitorAttempt(@Req() req: Request, @Param('id') id: string, @Query() query: unknown) {
+    return this.monitor.detail(req, id, query, true);
+  }
 
   @Roles('student', 'school_admin')
   @Get('attempts/:attemptId/supervision')
@@ -172,8 +217,8 @@ export class DeliveryController {
     @Req() req: Request,
     @Param('attemptId') attemptId: string,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
-    @Body() body: TransferDeviceDto,
+    @Body() body: unknown,
   ) {
-    return this.deliveryService.transferDevice(req, attemptId, idempotencyKey, body);
+    return this.operations.transfer(req, attemptId, body, idempotencyKey);
   }
 }

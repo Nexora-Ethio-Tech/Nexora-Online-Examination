@@ -5,6 +5,21 @@ const supabaseUrl =
   'postgresql://postgres.example:synthetic-password@aws-0-example.pooler.supabase.com:5432/postgres';
 
 describe('Persistent database configuration', () => {
+  it('requires verified TLS in production and cannot be weakened by URL sslmode', () => {
+    const config = databasePoolConfig('runtime', {
+      DATABASE_URL: supabaseUrl + '?sslmode=no-verify',
+      NODE_ENV: 'production',
+    });
+    expect(config.ssl).toMatchObject({ rejectUnauthorized: true });
+    expect(config.connectionString).not.toContain('sslmode');
+    expect(
+      databasePoolConfig('runtime', {
+        DATABASE_URL: supabaseUrl,
+        NODE_ENV: 'development',
+        VERCEL: '1',
+      }).ssl,
+    ).toMatchObject({ rejectUnauthorized: true });
+  });
   it('closes released Vercel runtime connections and defaults to one connection per instance', () => {
     expect(databasePoolConfig('runtime', { DATABASE_URL: supabaseUrl, VERCEL: '1' })).toMatchObject(
       {

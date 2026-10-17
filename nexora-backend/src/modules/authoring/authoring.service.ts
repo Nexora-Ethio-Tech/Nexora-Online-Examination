@@ -1,0 +1,384 @@
+import { Injectable } from '@nestjs/common';
+import { Request } from 'express';
+import { PoolClient } from 'pg';
+import { z } from 'zod';
+import { DbService } from '../../common/db/db.service';
+import { mutate } from '../../common/db/mutation';
+import { DomainException } from '../../common/errors/domain.exception';
+import { computeCanonicalDigest } from '../../common/crypto/canonical-digest';
+import {
+  parsePreparationInput as parse,
+  resourceIdSchema as uuid,
+} from '../delivery/preparation-schemas';
+import { draftSchema, itemSchema, metadataSchema, revision, Item } from './schemas';
+
+export type Exam = {
+  id: string;
+  title: string;
+  instructions: string;
+  assignment_id: string;
+  language: string;
+  duration_minutes: number;
+  pass_percent: string | number;
+  ordering: string;
+  revision: number;
+  state: string;
+  import_id: string | null;
+  return_comment: string | null;
+  created_at: Date;
+};
+export function teacherIdentity(req: Request) {
+  if (!req.sessionUser || !req.school) throw DomainException.authRequired();
+  if (req.sessionUser.role !== 'teacher') throw DomainException.forbidden();
+  return { school: req.school, user: req.sessionUser };
+}
+const listInput = z
+  .object({
+    limit: z
+      .string()
+      .regex(/^\d+$/)
+      .transform(Number)
+      .pipe(z.number().int().min(1).max(100))
+      .optional(),
+    cursor: z.string().max(1200).optional(),
+  })
+  .strict();
+const itemSelect = `SELECT item_id "itemId",external_id "externalId",type,stem,options,correct_key "correctOptionId",marks,primary_topic "primaryTopic",secondary_topics "secondaryTopics",explanation,key_consistent "keyConsistent",review_flags "reviewFlags",reviewed,review_note "reviewNote" FROM exam_items WHERE school_id=$1 AND exam_id=$2 AND exam_version_id IS NULL ORDER BY position,item_id`;
+
+@Injectable()
+export class AuthoringService {
+  constructor(private readonly db: DbService) {}
+  async owned(c: PoolClient, school: string, teacher: string, id: string, lock = false) {
+    const row = (
+      await c.query<Exam>(
+        `SELECT e.* FROM exams e JOIN teacher_assignments a ON a.school_id=e.school_id AND a.id=e.assignment_id AND a.teacher_id=e.owner_id AND a.class_id=e.class_id AND a.subject_id=e.subject_id JOIN classes cl ON cl.school_id=a.school_id AND cl.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE e.school_id=$1 AND e.owner_id=$2 AND e.id=$3 AND a.active AND cl.active AND s.active ${lock ? 'FOR UPDATE OF e FOR SHARE OF a,cl,s' : ''}`,
+        [school, teacher, id],
+      )
+    ).rows[0];
+    if (!row) throw DomainException.notFound();
+    return row;
+  }
+  async items(c: PoolClient, school: string, id: string) {
+    return z
+      .array(itemSchema)
+      .max(200)
+      .parse((await c.query(itemSelect, [school, id])).rows);
+  }
+  async dto(c: PoolClient, school: string, e: Exam) {
+    const items = await this.items(c, school, e.id);
+    return draftSchema.parse({
+      examId: e.id,
+      title: e.title,
+      instructions: e.instructions,
+      assignmentId: e.assignment_id,
+      language: e.language,
+      durationMinutes: e.duration_minutes,
+      passPercent: Number(e.pass_percent),
+      ordering: e.ordering,
+      revision: e.revision,
+      status: e.state === 'pending_approval' ? 'in_review' : e.state,
+      totalMarks: items.reduce((sum, i) => sum + i.marks, 0),
+      itemCount: items.length,
+      reviewedCount: items.filter((i) => i.reviewed).length,
+      importId: e.import_id,
+      returnComment: e.return_comment,
+    });
+  }
+  async mutable(c: PoolClient, school: string, e: Exam, expected: number) {
+    if (e.revision !== expected || !['draft', 'returned'].includes(e.state))
+      throw DomainException.conflict('REVISION_CONFLICT', 'Refresh this editable draft');
+    const busy = await c.query(
+      "SELECT id FROM import_jobs WHERE school_id=$1 AND exam_id=$2 AND state IN ('queued','parsing') LIMIT 1",
+      [school, e.id],
+    );
+    if (busy.rowCount)
+      throw DomainException.conflict('REVISION_CONFLICT', 'Wait for the active import');
+  }
+  async snapshot(
+    c: PoolClient,
+    school: string,
+    actor: string,
+    e: Exam,
+    kind: string,
+    items: Item[],
+  ) {
+    await c.query(
+      'INSERT INTO authoring_snapshots(school_id,exam_id,revision,actor_id,kind,content) VALUES($1,$2,$3,$4,$5,$6)',
+      [
+        school,
+        e.id,
+        e.revision,
+        actor,
+        kind,
+        JSON.stringify({ draft: await this.dto(c, school, e), items }),
+      ],
+    );
+  }
+  async assignments(req: Request, input: unknown) {
+    const { school, user } = teacherIdentity(req),
+      q = parse(listInput, input),
+      limit = q.limit ?? 100;
+    let after: string | null = null;
+    if (q.cursor) {
+      try {
+        const value = z
+          .object({ school: uuid, teacher: uuid, id: uuid })
+          .parse(JSON.parse(Buffer.from(q.cursor, 'base64url').toString()));
+        if (value.school !== school.id || value.teacher !== user.id) throw new Error();
+        after = value.id;
+      } catch {
+        throw DomainException.validationError('Invalid assignment cursor');
+      }
+    }
+    return this.db.withTenantTransaction(
+      school.id,
+      async (c) => {
+        const rows = (
+          await c.query<{ assignmentId: string; subjectName: string; className: string }>(
+            `SELECT a.id "assignmentId",s.name "subjectName",cl.name "className" FROM teacher_assignments a JOIN classes cl ON cl.school_id=a.school_id AND cl.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE a.school_id=$1 AND a.teacher_id=$2 AND a.active AND cl.active AND s.active AND ($3::uuid IS NULL OR a.id>$3) ORDER BY a.id LIMIT $4`,
+            [school.id, user.id, after, limit + 1],
+          )
+        ).rows;
+        const items = rows.slice(0, limit);
+        return {
+          items,
+          nextCursor:
+            rows.length > limit
+              ? Buffer.from(
+                  JSON.stringify({
+                    school: school.id,
+                    teacher: user.id,
+                    id: items.at(-1)?.assignmentId,
+                  }),
+                ).toString('base64url')
+              : null,
+        };
+      },
+      true,
+    );
+  }
+  async list(req: Request, input: unknown) {
+    const { school, user } = teacherIdentity(req),
+      q = parse(listInput, input),
+      limit = q.limit ?? 25;
+    let after: { id: string; at: string } | null = null;
+    if (q.cursor) {
+      try {
+        const value = z
+          .object({ school: uuid, teacher: uuid, id: uuid, at: z.string().datetime() })
+          .parse(JSON.parse(Buffer.from(q.cursor, 'base64url').toString()));
+        if (value.school !== school.id || value.teacher !== user.id) throw new Error();
+        after = value;
+      } catch {
+        throw DomainException.validationError('Invalid exam cursor');
+      }
+    }
+    return this.db.withTenantTransaction(
+      school.id,
+      async (c) => {
+        const rows = (
+          await c.query<Exam>(
+            `SELECT e.* FROM exams e JOIN teacher_assignments a ON a.school_id=e.school_id AND a.id=e.assignment_id AND a.teacher_id=e.owner_id JOIN classes cl ON cl.school_id=a.school_id AND cl.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE e.school_id=$1 AND e.owner_id=$2 AND a.active AND cl.active AND s.active AND ($3::uuid IS NULL OR (e.created_at,e.id)<($4::timestamptz,$3::uuid)) ORDER BY e.created_at DESC,e.id DESC LIMIT $5`,
+            [school.id, user.id, after?.id ?? null, after?.at ?? null, limit + 1],
+          )
+        ).rows;
+        const selected = rows.slice(0, limit);
+        const items = [];
+        for (const e of selected) items.push(await this.dto(c, school.id, e));
+        const last = selected.at(-1);
+        return {
+          items,
+          nextCursor:
+            rows.length > limit && last
+              ? Buffer.from(
+                  JSON.stringify({
+                    school: school.id,
+                    teacher: user.id,
+                    id: last.id,
+                    at: last.created_at.toISOString(),
+                  }),
+                ).toString('base64url')
+              : null,
+        };
+      },
+      true,
+    );
+  }
+  async read(req: Request, id: string, onlyItems = false) {
+    const { school, user } = teacherIdentity(req);
+    parse(uuid, id);
+    return this.db.withTenantTransaction(
+      school.id,
+      async (c) => {
+        const e = await this.owned(c, school.id, user.id, id);
+        return onlyItems
+          ? { revision: e.revision, items: await this.items(c, school.id, id) }
+          : this.dto(c, school.id, e);
+      },
+      true,
+    );
+  }
+  async save(
+    req: Request,
+    id: string | undefined,
+    input: unknown,
+    key: unknown,
+    onCreate?: () => void,
+  ) {
+    const { school, user } = teacherIdentity(req);
+    if (id) parse(uuid, id);
+    const body = id
+      ? parse(metadataSchema.extend({ revision }).strict(), input)
+      : parse(metadataSchema.strict(), input);
+    return this.db.withTenantTransaction(school.id, async (c) => {
+      const e = id ? await this.owned(c, school.id, user.id, id, true) : undefined;
+      const assignment = (
+        await c.query<{ class_id: string; subject_id: string }>(
+          `SELECT a.class_id,a.subject_id FROM teacher_assignments a JOIN classes cl ON cl.id=a.class_id AND cl.school_id=a.school_id JOIN subjects s ON s.id=a.subject_id AND s.school_id=a.school_id WHERE a.school_id=$1 AND a.teacher_id=$2 AND a.id=$3 AND a.active AND cl.active AND s.active FOR SHARE OF a,cl,s`,
+          [school.id, user.id, body.assignmentId],
+        )
+      ).rows[0];
+      if (!assignment) throw DomainException.notFound('Teaching assignment not found');
+      return mutate(c, school.id, user.id, `exam:${id ?? 'new'}:save`, key, body, async () => {
+        if (e && 'revision' in body) {
+          await this.mutable(c, school.id, e, parse(revision, body.revision));
+          if (
+            (await this.items(c, school.id, e.id)).length &&
+            (e.assignment_id !== body.assignmentId || e.language !== body.language)
+          )
+            throw DomainException.conflict(
+              'REVISION_CONFLICT',
+              'Assignment and language cannot change after import',
+            );
+        }
+        const params = [
+          body.title,
+          body.instructions,
+          body.assignmentId,
+          body.language,
+          body.durationMinutes,
+          body.passPercent,
+          body.ordering,
+          assignment.class_id,
+          assignment.subject_id,
+          school.id,
+          user.id,
+        ];
+        const saved = id
+          ? (
+              await c.query<Exam>(
+                'UPDATE exams SET title=$1,instructions=$2,assignment_id=$3,language=$4,duration_minutes=$5,pass_percent=$6,ordering=$7,class_id=$8,subject_id=$9,revision=revision+1,updated_at=now() WHERE school_id=$10 AND owner_id=$11 AND id=$12 RETURNING *',
+                [...params, id],
+              )
+            ).rows[0]
+          : (
+              await c.query<Exam>(
+                'INSERT INTO exams(title,instructions,assignment_id,language,duration_minutes,pass_percent,ordering,class_id,subject_id,school_id,owner_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *',
+                params,
+              )
+            ).rows[0];
+        if (!id) onCreate?.();
+        return this.dto(c, school.id, saved);
+      });
+    });
+  }
+  async saveItem(req: Request, id: string, input: unknown, key: unknown) {
+    const { school, user } = teacherIdentity(req);
+    parse(uuid, id);
+    const body = parse(z.object({ revision, item: itemSchema }).strict(), input);
+    return this.db.withTenantTransaction(school.id, async (c) => {
+      const e = await this.owned(c, school.id, user.id, id, true);
+      return mutate(c, school.id, user.id, `exam:${id}:item`, key, body, async () => {
+        await this.mutable(c, school.id, e, body.revision);
+        const items = await this.items(c, school.id, id),
+          old = items.find((i) => i.itemId === body.item.itemId),
+          item = body.item;
+        if (!old) throw DomainException.notFound();
+        if (
+          old.externalId !== item.externalId ||
+          old.type !== item.type ||
+          JSON.stringify(old.options.map((o) => o.id)) !==
+            JSON.stringify(item.options.map((o) => o.id)) ||
+          old.keyConsistent !== item.keyConsistent ||
+          JSON.stringify(old.reviewFlags) !== JSON.stringify(item.reviewFlags)
+        )
+          throw DomainException.validationError(
+            'Item identity and AI review evidence cannot be changed',
+          );
+        await this.snapshot(c, school.id, user.id, e, 'before_item_edit', items);
+        const changed =
+          computeCanonicalDigest({
+            stem: old.stem,
+            options: old.options,
+            key: old.correctOptionId,
+            primaryTopic: old.primaryTopic,
+            secondaryTopics: old.secondaryTopics,
+            explanation: old.explanation,
+          }) !==
+          computeCanonicalDigest({
+            stem: item.stem,
+            options: item.options,
+            key: item.correctOptionId,
+            primaryTopic: item.primaryTopic,
+            secondaryTopics: item.secondaryTopics,
+            explanation: item.explanation,
+          });
+        await c.query(
+          `UPDATE exam_items SET stem=$1,options=$2,correct_key=$3,marks=$4,primary_topic=$5,secondary_topics=$6,explanation=$7,reviewed=$8,review_note=$9,reviewed_by=CASE WHEN $8 THEN $10::uuid ELSE NULL END,reviewed_at=CASE WHEN $8 THEN now() ELSE NULL END,ai_input_hash=CASE WHEN $11 THEN NULL ELSE ai_input_hash END WHERE school_id=$12 AND exam_id=$13 AND item_id=$14 AND exam_version_id IS NULL`,
+          [
+            item.stem,
+            JSON.stringify(item.options),
+            item.correctOptionId,
+            item.marks,
+            item.primaryTopic,
+            JSON.stringify(item.secondaryTopics),
+            item.explanation,
+            item.reviewed,
+            item.reviewNote,
+            user.id,
+            changed,
+            school.id,
+            id,
+            item.itemId,
+          ],
+        );
+        const updated = (
+          await c.query<Exam>(
+            'UPDATE exams SET revision=revision+1,updated_at=now() WHERE school_id=$1 AND id=$2 RETURNING *',
+            [school.id, id],
+          )
+        ).rows[0];
+        return this.dto(c, school.id, updated);
+      });
+    });
+  }
+  async submit(req: Request, id: string, input: unknown, key: unknown) {
+    const { school, user } = teacherIdentity(req);
+    parse(uuid, id);
+    const body = parse(z.object({ revision }).strict(), input);
+    return this.db.withTenantTransaction(school.id, async (c) => {
+      const e = await this.owned(c, school.id, user.id, id, true);
+      return mutate(c, school.id, user.id, `exam:${id}:submit`, key, body, async () => {
+        await this.mutable(c, school.id, e, body.revision);
+        const items = await this.items(c, school.id, id);
+        if (!items.length || items.some((i) => !i.reviewed))
+          throw DomainException.conflict(
+            'AI_REVIEW_REQUIRED',
+            'Review every question before submission',
+          );
+        await this.snapshot(c, school.id, user.id, e, 'submitted', items);
+        const updated = (
+          await c.query<Exam>(
+            "UPDATE exams SET state='pending_approval',status='in_review',revision=revision+1,updated_at=now() WHERE school_id=$1 AND id=$2 RETURNING *",
+            [school.id, id],
+          )
+        ).rows[0];
+        await c.query(
+          "INSERT INTO audit_events(school_id,actor_id,action,resource_id,reason) VALUES($1,$2,'exam:submit',$3,$4)",
+          [school.id, user.id, id, `Reviewed revision ${e.revision}`],
+        );
+        return this.dto(c, school.id, updated);
+      });
+    });
+  }
+}

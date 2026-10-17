@@ -1,5 +1,17 @@
 # Backend handoff
 
+## Backend integration in progress — 17 October 2026
+
+The owner selected the existing frontend contracts as the implementation target, before the older handover guide's proposed essay or short-answer extensions. Work is on `feat/backend-frontend-integration`; this is not a completed backend acceptance report.
+
+With explicit authorization, migrations 009–018 were applied to the configured Supabase database. These add supervision, monitor/readiness history, directory revisions, teacher authoring/import queues, approval/package jobs, scheduling/accommodations, immutable result snapshots, recovery comparison evidence practice audit/version fields and durable login/practice request counters. No hosted backend deployment or frontend production configuration change has been performed.
+
+Implemented routes now cover the existing authoring, directory, approval, scheduling, accommodation, delivery, monitoring, official results, recovery-review and practice contracts. Results revisions and publication snapshots are separate; accepting recovery creates a new candidate without changing an older publication. Practice checks every related sitting and all frozen-roster deadlines, preserves first answers, and never changes official marks. New package release keys are wrapped with an authenticated envelope bound to school/version; the wrapping subkey is derived separately from the private MFA encryption key. Keep that master key backed up privately. Legacy unwrapped package keys remain readable for compatibility and require an operator migration before claiming all historical keys are wrapped.
+
+The AI adapter supports `OPENAI_API_KEY`, `OPENAI_BASE_URL` and `OPENAI_MODEL`; see [AI configuration](../nexora-backend/docs/ai-provider-configuration.md). The English synthetic sample passed. **Amharic provider verification is explicitly deferred by the owner** after a truncated response and timeout. Durable worker tests use a deterministic test adapter and do not establish real-model quality. Worker invocation/hosting is described in [worker operations](../nexora-backend/docs/import-worker-operations.md); a hosted scheduler still must be configured.
+
+See [integration testing](backend-integration-testing.md) for actual evidence and remaining acceptance. Broader transaction failure/race coverage, hosted routing, real offline/mobile journeys and deployment configuration remain separate from the passing scoped API tests. Historical uploads created before migration 016 cannot truthfully reconstruct generation-at-upload/timely comparison; the review endpoint returns an explicit operator-review conflict for those records instead of fabricating evidence. Historical papers lacking a verified assignment/reviewed approved content need operator reconciliation before using the new authoring/admin contracts.
+
 ## UI simplification — 16 October 2026
 
 The follow-up on feat/quiet-sharp-ui sharpens corners, removes decorative surfaces and redundant copy, and simplifies status styling. No API, timing, permissions, persistence or backend changes. See the updated [design testing guide](sage-mint-design-testing.md).
@@ -35,3 +47,5 @@ No API contract revision or new backend endpoint is issued by this update. Exist
 Test the existing teacher save/submit flow, scheduled preparation/unlock, offline answer retry and receipt recovery, result publication/analytics, and school creation/credential flows against the real API. Report the endpoint, request ID, expected response, actual response and reproducible steps for any mismatch. No backend changes are needed merely to support the new layout.
 
 See [the frontend testing guide](group-2-design-testing.md) for the revised controls and expected states.
+
+Teacher import behavior update: parsed questions become editable before AI completion. Only queued/parsing imports block edits; AI remains optional background assistance. Submission still requires complete saved teacher reviews. Late AI output cannot overwrite reviewed questions or manually saved topic/explanation changes. Backend compilation succeeded; test suites were not rerun per the owner's earlier instruction.

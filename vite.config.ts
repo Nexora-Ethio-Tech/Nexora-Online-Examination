@@ -9,6 +9,15 @@ import { offlineShell } from './scripts/offline-shell';
 export default defineConfig(({ command, mode }) => {
   const buildId = randomUUID();
   const env = loadEnv(mode, process.cwd(), 'VITE_');
+  const serverEnv = loadEnv(mode, process.cwd(), 'API_PROXY_TARGET');
+  const apiTarget =
+    process.env.API_PROXY_TARGET?.trim() ||
+    serverEnv.API_PROXY_TARGET?.trim() ||
+    'http://127.0.0.1:3000';
+  // Keep API requests out of Vite's SPA fallback, including local preview.
+  const apiProxy = {
+    '/api/v1': { target: apiTarget, changeOrigin: false },
+  };
   if (
     command === 'build' &&
     (mode === 'demo' || (process.env.VITE_USE_MOCKS ?? env.VITE_USE_MOCKS) === 'true')
@@ -18,6 +27,8 @@ export default defineConfig(({ command, mode }) => {
     );
   }
   return {
+    server: { proxy: apiProxy },
+    preview: { proxy: apiProxy },
     plugins: [react(), tailwindcss(), offlineShell(buildId)],
     define: { __APP_BUILD__: JSON.stringify(buildId) },
     resolve: {

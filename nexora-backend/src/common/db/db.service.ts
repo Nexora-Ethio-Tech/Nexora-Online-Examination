@@ -108,10 +108,11 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
   async withTenantTransaction<T>(
     schoolId: string,
     fn: (client: PoolClient) => Promise<T>,
+    snapshot = false,
   ): Promise<T> {
     const client = await this.pool.connect();
     try {
-      await client.query('BEGIN');
+      await client.query(snapshot ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' : 'BEGIN');
       // set_config with is_local=true is equivalent to SET LOCAL but accepts parameters ($1)
       await client.query(
         `SELECT set_config('app.current_school_id', $1, true),

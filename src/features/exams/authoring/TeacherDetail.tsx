@@ -197,13 +197,6 @@ export function TeacherDetail() {
     refetchInterval: (query) =>
       query.state.data && ['ready', 'failed'].includes(query.state.data.state) ? false : 2000,
   });
-  const jobState = job.data?.state;
-  useEffect(() => {
-    if (jobState === 'ready' || jobState === 'failed') {
-      void qc.invalidateQueries({ queryKey: ['teacher-exam', ...scope, examId] });
-      void qc.invalidateQueries({ queryKey: ['teacher-items', ...scope, examId] });
-    }
-  }, [jobState, qc, examId, scope]);
   const [file, setFile] = useState<File | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [message, setMessage] = useState('');
@@ -251,6 +244,15 @@ export function TeacherDetail() {
       setConfirmed(false);
     },
   });
+  const jobState = job.data?.state;
+  const parsedCount = job.data?.parsedCount;
+  const completedCount = job.data?.completedCount;
+  useEffect(() => {
+    if (!dirty && !action.isPending && jobState && !['queued', 'parsing'].includes(jobState)) {
+      void qc.invalidateQueries({ queryKey: ['teacher-exam', ...scope, examId] });
+      void qc.invalidateQueries({ queryKey: ['teacher-items', ...scope, examId] });
+    }
+  }, [jobState, parsedCount, completedCount, dirty, action.isPending, qc, examId, scope]);
   if (draft.isPending) return <p role="status">Opening exam draft…</p>;
   if (!draft.data)
     return (
@@ -261,7 +263,7 @@ export function TeacherDetail() {
     );
   const d = draft.data;
   const busy =
-    !!importId && (!job.data || !!job.error || !['ready', 'failed'].includes(job.data.state));
+    !!importId && (!job.data || !!job.error || ['queued', 'parsing'].includes(job.data.state));
   const editable = ['draft', 'returned'].includes(d.status);
   const disabled = !editable || busy || action.isPending;
   const paper = items.data?.items ?? [];
@@ -276,9 +278,7 @@ export function TeacherDetail() {
   const selectedItem = paper.find((item) => item.itemId === selectedItemId) ?? visibleItems[0];
   const blockers = [
     ...(busy
-      ? [
-          'Wait for import and AI preparation to finish. If loading failed, retry loading the paper.',
-        ]
+      ? ['Wait for file parsing to finish. If loading failed, retry loading the paper.']
       : []),
     ...(metadataDirty ? ['Save your changes in Exam details.'] : []),
     ...(dirtyItems.size ? ['Save the question review you are currently editing.'] : []),
@@ -531,7 +531,7 @@ export function TeacherDetail() {
             </p>
           )}
           {busy && (
-            <p role="status">AI preparation is running. Review opens when processing finishes.</p>
+            <p role="status">File parsing is running. Review opens when parsing finishes.</p>
           )}
           {paper.length > 0 && (
             <section className={panel}>

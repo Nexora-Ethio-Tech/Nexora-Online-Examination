@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { requestLimit } from '../../common/security/request-limit';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { mfaEncryptionKey, MFA_WINDOW_MS } from '../../common/crypto/mfa';
@@ -94,6 +96,13 @@ export class AuthService implements OnModuleInit {
   }
 
   async login(req: Request, res: Response, body: { loginId: string; password?: string }) {
+    const parsed = z
+      .object({ loginId: z.string().trim().min(1).max(128), password: z.string().min(1).max(1024) })
+      .strict()
+      .safeParse(body);
+    if (!parsed.success) throw DomainException.authRequired('Invalid login credentials');
+    body = parsed.data;
+    await requestLimit(this.db, `login:${body.loginId}`, 10, 300);
     if (!body.loginId || !body.password) {
       throw DomainException.authRequired('Invalid login credentials');
     }
@@ -106,7 +115,11 @@ export class AuthService implements OnModuleInit {
       [body.loginId.trim()],
     );
 
-    if (userRes.rows.length === 0 || userRes.rows[0].status !== 'active') {
+    if (
+      userRes.rows.length === 0 ||
+      userRes.rows[0].status !== 'active' ||
+      typeof userRes.rows[0].password_hash !== 'string'
+    ) {
       throw DomainException.authRequired('Invalid login credentials');
     }
 

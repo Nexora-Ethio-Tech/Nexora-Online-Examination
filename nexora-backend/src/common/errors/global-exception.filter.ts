@@ -80,6 +80,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       payload.context = context;
     }
 
+    if (status === 429 && typeof context?.retryAfterSeconds === 'number')
+      response.setHeader('Retry-After', String(context.retryAfterSeconds));
     response.setHeader('X-Request-Id', requestId);
     response.setHeader('Cache-Control', 'private, no-store');
     response.status(status).json(payload);
