@@ -1,3 +1,5 @@
+import { ScheduleCountdown } from '@/components/shared/ScheduleCountdown';
+import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useRef, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -158,9 +160,12 @@ export function AdminPracticePage() {
         ranks. Disabling practice stops further practice access, but cannot retract explanations
         already seen.
       </p>
-      <Button variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>
-        Refresh practice settings
-      </Button>
+      <RefreshControl
+        label="Refresh practice settings"
+        busy={query.isFetching}
+        updatedAt={query.dataUpdatedAt}
+        refresh={() => query.refetch()}
+      />
       <Failure error={query.error} />
       {query.isPending && <p role="status">Loading approved papers…</p>}
       {!query.isPending && !query.error && !rows.length && (
@@ -210,12 +215,18 @@ export function PracticePage() {
   const query = useInfiniteQuery({
     queryKey: ['practice-list', ...scope],
     initialPageParam: null,
-    queryFn: ({ pageParam, signal }: { pageParam: string | null; signal: AbortSignal }) =>
-      api.mine(pageParam, signal),
+    queryFn: async ({ pageParam, signal }: { pageParam: string | null; signal: AbortSignal }) => {
+      const data = await api.mine(pageParam, signal);
+      return {
+        ...data,
+        clock: { epoch: Date.parse(data.serverNow), receivedAt: performance.now() },
+      };
+    },
     getNextPageParam: (p) => p.nextCursor ?? undefined,
     refetchInterval: 15000,
   });
-  const rows = query.data?.pages.flatMap((p) => p.items) ?? [];
+  const rows =
+    query.data?.pages.flatMap((p) => p.items.map((item) => ({ ...item, clock: p.clock }))) ?? [];
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-semibold">Practice</h1>
@@ -223,9 +234,12 @@ export function PracticePage() {
         Try released papers again. Only your first answer to each question counts in that practice
         attempt. Your best completed practice score stays separate from your official result.
       </p>
-      <Button variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>
-        Refresh practice
-      </Button>
+      <RefreshControl
+        label="Refresh practice"
+        busy={query.isFetching}
+        updatedAt={query.dataUpdatedAt}
+        refresh={() => query.refetch()}
+      />
       <Failure error={query.error} />
       {query.isPending && <p role="status">Loading practice papers…</p>}
       {!query.isPending && !query.error && !rows.length && (
@@ -246,7 +260,16 @@ export function PracticePage() {
               ))}
             </ul>
           )}
-          {row.releaseAt && <p>Practice release: {eatTime(row.releaseAt)}</p>}
+          {row.releaseAt && (
+            <>
+              <p>Practice release: {eatTime(row.releaseAt)}</p>
+              <ScheduleCountdown
+                sample={row.clock}
+                target={row.releaseAt}
+                label="practice release"
+              />
+            </>
+          )}
           {row.available && (
             <div className="flex flex-wrap gap-3">
               {row.activeAttemptId && (
@@ -394,13 +417,12 @@ function PracticeRunner({ practiceAttemptId }: { practiceAttemptId: string }) {
         Practice is untimed. An internet connection is needed to check and save each answer.
         Official exam marks stay unchanged.
       </p>
-      <Button
-        variant="outline"
-        disabled={query.isFetching || complete.isPending}
-        onClick={() => void query.refetch()}
-      >
-        Refresh practice attempt
-      </Button>
+      <RefreshControl
+        label="Refresh practice attempt"
+        busy={query.isFetching || complete.isPending}
+        updatedAt={query.dataUpdatedAt}
+        refresh={() => query.refetch()}
+      />
       <Failure error={query.error} />
       {query.isPending && <p role="status">Loading practice…</p>}
       {attempt && !query.error && (

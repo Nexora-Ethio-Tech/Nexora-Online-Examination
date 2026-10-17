@@ -25,7 +25,7 @@ function ItemReview({
 }: {
   item: Item;
   disabled: boolean;
-  onSave: (item: Item) => void;
+  onSave: (item: Item, next: boolean) => void;
   onDirty: (dirty: boolean) => void;
 }) {
   const [edit, setEdit] = useState(item);
@@ -34,14 +34,14 @@ function ItemReview({
     setEdit(next);
     onDirty(JSON.stringify(next) !== JSON.stringify(item));
   }
-  function save() {
+  function save(next = false) {
     const parsed = itemSchema.safeParse(edit);
     if (!parsed.success) {
       setValidation(parsed.error.issues.map((i) => i.message).join(' '));
       return;
     }
     setValidation('');
-    onSave(parsed.data);
+    onSave(parsed.data, next);
   }
   return (
     <section className={panel}>
@@ -152,8 +152,11 @@ function ItemReview({
             />
             I checked the question, answer key, topic and explanation, and resolved any flags.
           </label>
-          <Button type="button" onClick={save}>
+          <Button type="button" onClick={() => save()}>
             Save question review
+          </Button>
+          <Button type="button" variant="outline" className="ml-2" onClick={() => save(true)}>
+            Save and next
           </Button>
         </div>
       </fieldset>
@@ -205,6 +208,9 @@ export function TeacherDetail() {
   const [confirmed, setConfirmed] = useState(false);
   const [message, setMessage] = useState('');
   const [tab, setTab] = useState('import');
+  const [reviewFilter, setReviewFilter] = useState('All');
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [submitConfirmation, setSubmitConfirmation] = useState(false);
   const [dirtyItems, setDirtyItems] = useState<Set<string>>(new Set());
   const [metadataDirty, setMetadataDirty] = useState(false);
   const [editorEpoch, setEditorEpoch] = useState(0);
@@ -259,6 +265,15 @@ export function TeacherDetail() {
   const editable = ['draft', 'returned'].includes(d.status);
   const disabled = !editable || busy || action.isPending;
   const paper = items.data?.items ?? [];
+  const needsReview = new Set(reviewProblems(paper).map((item) => item.itemId));
+  const visibleItems = paper.filter(
+    (item) =>
+      reviewFilter === 'All' ||
+      (reviewFilter === 'Needs review' && needsReview.has(item.itemId)) ||
+      (reviewFilter === 'Reviewed' && !needsReview.has(item.itemId)) ||
+      (reviewFilter === 'Flagged' && (item.reviewFlags.length > 0 || item.keyConsistent === false)),
+  );
+  const selectedItem = paper.find((item) => item.itemId === selectedItemId) ?? visibleItems[0];
   const blockers = [
     ...(busy
       ? [
@@ -512,7 +527,99 @@ export function TeacherDetail() {
           {busy && (
             <p role="status">AI preparation is running. Review opens when processing finishes.</p>
           )}
-          {paper.map((item) => (
+          {paper.length > 0 && (
+            <section className={panel}>
+              <h2 className="text-xl font-semibold">Question review overview</h2>
+              <p className="my-3">
+                {paper.length - needsReview.size} of {paper.length} questions reviewed and saved
+              </p>
+              <progress
+                className="h-3 w-full accent-primary"
+                aria-label="Saved question reviews"
+                max={paper.length}
+                value={paper.length - needsReview.size}
+              />
+              <div className="my-4 flex flex-wrap gap-2" aria-label="Review filters">
+                {['All', 'Needs review', 'Flagged', 'Reviewed'].map((filter) => (
+                  <Button
+                    key={filter}
+                    variant={filter === reviewFilter ? 'default' : 'outline'}
+                    aria-pressed={filter === reviewFilter}
+                    disabled={dirty || action.isPending}
+                    onClick={() => {
+                      setReviewFilter(filter);
+                      setSelectedItemId(null);
+                    }}
+                  >
+                    {filter}
+                  </Button>
+                ))}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <caption className="sr-only">
+                    Question keys, topics, explanations and review status
+                  </caption>
+                  <thead>
+                    <tr>
+                      {['Question', 'Key', 'Topic', 'Explanation', 'Status', 'Action'].map(
+                        (heading) => (
+                          <th className="p-2" key={heading}>
+                            {heading}
+                          </th>
+                        ),
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleItems.map((item) => (
+                      <tr
+                        key={item.itemId}
+                        className={
+                          selectedItem?.itemId === item.itemId
+                            ? 'border-t bg-primary/5'
+                            : 'border-t'
+                        }
+                      >
+                        <td className="min-w-40 p-2">
+                          <span className="font-semibold">{item.externalId}</span>
+                          <p className="line-clamp-2">{item.stem}</p>
+                        </td>
+                        <td className="p-2">{item.correctOptionId}</td>
+                        <td className="p-2">{item.primaryTopic || 'Missing'}</td>
+                        <td className="min-w-40 p-2">
+                          <p className="line-clamp-2">{item.explanation || 'Missing'}</p>
+                        </td>
+                        <td className="p-2">
+                          {needsReview.has(item.itemId) ? 'Needs review' : 'Reviewed'}
+                          {(item.reviewFlags.length > 0 || item.keyConsistent === false) && (
+                            <span className="block">Flagged</span>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          <Button
+                            variant="outline"
+                            disabled={dirty || action.isPending}
+                            onClick={() => setSelectedItemId(item.itemId)}
+                            aria-label={`Review ${item.externalId}`}
+                          >
+                            Review
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {!visibleItems.length && <p className="mt-3">No questions match this filter.</p>}
+              {dirty && (
+                <p className="mt-3 text-sm" role="status">
+                  Save this question before switching questions or filters.
+                </p>
+              )}
+            </section>
+          )}
+          {(selectedItem ? [selectedItem] : []).map((item) => (
             <ItemReview
               key={`${item.itemId}-${items.data?.revision}-${editorEpoch}`}
               item={item}
@@ -525,20 +632,37 @@ export function TeacherDetail() {
                   return next;
                 })
               }
-              onSave={(value) => {
+              onSave={(value, next) => {
                 if (dirtyItems.size > 1) {
                   setMessage(
                     'Save one question at a time. Reloading after a save would discard other unsaved edits.',
                   );
                   return;
                 }
-                run(() =>
-                  api.saveItem(
-                    examId,
-                    value,
-                    items.data?.revision ?? d.revision,
-                    key('item', { value, revision: items.data?.revision }),
-                  ),
+                setMessage('');
+                action.mutate(
+                  () =>
+                    api.saveItem(
+                      examId,
+                      value,
+                      items.data?.revision ?? d.revision,
+                      key('item', { value, revision: items.data?.revision }),
+                    ),
+                  {
+                    onSuccess: () => {
+                      if (next) {
+                        const position = paper.findIndex(
+                          (question) => question.itemId === item.itemId,
+                        );
+                        const following = [
+                          ...paper.slice(position + 1),
+                          ...paper.slice(0, position),
+                        ].find((question) => needsReview.has(question.itemId));
+                        setSelectedItemId(following?.itemId ?? item.itemId);
+                        if (!following) setMessage('Review saved. No other questions need review.');
+                      }
+                    },
+                  },
                 );
               }}
             />
@@ -575,10 +699,39 @@ export function TeacherDetail() {
           <Button
             className="min-h-11"
             disabled={!canSubmit || action.isPending}
-            onClick={() => run(() => api.submit(examId, d.revision, key('submit', d.revision)))}
+            onClick={() => setSubmitConfirmation(true)}
           >
             Submit for approval
           </Button>
+          {submitConfirmation && (
+            <div
+              className="mt-4 space-y-3 rounded-lg border p-4"
+              role="region"
+              aria-label="Confirm paper submission"
+            >
+              <p>
+                Send {paper.length} reviewed questions to your administrator? This locks the draft
+                until it is returned.
+              </p>
+              <Button
+                disabled={!canSubmit || action.isPending}
+                onClick={() => {
+                  setSubmitConfirmation(false);
+                  run(() => api.submit(examId, d.revision, key('submit', d.revision)));
+                }}
+              >
+                Confirm send for approval
+              </Button>
+              <Button
+                variant="outline"
+                className="ml-2"
+                disabled={action.isPending}
+                onClick={() => setSubmitConfirmation(false)}
+              >
+                Keep reviewing
+              </Button>
+            </div>
+          )}
         </section>
       )}
     </div>

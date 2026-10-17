@@ -1,3 +1,4 @@
+import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useRef, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
@@ -74,9 +75,12 @@ export function ResultsPage() {
             : 'Review school results and approve each sitting for publication.'}
       </p>
       <div className="flex flex-wrap gap-3">
-        <Button variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>
-          {query.isFetching ? 'Checking…' : 'Refresh results'}
-        </Button>
+        <RefreshControl
+          label="Refresh results"
+          busy={query.isFetching}
+          updatedAt={query.dataUpdatedAt}
+          refresh={() => query.refetch()}
+        />
         {!student && (
           <Button
             variant="outline"
@@ -395,21 +399,52 @@ export function ReportView({ report }: { report: Report }) {
       <section className={panel}>
         <h2 className="text-xl font-semibold">Score distribution</h2>
         <p className="mb-4 text-sm">Finalized official results only.</p>
-        {report.analytics.distribution.map((bin) => (
-          <div className="mb-3" key={bin.label}>
-            <p>
-              {bin.label}: {bin.count} students
-            </p>
-            <div className="h-3 rounded bg-muted" aria-hidden="true">
-              <div
-                className="h-3 rounded bg-primary"
-                style={{
-                  width: `${report.analytics.includedCount ? (bin.count / report.analytics.includedCount) * 100 : 0}%`,
-                }}
-              />
+        {report.analytics.includedCount === 0 ? (
+          <p>No finalized official results to chart yet.</p>
+        ) : (
+          <>
+            <div
+              className="overflow-x-auto"
+              role="img"
+              aria-label="Score distribution column chart. Exact student counts are in the table below."
+            >
+              <div className="flex h-56 min-w-72 items-end gap-3 border-b px-2" aria-hidden="true">
+                {report.analytics.distribution.map((bin) => (
+                  <div
+                    key={bin.label}
+                    className="flex h-full min-w-10 flex-1 flex-col items-center justify-end gap-1"
+                  >
+                    <span className="text-sm font-semibold">{bin.count}</span>
+                    <div
+                      className="w-full max-w-20 rounded-t bg-primary"
+                      style={{
+                        height: `${(bin.count / Math.max(1, ...report.analytics.distribution.map((value) => value.count))) * 75}%`,
+                      }}
+                    />
+                    <span className="min-h-10 text-center text-xs">{bin.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+            <table className="mt-4 w-full text-left text-sm">
+              <caption className="text-left font-medium">Students by score range</caption>
+              <thead>
+                <tr>
+                  <th className="py-2">Score range</th>
+                  <th>Students</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.analytics.distribution.map((bin) => (
+                  <tr key={bin.label} className="border-t">
+                    <th className="py-2 font-normal">{bin.label}</th>
+                    <td>{bin.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
       </section>
       <section className={panel}>
         <h2 className="text-xl font-semibold">Primary-topic performance</h2>
@@ -417,6 +452,7 @@ export function ReportView({ report }: { report: Report }) {
           Unanswered questions count toward available marks. Secondary topics and practice scores do
           not enter this chart.
         </p>
+        {!report.analytics.topics.length && <p>No topic results to chart yet.</p>}
         {report.analytics.topics.map((topic) => (
           <div className="mb-4" key={topic.topic}>
             <p className="font-medium">
@@ -426,8 +462,8 @@ export function ReportView({ report }: { report: Report }) {
               {topic.earnedMarks} / {topic.availableMarks} marks · {topic.itemCount} questions ·{' '}
               {topic.studentCount} students
             </p>
-            <div className="mt-2 h-3 rounded bg-muted" aria-hidden="true">
-              <div className="h-3 rounded bg-primary" style={{ width: `${topic.percent ?? 0}%` }} />
+            <div className="mt-2 h-6 rounded bg-muted" aria-hidden="true">
+              <div className="h-6 rounded bg-primary" style={{ width: `${topic.percent ?? 0}%` }} />
             </div>
           </div>
         ))}
@@ -473,16 +509,15 @@ export function ResultDetail() {
         </Link>
         <h1 className="mt-4 text-3xl font-semibold">Marks and publication</h1>
         <div className="mt-4 flex flex-wrap gap-3">
-          <Button
-            variant="outline"
-            disabled={detail.isFetching || report.isFetching}
-            onClick={() => {
-              void detail.refetch();
-              void report.refetch();
+          <RefreshControl
+            label="Refresh results"
+            busy={detail.isFetching || report.isFetching}
+            updatedAt={Math.min(detail.dataUpdatedAt, report.dataUpdatedAt)}
+            refresh={async () => {
+              const [latest, summary] = await Promise.all([detail.refetch(), report.refetch()]);
+              return { error: latest.error || summary.error };
             }}
-          >
-            Refresh results
-          </Button>
+          />
           <Button variant="outline" disabled={!data || csv.isPending} onClick={() => csv.mutate()}>
             Download sitting CSV
           </Button>

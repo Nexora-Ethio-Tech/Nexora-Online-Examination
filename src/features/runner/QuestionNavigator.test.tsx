@@ -43,3 +43,23 @@ it('supports keyboard collapse and selection across 200 questions without losing
   );
   expect(screen.getByRole('button', { name: 'Question 200, answered' })).toBeInTheDocument();
 });
+
+it('filters marked questions while keeping answered and review states separate', async () => {
+  const user = userEvent.setup();
+  render(
+    <QuestionNavigator
+      items={[{ itemId: 'one' }, { itemId: 'two' }]}
+      answers={[{ itemId: 'one', value: 'A' }]}
+      reviewItemIds={['two']}
+      index={0}
+      onSelect={() => undefined}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: 'Show question numbers' }));
+  await user.click(screen.getByRole('checkbox', { name: /Show marked for review only/ }));
+  expect(screen.queryByRole('button', { name: 'Question 1, answered' })).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Question 2, unanswered, marked for review' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('1 answered · 1 unanswered')).toBeInTheDocument();
+});

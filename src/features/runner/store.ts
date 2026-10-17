@@ -7,6 +7,7 @@ export type RecordData = {
   owner: Owner;
   attempt: Attempt;
   items: { itemId: string; options: string[] }[];
+  reviewItemIds?: string[];
   answers: Answer[];
   seq: number;
   outbox: Answer[];
@@ -206,5 +207,19 @@ export function recordRecovery(key: string, receivedAt: string) {
   return update(key, (row) => {
     if (!row.recovery) throw new Error('Recovery request missing.');
     row.recovery.receivedAt = receivedAt;
+  });
+}
+
+// Personal reminders stay in this identity-bound record, never in an answer payload.
+export async function setReviewFlag(key: string, itemId: string, marked: boolean, now: number) {
+  return update(key, (row) => {
+    if (row.final || row.receipt || now >= Date.parse(row.attempt.deadlineAt))
+      throw new Error('This attempt is no longer editable.');
+    if (!row.items.some((item) => item.itemId === itemId)) throw new Error('Unknown question.');
+    const flags = new Set(row.reviewItemIds ?? []);
+    if (marked) flags.add(itemId);
+    else flags.delete(itemId);
+    row.reviewItemIds = [...flags];
+    return row;
   });
 }

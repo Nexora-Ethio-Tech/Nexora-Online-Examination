@@ -1,3 +1,4 @@
+import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useRef, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -74,9 +75,12 @@ export function RecoveryPage() {
             <option value="all">All uploads and decisions</option>
           </select>
         </label>
-        <Button variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>
-          {query.isFetching ? 'Checking…' : 'Refresh uploads'}
-        </Button>
+        <RefreshControl
+          label="Refresh uploads"
+          busy={query.isFetching}
+          updatedAt={query.dataUpdatedAt}
+          refresh={() => query.refetch()}
+        />
       </div>
       <Failure error={query.error} />
       {query.isPending && <p role="status">Loading recovery uploads…</p>}
@@ -252,9 +256,12 @@ export function RecoveryDetailPage() {
       </Link>
       <div className="flex flex-wrap justify-between gap-3">
         <h1 className="text-3xl font-semibold">Review retained answers</h1>
-        <Button variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>
-          Refresh case
-        </Button>
+        <RefreshControl
+          label="Refresh case"
+          busy={query.isFetching}
+          updatedAt={query.dataUpdatedAt}
+          refresh={() => query.refetch()}
+        />
       </div>
       <Failure error={query.error} />
       {query.isPending && <p role="status">Loading evidence…</p>}

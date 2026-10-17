@@ -438,3 +438,34 @@ describe('runner durability and final submission', () => {
     );
   });
 });
+
+it('persists personal review marks across reopening without changing answers, sequences or final payloads', async () => {
+  const { make } = await setup();
+  const engine = make();
+  await engine.start();
+  await answer(engine);
+  const before = structuredClone(engine.snapshot().row);
+  if (!before) throw new Error('Missing attempt');
+  engine.markForReview('q1', true);
+  await vi.waitFor(() => expect(engine.snapshot().saving).toBe(false));
+  const marked = await store.readRecord(before.key);
+  expect(marked?.reviewItemIds).toEqual(['q1']);
+  expect(marked?.answers).toEqual(before.answers);
+  expect(marked?.seq).toBe(before.seq);
+  expect(marked?.outbox).toEqual(before.outbox);
+  expect(
+    await store.recordsFor({ ...owner, userId: 'another-student' }, before.attempt.attemptId),
+  ).toEqual([]);
+  engine.dispose();
+  const reopened = make();
+  await reopened.start();
+  expect(reopened.snapshot().row?.reviewItemIds).toEqual(['q1']);
+  await reopened.finish();
+  const finished = reopened.snapshot().row;
+  expect(finished?.final?.body).not.toHaveProperty('reviewItemIds');
+  expect(finished?.receipt).toBeTruthy();
+  await expect(
+    store.setReviewFlag(before.key, 'q1', false, Date.parse(before.attempt.serverNow)),
+  ).rejects.toThrow('no longer editable');
+  expect((await store.readRecord(before.key))?.reviewItemIds).toEqual(['q1']);
+});

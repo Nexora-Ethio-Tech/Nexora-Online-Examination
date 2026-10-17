@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { accessible, login } from './helpers';
+import { accessible, login, navigateWorkspace } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   page.on('pageerror', (error) => {
@@ -28,7 +28,7 @@ test('keyboard login, invalid credentials and student routes remain accessible',
   await expect(page.locator('#main-content')).toBeFocused();
   await accessible(page);
   for (const name of ['Official results', 'Practice', 'Register replacement browser', 'My exams']) {
-    await page.getByRole('link', { name, exact: true }).click();
+    await navigateWorkspace(page, name);
     await accessible(page);
   }
   const card = page
@@ -52,10 +52,17 @@ test('student answers offline, navigates questions and receives a confirmed subm
   await card.getByRole('link').click();
   await page.getByRole('button', { name: 'Download encrypted paper' }).click();
   await expect(page.getByRole('radio').first()).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Workspace' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open account menu' })).toHaveCount(0);
   await context.setOffline(true);
   await page.getByRole('radio').first().click();
   await expect(page.getByRole('radio').first()).toBeChecked();
   await expect(page.getByText(/1 answers saved on this device/)).toBeVisible();
+  await page.getByRole('button', { name: 'Mark for review', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Remove review mark' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await page.getByRole('button', { name: 'Show question numbers' }).click();
   await expect(page.getByRole('button', { name: 'Hide question numbers' })).toHaveAttribute(
     'aria-expanded',
@@ -69,7 +76,9 @@ test('student answers offline, navigates questions and receives a confirmed subm
   await accessible(page);
   await page.getByRole('button', { name: 'Review and submit' }).click();
   await page.getByRole('button', { name: 'Confirm submission' }).click();
-  await expect(page.getByRole('heading', { name: 'Submitted', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Submitted successfully', exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole('radio')).toHaveCount(0);
   await accessible(page);
 });
@@ -89,6 +98,7 @@ test('teacher import and review through admin approval, scheduling and extra tim
   await expect(page.getByText(/ready · 2 parsed · 2 AI suggestions ready/i)).toBeVisible();
   await page.getByRole('tab', { name: 'Review questions' }).click();
   for (const id of ['MATH-001', 'MATH-002']) {
+    await page.getByRole('button', { name: `Review ${id}`, exact: true }).click();
     const section = page
       .locator('section')
       .filter({ has: page.getByRole('heading', { name: id, exact: true }) });
@@ -101,8 +111,10 @@ test('teacher import and review through admin approval, scheduling and extra tim
   }
   await accessible(page);
   await page.getByRole('button', { name: 'Submit for approval' }).click();
+  await page.getByRole('button', { name: 'Confirm send for approval' }).click();
   await expect(page.getByText(/Submitted for administrator approval/)).toBeVisible();
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByRole('button', { name: 'Open account menu' }).click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await login(page, 'ADMIN');
   await page.getByRole('link', { name: 'Review and schedule' }).click();
   await page.getByLabel('Review comment or required corrections').fill('Reviewed and approved.');
@@ -133,35 +145,40 @@ test('teacher import and review through admin approval, scheduling and extra tim
   await accessible(page);
 });
 
-test('workspace navigation stays reachable after scrolling and with enlarged text', async ({
+test('workspace navigation supports a keyboard drawer on mobile and a desktop sidebar', async ({
   page,
 }) => {
   await login(page, 'STUDENT');
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  const navigation = page.getByRole('link', { name: 'Navigation', exact: true });
-  await expect(navigation).toBeInViewport();
-  await navigation.focus();
-  await page.keyboard.press('Enter');
-  const workspace = page.getByRole('navigation', { name: 'Workspace', exact: true });
-  await expect(workspace).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(workspace.getByRole('link').first()).toBeFocused();
-  await page.keyboard.press('Enter');
+  const navigation = page.getByRole('button', { name: 'Navigation', exact: true });
+  const mobile = (page.viewportSize()?.width ?? 1280) < 1024;
+  if (mobile) {
+    await expect(navigation).toBeInViewport();
+    await navigation.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await accessible(page);
+    await page.keyboard.press('Escape');
+    await expect(navigation).toBeFocused();
+    await navigation.click();
+  }
+  const workspace = page
+    .getByRole('navigation', { name: 'Workspace', exact: true })
+    .filter({ visible: true });
+  await workspace.getByRole('link', { name: 'Register replacement browser' }).click();
   await expect(page).toHaveURL(/\/student\/device/);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.evaluate(() => {
     document.documentElement.style.fontSize = '200%';
   });
   await accessible(page);
-  await navigation.click();
-  await expect(workspace).toBeFocused();
-  expect(
-    await workspace.evaluate((element) => {
-      const header = document.querySelector('header');
-      return (
-        !!header && element.getBoundingClientRect().top >= header.getBoundingClientRect().bottom
-      );
-    }),
-  ).toBe(true);
+  if (mobile) {
+    await navigation.click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await accessible(page);
+  } else {
+    await expect(workspace).toBeInViewport();
+  }
 });
 
 test('teacher can recover from a rejected custom import without submitting an empty paper', async ({
@@ -200,10 +217,10 @@ test('administrator navigation, recovery and monitor screens are accessible', as
     'Live exams',
     'Exam approvals',
   ]) {
-    await page.getByRole('link', { name, exact: true }).click();
+    await navigateWorkspace(page, name);
     await accessible(page);
   }
-  await page.getByRole('link', { name: 'Live exams', exact: true }).click();
+  await navigateWorkspace(page, 'Live exams');
   await page.getByRole('button', { name: 'Load synthetic monitoring example' }).click();
   await expect(
     page.getByRole('heading', { name: 'Device replacement', exact: true }),
@@ -218,7 +235,7 @@ test('synthetic recovery acceptance retains evidence and produces an exportable 
   page,
 }) => {
   await login(page, 'ADMIN');
-  await page.getByRole('link', { name: 'Recovery review', exact: true }).click();
+  await navigateWorkspace(page, 'Recovery review');
   await page.getByRole('button', { name: 'Load synthetic recovery example' }).click();
   await page.getByRole('combobox', { name: /^Decision/ }).selectOption('accept');
   await page.getByLabel('Decision reason').fill('Verified the retained synthetic upload.');
@@ -241,7 +258,7 @@ test('synthetic recovery acceptance retains evidence and produces an exportable 
   await page.getByRole('checkbox', { name: /I reviewed the marks/ }).check();
   await page.getByRole('button', { name: 'Approve publication' }).click();
   await expect(page.getByRole('heading', { name: 'Publication approved' })).toBeVisible();
-  await page.getByRole('link', { name: 'Practice release', exact: true }).click();
+  await navigateWorkspace(page, 'Practice release');
   await page.getByRole('checkbox', { name: 'Enable practice', exact: true }).check();
   await page.getByLabel('Practice release date and time (EAT)').fill(release);
   await page
@@ -250,11 +267,12 @@ test('synthetic recovery acceptance retains evidence and produces an exportable 
   await page.getByRole('checkbox', { name: /I checked the paper/ }).check();
   await page.getByRole('button', { name: 'Save practice settings' }).click();
   await expect(page.getByText(/Practice available/)).toBeVisible();
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByRole('button', { name: 'Open account menu' }).click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await login(page, 'STUDENT');
-  await page.getByRole('link', { name: 'Official results', exact: true }).click();
+  await navigateWorkspace(page, 'Official results');
   await accessible(page);
-  await page.getByRole('link', { name: 'Practice', exact: true }).click();
+  await navigateWorkspace(page, 'Practice');
   await page.getByRole('button', { name: 'Start new practice' }).click();
   for (let index = 0; index < 2; index++) {
     await page.getByRole('radio').first().click();

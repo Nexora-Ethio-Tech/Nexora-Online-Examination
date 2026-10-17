@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link, useBlocker, useParams } from 'react-router';
+import { CircleCheck, Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useApiClient } from '@/lib/ApiProvider';
@@ -73,6 +74,9 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
   const answered = view.row?.answers.filter((a) => a.value !== null).length ?? 0;
   return (
     <div className="space-y-5">
+      <Link to="/student" className="inline-flex min-h-11 items-center text-sm underline">
+        Back to my exams
+      </Link>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm text-muted-foreground">Official exam</p>
@@ -131,6 +135,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
             answers={view.row?.answers ?? []}
             index={index}
             onSelect={setIndex}
+            reviewItemIds={view.row?.reviewItemIds ?? []}
           />
           <section className="rounded-xl border bg-background p-5 sm:p-6">
             <p className="mb-3 text-xs text-muted-foreground">
@@ -166,6 +171,23 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
                 Clear answer
               </Button>
             </fieldset>
+            <Button
+              variant="outline"
+              className="mt-3 min-h-11"
+              disabled={view.saving || view.seconds === 0}
+              aria-pressed={view.row?.reviewItemIds?.includes(item.itemId) ?? false}
+              onClick={() =>
+                engine.markForReview(item.itemId, !view.row?.reviewItemIds?.includes(item.itemId))
+              }
+            >
+              <Flag aria-hidden="true" />
+              {view.row?.reviewItemIds?.includes(item.itemId)
+                ? 'Remove review mark'
+                : 'Mark for review'}
+            </Button>
+            <p className="mt-2 text-xs text-muted-foreground">
+              A personal reminder on this device. It does not change your answer or marks.
+            </p>
           </section>
           <div className="flex flex-wrap justify-between gap-3">
             <Button
@@ -211,6 +233,10 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
                 edit after confirming. If the connection fails, your final answers stay on this
                 device for retry.
               </p>
+              <p className="text-sm">
+                {view.row?.reviewItemIds?.length ?? 0} questions marked for review. You can still
+                submit with review marks.
+              </p>
               <div className="flex flex-wrap gap-3">
                 <Button
                   className="min-h-11"
@@ -230,7 +256,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
         </>
       ) : null}
       {view.status === 'pending' || view.status === 'finalizing' ? (
-        <section className="space-y-4 rounded-xl border bg-background p-5">
+        <section className="space-y-4 rounded-xl border-2 border-amber-500 bg-background p-5">
           <h2 className="text-xl font-semibold">
             {view.status === 'finalizing' ? 'Finalizing answers' : 'Pending upload'}
           </h2>
@@ -280,7 +306,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
         </section>
       ) : null}
       {view.status === 'recovery' ? (
-        <section className="space-y-4 rounded-xl border bg-background p-5">
+        <section className="space-y-4 rounded-xl border-2 border-amber-500 bg-background p-5">
           <h2 className="text-xl font-semibold">School review pending</h2>
           <p className="text-sm">
             Your evidence is awaiting a school decision. It is not yet an accepted submission.
@@ -298,8 +324,12 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
         </section>
       ) : null}
       {view.status === 'submitted' && view.row?.receipt ? (
-        <section className="space-y-3 rounded-xl border bg-primary/5 p-6">
-          <h2 className="text-2xl font-semibold">Submitted</h2>
+        <section
+          role="status"
+          className="space-y-3 rounded-xl border-2 border-emerald-600 bg-emerald-50 p-6 text-emerald-950"
+        >
+          <CircleCheck className="size-12 text-emerald-700" aria-hidden="true" />
+          <h2 className="text-2xl font-semibold">Submitted successfully</h2>
           <p className="text-sm">
             Your final answers were accepted. Results will appear only after your school releases
             them.

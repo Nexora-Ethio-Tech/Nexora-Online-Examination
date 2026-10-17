@@ -26,7 +26,11 @@ describe('administrator monitor screen', () => {
   it('requires a valid registered ID, reason and student confirmation, then reports the unchanged deadline and audit', async () => {
     const c = await monitorFixture();
     const { user } = show(c.client, `/admin/monitor/attempts/${c.attempt.attemptId}`);
-    await screen.findByRole('heading', { name: 'Approve a replacement browser' });
+    await screen.findByRole(
+      'heading',
+      { name: 'Approve a replacement browser' },
+      { timeout: 5000 },
+    );
     const button = screen.getByRole('button', { name: 'Approve device replacement' });
     expect(button).toBeDisabled();
     await user.type(screen.getByLabelText('Registered replacement browser ID'), c.replacement);

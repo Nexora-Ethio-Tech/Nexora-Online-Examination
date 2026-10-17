@@ -1,3 +1,4 @@
+import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -26,9 +27,12 @@ export function AdminExamsPage() {
             Review teacher submissions, approve a frozen paper, then schedule its class sitting.
           </p>
         </div>
-        <Button variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>
-          {query.isFetching ? 'Checking…' : 'Refresh papers'}
-        </Button>
+        <RefreshControl
+          label="Refresh papers"
+          busy={query.isFetching}
+          updatedAt={query.dataUpdatedAt}
+          refresh={() => query.refetch()}
+        />
       </div>
       {query.isPending && <p role="status">Loading school papers…</p>}
       <Failure error={query.error} />

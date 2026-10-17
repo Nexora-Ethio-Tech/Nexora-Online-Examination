@@ -224,6 +224,20 @@ export class RunnerEngine {
       )
       .finally(() => this.set({ saving: false }));
   }
+  markForReview(itemId: string, marked: boolean) {
+    if (this.view.status !== 'active' || !this.view.row || !this.clock || this.view.saving) return;
+    const key = this.view.row.key;
+    this.set({ saving: true });
+    this.queue = this.queue
+      .then(async () => {
+        this.alive();
+        if (!this.clock) return;
+        const row = await store.setReviewFlag(key, itemId, marked, this.clock.now());
+        this.set({ row, message: 'Review reminder saved on this device.' });
+      })
+      .catch((error) => this.set({ message: `Review reminder was not saved: ${message(error)}` }))
+      .finally(() => this.set({ saving: false }));
+  }
   async sync() {
     if (this.controller.signal.aborted || this.view.uploading) return;
     if (this.view.status === 'pending' || this.view.status === 'recovery') {

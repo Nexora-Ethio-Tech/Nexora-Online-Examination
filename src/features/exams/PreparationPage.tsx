@@ -16,7 +16,15 @@ export function clockSample(serverNow: string, receivedAt = performance.now()) {
 export function serverTime(sample: ReturnType<typeof clockSample>, now = performance.now()) {
   return sample.epoch + Math.max(0, now - sample.receivedAt);
 }
-function Countdown({ sample, target }: { sample: ReturnType<typeof clockSample>; target: string }) {
+function Countdown({
+  sample,
+  target,
+  label = 'common start',
+}: {
+  sample: ReturnType<typeof clockSample>;
+  target: string;
+  label?: string;
+}) {
   const [, tick] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => tick((n) => n + 1), 1000);
@@ -26,8 +34,8 @@ function Countdown({ sample, target }: { sample: ReturnType<typeof clockSample>;
   return (
     <p className="mt-2 text-sm text-muted-foreground">
       {seconds
-        ? `${Math.floor(seconds / 60)}m ${seconds % 60}s until common start`
-        : 'Start time reached. Refresh the schedule for the latest status.'}
+        ? `${Math.floor(seconds / 86400)}d ${Math.floor(seconds / 3600) % 24}h ${Math.floor(seconds / 60) % 60}m ${seconds % 60}s until ${label}`
+        : `${label === 'common start' ? 'Start' : 'Preparation'} time reached. Refresh the schedule for the latest status.`}
     </p>
   );
 }
@@ -150,10 +158,17 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
               server authorizes access at the common start.
             </p>
             {exam.phase === 'scheduled' ? (
-              <p className="mt-4 text-sm">
-                Return at {eatTime(exam.preparationVisibleAt)}. Viewing this schedule does not
-                create an attempt.
-              </p>
+              <div>
+                <Countdown
+                  sample={query.data.clock}
+                  target={exam.preparationVisibleAt}
+                  label="preparation"
+                />
+                <p className="mt-4 text-sm">
+                  Return at {eatTime(exam.preparationVisibleAt)}. Viewing this schedule does not
+                  create an attempt.
+                </p>
+              </div>
             ) : null}
             {canPrepare ? (
               <>

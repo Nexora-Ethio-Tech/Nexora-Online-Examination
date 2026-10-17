@@ -1,3 +1,4 @@
+import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
@@ -303,16 +304,15 @@ export function AdminExamDetail() {
           </p>
           <h1 className="mt-2 break-words text-3xl font-semibold">{e.title}</h1>
         </div>
-        <Button
-          variant="outline"
-          disabled={pending || query.isFetching}
-          onClick={() => {
+        <RefreshControl
+          label="Refresh paper"
+          busy={pending || query.isFetching}
+          updatedAt={query.dataUpdatedAt}
+          refresh={() => {
             mutation.reset();
-            void query.refetch();
+            return query.refetch();
           }}
-        >
-          {query.isFetching ? 'Refreshing…' : 'Refresh paper'}
-        </Button>
+        />
       </div>
       <Failure error={mutation.error || query.error} />
       {message && (
