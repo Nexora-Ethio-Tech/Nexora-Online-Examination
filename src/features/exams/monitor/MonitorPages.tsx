@@ -1,3 +1,4 @@
+import { SupervisionPanel } from './SupervisionPanel';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -376,6 +377,7 @@ function MonitorAttemptContent({ attemptId }: { attemptId: string }) {
         Back to sitting monitor
       </Link>
       <h1 className="text-3xl font-semibold">Device replacement</h1>
+      <SupervisionPanel attemptId={attemptId} />
       <Refresh
         at={d?.serverNow}
         fresh={fresh}

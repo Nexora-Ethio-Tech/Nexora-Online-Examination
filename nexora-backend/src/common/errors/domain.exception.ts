@@ -6,6 +6,7 @@ export type ErrorDetail = {
 };
 
 export type PermittedErrorCode =
+  | 'ATTEMPT_SUSPENDED'
   | 'AUTH_REQUIRED'
   | 'FORBIDDEN'
   | 'CSRF_INVALID'

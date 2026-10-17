@@ -51,6 +51,19 @@ export async function submissionFixture(context: BrowserContext) {
     if (path.endsWith('/auth/device')) return route.fulfill({ json: request.postDataJSON() });
     if (path.endsWith('/attempts') || path.endsWith(`/${fixture.attemptId}`))
       return route.fulfill({ json: attempt });
+    if (path.endsWith('/supervision'))
+      return route.fulfill({
+        json: {
+          attemptId: attempt.attemptId,
+          suspended: false,
+          revision: 0,
+          deadlineAt: attempt.deadlineAt,
+          serverNow: time(),
+          events: [],
+          history: [],
+        },
+      });
+    if (path.endsWith('/interruptions')) return route.fulfill({ json: { acceptedIds: [] } });
     if (path.endsWith('/package')) return route.fulfill({ json: fixture.package });
     if (path.endsWith('/unlock'))
       return route.fulfill({

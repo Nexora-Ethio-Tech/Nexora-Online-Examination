@@ -287,6 +287,17 @@ export function createDemoTransport(
         new URL(url, 'http://localhost').searchParams,
       );
     }
+    const supervision = /^\/attempts\/([^/]+)\/(supervision|interruptions)$/.exec(apiPath);
+    if (supervision?.[1] && supervision[2])
+      return examDemo.supervision.handle(
+        supervision[1],
+        supervision[2],
+        method,
+        body,
+        new Headers(init.headers),
+        role,
+        actorId ?? `demo-${role === 'school_admin' ? 'admin' : role}`,
+      );
     if (role !== 'student') return error(403, 'FORBIDDEN', 'Student access is required.');
     return examDemo(path.replace(/^\/api\/v1/, ''), method, body, new Headers(init.headers));
   };

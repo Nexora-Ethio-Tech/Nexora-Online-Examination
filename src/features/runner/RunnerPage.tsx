@@ -45,6 +45,8 @@ function RunnerSession({
   );
 }
 function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => void }) {
+  const { session } = useAuth();
+  const [fullscreenError, setFullscreenError] = useState('');
   const view = useSyncExternalStore(engine.subscribe, engine.snapshot);
   const [index, setIndex] = useState(0);
   const [review, setReview] = useState(false);
@@ -130,6 +132,33 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
       {active && view.paper && item ? (
         <>
           <p className="text-sm text-muted-foreground">{view.paper.instructions}</p>
+          <div className="space-y-2 text-sm">
+            <p>
+              Browser interruptions are recorded for school review, not automatic penalties. The
+              timer continues while you are away. Fullscreen is optional and cannot prevent
+              screenshots or switching apps.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFullscreenError('');
+                if (!document.documentElement.requestFullscreen) {
+                  setFullscreenError(
+                    'Fullscreen is unavailable in this browser. You can continue the exam.',
+                  );
+                  return;
+                }
+                void document.documentElement
+                  .requestFullscreen()
+                  .catch(() =>
+                    setFullscreenError('Fullscreen was not allowed. You can continue the exam.'),
+                  );
+              }}
+            >
+              Enter fullscreen
+            </Button>
+            {fullscreenError && <p role="status">{fullscreenError}</p>}
+          </div>
           <QuestionNavigator
             items={view.paper.items}
             answers={view.row?.answers ?? []}
@@ -140,6 +169,9 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
           <section className="rounded-xl border bg-background p-5 sm:p-6">
             <p className="mb-3 text-xs text-muted-foreground">
               Question {index + 1} of {view.paper.items.length} · {item.marks} marks
+            </p>
+            <p className="mb-3 break-all text-xs text-muted-foreground" aria-label="Exam watermark">
+              Nexora · {session?.user.loginId} · {view.paper.title} · {view.row?.attempt.attemptId}
             </p>
             <fieldset disabled={view.saving || view.seconds === 0}>
               <legend className="mb-5 text-lg font-medium">{item.stem}</legend>

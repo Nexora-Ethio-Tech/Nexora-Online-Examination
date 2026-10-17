@@ -1,3 +1,4 @@
+import type { Interruption } from './supervision';
 import { openDB, type DBSchema } from 'idb';
 import type { Attempt } from '@/features/exams/schemas';
 import type { Answer, FinalBody, Paper, Receipt, SaveResponse } from './schemas';
@@ -8,6 +9,7 @@ export type RecordData = {
   attempt: Attempt;
   items: { itemId: string; options: string[] }[];
   reviewItemIds?: string[];
+  interruptions?: Interruption[];
   answers: Answer[];
   seq: number;
   outbox: Answer[];
@@ -221,5 +223,20 @@ export async function setReviewFlag(key: string, itemId: string, marked: boolean
     else flags.delete(itemId);
     row.reviewItemIds = [...flags];
     return row;
+  });
+}
+
+export function recordInterruption(key: string, event: Interruption) {
+  return update(key, (row) => {
+    if (row.receipt || row.final) return;
+    // Bound optional telemetry without evicting answer or submission evidence.
+    const events = row.interruptions ?? [];
+    if (events.length < 200 && !events.some((e) => e.id === event.id))
+      row.interruptions = [...events, event];
+  });
+}
+export function acknowledgeInterruptions(key: string, ids: string[]) {
+  return update(key, (row) => {
+    row.interruptions = (row.interruptions ?? []).filter((e) => !ids.includes(e.id));
   });
 }

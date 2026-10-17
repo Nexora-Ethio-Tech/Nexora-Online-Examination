@@ -1,3 +1,4 @@
+import { supervisionApi, type Interruption } from './supervision';
 import { ApiClient, ApiError, errorMessage } from '@/lib/api-client';
 import { ensureOfflineShell } from '@/lib/offline-shell';
 import { examApi } from '@/features/exams/api';
@@ -27,6 +28,8 @@ export class RunnerEngine {
   private finishing = false;
   private submitting = false;
   private failures = 0;
+  private supervisionTimer?: ReturnType<typeof setInterval>;
+  private checkingSupervision = false;
   private api;
   constructor(
     private client: ApiClient,
@@ -62,6 +65,8 @@ export class RunnerEngine {
       this.alive();
       if (attempt.attemptId !== this.attemptId) throw new Error('Attempt identity mismatch.');
       this.clock = new ExamClock(attempt.serverNow);
+      this.tickTimer = setInterval(() => this.tick(), 250);
+
       const currentKey = store.recordKey(this.owner, attempt);
       const disputed = locals.find(
         (row) => row.key !== currentKey && !row.receipt && (row.outbox.length || row.final),
@@ -98,6 +103,14 @@ export class RunnerEngine {
         }
         throw new Error('This exam window has ended. No editable local attempt is available.');
       }
+      const control = await supervisionApi(this.client, this.controller.signal).read(
+        this.attemptId,
+      );
+      if (control.attemptId !== this.attemptId) throw new Error('Supervision identity mismatch.');
+      if (control.suspended)
+        throw new Error(
+          'Your administrator suspended this attempt. Ask for approval before reopening. The deadline is unchanged.',
+        );
       if (attempt.state === 'awaiting_upload')
         throw new Error('This attempt is awaiting upload. Contact your school before continuing.');
       if (this.clock.now() < Date.parse(attempt.startsAt))
@@ -147,9 +160,14 @@ export class RunnerEngine {
         message: 'Answers are saved on this device before upload.',
       });
       this.tick();
-      this.tickTimer = setInterval(() => this.tick(), 250);
+
       window.addEventListener('online', this.online);
       document.addEventListener('visibilitychange', this.visible);
+      window.addEventListener('pagehide', this.pagehide);
+      document.addEventListener('fullscreenchange', this.fullscreenChanged);
+      this.supervisionTimer = setInterval(() => {
+        void this.checkSupervision();
+      }, 15_000);
       this.schedule();
     } catch (error) {
       if (
@@ -180,9 +198,79 @@ export class RunnerEngine {
     }
   }
   private online = () => {
+    void this.checkSupervision();
     void this.sync();
   };
+  private pagehide = () => this.interruption('pagehide');
+  private fullscreenChanged = () => {
+    if (!document.fullscreenElement) this.interruption('fullscreen_exit');
+  };
+  private interruption(kind: Interruption['kind']) {
+    if (this.view.status !== 'active' || !this.view.row) return;
+    const row = this.view.row;
+    this.queue = this.queue
+      .then(async () => {
+        await store.recordInterruption(row.key, {
+          id: crypto.randomUUID(),
+          kind,
+          observedAt: new Date().toISOString(),
+          deviceGeneration: row.attempt.deviceGeneration,
+        });
+      })
+      .catch(() =>
+        this.set({ message: 'Could not save an interruption record. Answers are retained.' }),
+      );
+  }
+  async checkSupervision() {
+    if (this.view.status !== 'active' || this.checkingSupervision) return;
+    this.checkingSupervision = true;
+    let authorizedRead = false;
+    try {
+      const api = supervisionApi(this.client, this.controller.signal);
+      const control = await api.read(this.attemptId);
+      this.alive();
+      if (this.view.status !== 'active') return;
+      if (control.attemptId !== this.attemptId) throw new Error('Supervision identity mismatch.');
+      authorizedRead = true;
+      if (control.suspended) {
+        this.set({
+          status: 'blocked',
+          paper: null,
+          message:
+            'Your administrator suspended this attempt. Ask for approval, then revalidate and reopen. Saved answers and the original deadline are retained.',
+        });
+      }
+      if (this.view.row) {
+        await this.queue;
+        const row = await store.readRecord(this.view.row.key);
+        if (row?.interruptions?.length) {
+          const sent = row.interruptions.slice(0, 50);
+          const result = await api.report(this.attemptId, sent);
+          await store.acknowledgeInterruptions(
+            row.key,
+            result.acceptedIds.filter((id) => sent.some((e) => e.id === id)),
+          );
+        }
+      }
+    } catch (error) {
+      if (this.controller.signal.aborted || this.view.status !== 'active' || authorizedRead) return;
+      if (
+        error instanceof ApiError &&
+        (error.status === 0 || error.status === 429 || error.status >= 500)
+      )
+        return;
+      this.set({
+        status: 'blocked',
+        paper: null,
+        message: `${message(error)} Revalidate before continuing. Saved work is retained.`,
+      });
+    } finally {
+      this.checkingSupervision = false;
+    }
+  }
   private visible = () => {
+    this.interruption(document.visibilityState === 'hidden' ? 'hidden' : 'returned');
+    if (document.visibilityState === 'visible') void this.checkSupervision();
     this.tick();
     if (document.visibilityState === 'visible') void this.sync();
   };
@@ -213,7 +301,7 @@ export class RunnerEngine {
     this.queue = this.queue
       .then(async () => {
         this.alive();
-        if (!this.clock) return;
+        if (!this.clock || this.view.status === 'blocked') return;
         const row = await store.saveAnswer(key, itemId, value, this.clock.now());
         this.set({ row, message: 'Saved on this device.' });
       })
@@ -231,7 +319,7 @@ export class RunnerEngine {
     this.queue = this.queue
       .then(async () => {
         this.alive();
-        if (!this.clock) return;
+        if (!this.clock || this.view.status === 'blocked') return;
         const row = await store.setReviewFlag(key, itemId, marked, this.clock.now());
         this.set({ row, message: 'Review reminder saved on this device.' });
       })
@@ -426,6 +514,9 @@ export class RunnerEngine {
     this.release?.();
     clearTimeout(this.syncTimer);
     clearInterval(this.tickTimer);
+    clearInterval(this.supervisionTimer);
+    window.removeEventListener('pagehide', this.pagehide);
+    document.removeEventListener('fullscreenchange', this.fullscreenChanged);
     window.removeEventListener('online', this.online);
     document.removeEventListener('visibilitychange', this.visible);
   }

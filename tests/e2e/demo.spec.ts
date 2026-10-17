@@ -54,6 +54,7 @@ test('student answers offline, navigates questions and receives a confirmed subm
   await expect(page.getByRole('radio').first()).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Workspace' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Open account menu' })).toHaveCount(0);
+  await expect(page.getByLabel('Exam watermark')).toContainText('DEMO-STUDENT');
   await context.setOffline(true);
   await page.getByRole('radio').first().click();
   await expect(page.getByRole('radio').first()).toBeChecked();
@@ -225,6 +226,15 @@ test('administrator navigation, recovery and monitor screens are accessible', as
   await expect(
     page.getByRole('heading', { name: 'Device replacement', exact: true }),
   ).toBeVisible();
+  await accessible(page);
+  await page.getByLabel('Reason for supervision decision').fill('Verify the student in person.');
+  await page.getByRole('button', { name: 'Suspend exam attempt', exact: true }).click();
+  await expect(
+    page.getByText('Suspended — administrator approval required', { exact: true }),
+  ).toBeVisible();
+  await page.getByLabel('Reason for supervision decision').fill('Identity verified.');
+  await page.getByRole('button', { name: 'Approve resuming exam', exact: true }).click();
+  await expect(page.getByText('Not suspended', { exact: true })).toBeVisible();
   await accessible(page);
   await page.getByRole('link', { name: 'Back to sitting monitor' }).click();
   await expect(page.getByText(/Ready \(last reported\)/)).toBeVisible();

@@ -87,6 +87,11 @@ export class DeliveryService {
       }
 
       // Check finalized states
+      if (att.suspended)
+        throw DomainException.conflict(
+          'ATTEMPT_SUSPENDED',
+          'Administrator approval is required to resume. The deadline is unchanged.',
+        );
       if (att.state === 'submitted' || att.state === 'invalidated') {
         throw DomainException.conflict('ALREADY_FINALIZED', 'Attempt is already finalized');
       }
@@ -403,6 +408,11 @@ export class DeliveryService {
       }
 
       // Check attempt state
+      if (att.suspended)
+        throw DomainException.conflict(
+          'ATTEMPT_SUSPENDED',
+          'Administrator approval is required to resume. The deadline is unchanged.',
+        );
       if (att.state === 'submitted' || att.state === 'invalidated') {
         throw DomainException.conflict('ALREADY_FINALIZED', 'Attempt is already finalized');
       }

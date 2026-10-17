@@ -1,4 +1,12 @@
-# Backend handoff: Group 2 design update
+# Backend handoff
+
+## Browser controls — 16 October 2026
+
+New additive endpoints and migration are issued in [backend-browser-controls-task.md](backend-browser-controls-task.md). The matching frontend and backend source are implemented on feat/browser-exam-controls. Apply migration 009 and complete the required real API tests before deployment; no hosted migration or integration acceptance is claimed. Send this document together with [browser-controls-testing.md](browser-controls-testing.md) to the backend developer.
+
+The older design-only note below applies only to its original scope.
+
+## Group 2 design update
 
 Date: 16 October 2026. Scope: approved frontend design changes on `feat/workspace-design`, based on the backend-integrated main branch at `e422248`.
 

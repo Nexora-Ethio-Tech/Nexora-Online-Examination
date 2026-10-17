@@ -1,3 +1,4 @@
+import { createSupervisionDemo } from './supervision';
 import { readinessRequestSchema, type Readiness } from '@/features/exams/readiness';
 import { accommodationRoster } from './accommodations';
 import { z } from 'zod';
@@ -312,6 +313,10 @@ export function createExamDemo(
     },
     clock,
   );
+  const supervision = createSupervisionDemo(
+    (id) => [...attempts.values(), ...retainedAttempts()].find((a) => a.attemptId === id),
+    clock,
+  );
   const handle = async (path: string, method: string, body: unknown, headers: Headers) => {
     if (path === '/auth/device' && method === 'POST') {
       const parsed = z.object({ deviceId: z.uuid() }).safeParse(body);
@@ -384,6 +389,15 @@ export function createExamDemo(
       const paper = paperFor(attempt);
       const action = write[2];
       const finalized = finalRequests.get(attempt.attemptId);
+      if (
+        supervision.suspended(attempt.attemptId) &&
+        ['unlock', 'answers', 'submit'].includes(action ?? '') &&
+        !(action === 'submit' && finalized)
+      )
+        return error(
+          'ATTEMPT_SUSPENDED',
+          'Administrator approval is required. The deadline is unchanged.',
+        );
       if (
         action !== 'recovery' &&
         !(action === 'submit' && finalized) &&
@@ -685,5 +699,5 @@ export function createExamDemo(
     }
     return error('NOT_FOUND', 'This endpoint is not implemented in the demo.', 404);
   };
-  return Object.assign(handle, { monitor, loadMonitorExample });
+  return Object.assign(handle, { monitor, loadMonitorExample, supervision });
 }
