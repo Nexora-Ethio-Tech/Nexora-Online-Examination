@@ -1,3 +1,4 @@
+import { SupervisionService } from './supervision.service';
 import {
   Controller,
   Get,
@@ -28,10 +29,33 @@ import { DeviceBindingGuard } from '../../common/guards/device-binding.guard';
 @Controller()
 export class DeliveryController {
   constructor(
+    private readonly supervision: SupervisionService,
     private readonly deliveryService: DeliveryService,
     private readonly preparationService: PreparationService,
   ) {}
 
+  @Roles('student', 'school_admin')
+  @Get('attempts/:attemptId/supervision')
+  readSupervision(@Req() req: Request, @Param('attemptId') id: string) {
+    return this.supervision.read(req, id);
+  }
+  @Roles('student')
+  @HttpCode(HttpStatus.OK)
+  @Post('attempts/:attemptId/interruptions')
+  reportInterruption(@Req() req: Request, @Param('attemptId') id: string, @Body() body: unknown) {
+    return this.supervision.report(req, id, body);
+  }
+  @Roles('school_admin')
+  @HttpCode(HttpStatus.OK)
+  @Post('attempts/:attemptId/supervision')
+  decideSupervision(
+    @Req() req: Request,
+    @Param('attemptId') id: string,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: string | undefined,
+  ) {
+    return this.supervision.decide(req, id, body, key);
+  }
   @Roles('student')
   @Get('me/exams')
   async getMyExams(@Req() req: Request, @Query() query: { limit?: string; cursor?: string }) {

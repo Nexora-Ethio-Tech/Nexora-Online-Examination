@@ -438,3 +438,171 @@ describe('runner durability and final submission', () => {
     );
   });
 });
+
+it('persists personal review marks across reopening without changing answers, sequences or final payloads', async () => {
+  const { make } = await setup();
+  const engine = make();
+  await engine.start();
+  await answer(engine);
+  const before = structuredClone(engine.snapshot().row);
+  if (!before) throw new Error('Missing attempt');
+  engine.markForReview('q1', true);
+  await vi.waitFor(() => expect(engine.snapshot().saving).toBe(false));
+  const marked = await store.readRecord(before.key);
+  expect(marked?.reviewItemIds).toEqual(['q1']);
+  expect(marked?.answers).toEqual(before.answers);
+  expect(marked?.seq).toBe(before.seq);
+  expect(marked?.outbox).toEqual(before.outbox);
+  expect(
+    await store.recordsFor({ ...owner, userId: 'another-student' }, before.attempt.attemptId),
+  ).toEqual([]);
+  engine.dispose();
+  const reopened = make();
+  await reopened.start();
+  expect(reopened.snapshot().row?.reviewItemIds).toEqual(['q1']);
+  await reopened.finish();
+  const finished = reopened.snapshot().row;
+  expect(finished?.final?.body).not.toHaveProperty('reviewItemIds');
+  expect(finished?.receipt).toBeTruthy();
+  await expect(
+    store.setReviewFlag(before.key, 'q1', false, Date.parse(before.attempt.serverNow)),
+  ).rejects.toThrow('no longer editable');
+  expect((await store.readRecord(before.key))?.reviewItemIds).toEqual(['q1']);
+});
+
+function requiredRow(engine: RunnerEngine) {
+  const row = engine.snapshot().row;
+  if (!row) throw new Error('Expected local attempt');
+  return row;
+}
+describe('browser supervision controls', () => {
+  it('records interruptions without changing answers or awarding a penalty', async () => {
+    const { make } = await setup();
+    const engine = make();
+    await engine.start();
+    await answer(engine);
+    const before = requiredRow(engine);
+    window.dispatchEvent(new Event('pagehide'));
+    await vi.waitFor(async () =>
+      expect((await store.readRecord(before.key))?.interruptions).toHaveLength(1),
+    );
+    const saved = await store.readRecord(before.key);
+    expect(saved?.answers).toEqual(before.answers);
+    expect(saved?.seq).toBe(before.seq);
+    expect(engine.snapshot().status).toBe('active');
+    await engine.checkSupervision();
+    expect((await store.readRecord(before.key))?.interruptions).toEqual([]);
+  });
+  it('suspends editing and hides the paper while preserving answers and deadline; reopening rechecks approval', async () => {
+    let suspended = false;
+    const { make } = await setup(async (url, init, next) => {
+      const response = await next(url, init);
+      if (url.endsWith('/supervision'))
+        return new Response(JSON.stringify({ ...(await response.json()), suspended }));
+      return response;
+    });
+    const engine = make();
+    await engine.start();
+    await answer(engine);
+    const original = requiredRow(engine);
+    suspended = true;
+    await engine.checkSupervision();
+    expect(engine.snapshot().status).toBe('blocked');
+    expect(engine.snapshot().paper).toBeNull();
+    engine.edit('q1', 'false');
+    expect((await store.readRecord(original.key))?.answers).toEqual(original.answers);
+    expect(engine.snapshot().row?.attempt.deadlineAt).toBe(original.attempt.deadlineAt);
+    engine.dispose();
+    const stillBlocked = make();
+    await stillBlocked.start();
+    expect(stillBlocked.snapshot().status).toBe('blocked');
+    stillBlocked.dispose();
+    suspended = false;
+    const reopened = make();
+    await reopened.start();
+    expect(reopened.snapshot().status).toBe('active');
+    expect(reopened.snapshot().row?.answers).toEqual(original.answers);
+    expect(reopened.snapshot().row?.attempt.deadlineAt).toBe(original.attempt.deadlineAt);
+  });
+  it('keeps offline editing and interruption evidence when supervision is unreachable', async () => {
+    let offline = false;
+    const { make } = await setup(async (url, init, next) => {
+      if (offline) throw new TypeError('Offline');
+      return next(url, init);
+    });
+    const engine = make();
+    await engine.start();
+    offline = true;
+    window.dispatchEvent(new Event('pagehide'));
+    await engine.checkSupervision();
+    await answer(engine);
+    expect(engine.snapshot().status).toBe('active');
+    expect((await store.readRecord(requiredRow(engine).key))?.interruptions).toHaveLength(1);
+    offline = false;
+    await engine.checkSupervision();
+    expect((await store.readRecord(requiredRow(engine).key))?.interruptions).toEqual([]);
+  });
+});
+
+it('does not pause editing when optional telemetry is rejected', async () => {
+  const { make } = await setup(async (url, init, next) =>
+    url.endsWith('/interruptions')
+      ? new Response(
+          JSON.stringify({
+            code: 'REVISION_CONFLICT',
+            message: 'Report conflict',
+            details: [],
+            requestId: 'test',
+          }),
+          { status: 409 },
+        )
+      : next(url, init),
+  );
+  const engine = make();
+  await engine.start();
+  window.dispatchEvent(new Event('pagehide'));
+  await vi.waitFor(async () =>
+    expect((await store.readRecord(requiredRow(engine).key))?.interruptions).toHaveLength(1),
+  );
+  await engine.checkSupervision();
+  expect(engine.snapshot().status).toBe('active');
+  await answer(engine);
+});
+it('ignores a late suspension read after a committed submission', async () => {
+  let delayed = false;
+  let release: (() => void) | undefined;
+  const wait = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const { make } = await setup(async (url, init, next) => {
+    const response = await next(url, init);
+    if (delayed && url.endsWith('/supervision')) {
+      await wait;
+      return new Response(JSON.stringify({ ...(await response.json()), suspended: true }));
+    }
+    return response;
+  });
+  const engine = make();
+  await engine.start();
+  await answer(engine);
+  delayed = true;
+  const pending = engine.checkSupervision();
+  await engine.finish();
+  expect(engine.snapshot().status).toBe('submitted');
+  release?.();
+  await pending;
+  expect(engine.snapshot().status).toBe('submitted');
+  expect(requiredRow(engine).receipt).not.toBeNull();
+});
+
+it('finishes an already accepted local answer write before freezing submission', async () => {
+  const { make } = await setup();
+  const engine = make();
+  await engine.start();
+  engine.edit('q1', 'true');
+  await engine.finish();
+  expect(engine.snapshot().status).toBe('submitted');
+  expect(requiredRow(engine).final?.body.answers.find((a) => a.itemId === 'q1')?.value).toBe(
+    'true',
+  );
+});

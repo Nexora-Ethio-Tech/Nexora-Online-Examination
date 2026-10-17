@@ -1,3 +1,4 @@
+import type { Interruption } from './supervision';
 import { openDB, type DBSchema } from 'idb';
 import type { Attempt } from '@/features/exams/schemas';
 import type { Answer, FinalBody, Paper, Receipt, SaveResponse } from './schemas';
@@ -7,6 +8,8 @@ export type RecordData = {
   owner: Owner;
   attempt: Attempt;
   items: { itemId: string; options: string[] }[];
+  reviewItemIds?: string[];
+  interruptions?: Interruption[];
   answers: Answer[];
   seq: number;
   outbox: Answer[];
@@ -206,5 +209,34 @@ export function recordRecovery(key: string, receivedAt: string) {
   return update(key, (row) => {
     if (!row.recovery) throw new Error('Recovery request missing.');
     row.recovery.receivedAt = receivedAt;
+  });
+}
+
+// Personal reminders stay in this identity-bound record, never in an answer payload.
+export async function setReviewFlag(key: string, itemId: string, marked: boolean, now: number) {
+  return update(key, (row) => {
+    if (row.final || row.receipt || now >= Date.parse(row.attempt.deadlineAt))
+      throw new Error('This attempt is no longer editable.');
+    if (!row.items.some((item) => item.itemId === itemId)) throw new Error('Unknown question.');
+    const flags = new Set(row.reviewItemIds ?? []);
+    if (marked) flags.add(itemId);
+    else flags.delete(itemId);
+    row.reviewItemIds = [...flags];
+    return row;
+  });
+}
+
+export function recordInterruption(key: string, event: Interruption) {
+  return update(key, (row) => {
+    if (row.receipt || row.final) return;
+    // Bound optional telemetry without evicting answer or submission evidence.
+    const events = row.interruptions ?? [];
+    if (events.length < 200 && !events.some((e) => e.id === event.id))
+      row.interruptions = [...events, event];
+  });
+}
+export function acknowledgeInterruptions(key: string, ids: string[]) {
+  return update(key, (row) => {
+    row.interruptions = (row.interruptions ?? []).filter((e) => !ids.includes(e.id));
   });
 }

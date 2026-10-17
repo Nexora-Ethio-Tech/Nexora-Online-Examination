@@ -1,3 +1,4 @@
+import { SupervisionService } from './supervision.service';
 import { Module } from '@nestjs/common';
 import { DeliveryController } from './delivery.controller';
 import { PreparationService } from './preparation.service';
@@ -9,7 +10,13 @@ import { DeviceBindingGuard } from '../../common/guards/device-binding.guard';
 @Module({
   imports: [DatabaseModule],
   controllers: [DeliveryController],
-  providers: [PreparationService, DeliveryService, ClockService, DeviceBindingGuard],
+  providers: [
+    SupervisionService,
+    PreparationService,
+    DeliveryService,
+    ClockService,
+    DeviceBindingGuard,
+  ],
   exports: [DeliveryService],
 })
 export class DeliveryModule {}

@@ -40,24 +40,26 @@ export function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-[1fr_1.05fr]">
-      <aside className="relative hidden flex-col justify-between bg-slate-950 p-12 text-white lg:flex xl:p-16">
+    <div className="workspace-shell grid min-h-svh lg:grid-cols-[1fr_1.05fr]">
+      <aside className="relative hidden flex-col justify-between bg-sidebar p-12 text-white lg:flex xl:p-16">
         <div className="flex items-center gap-3 text-xl font-semibold tracking-tight">
           <GraduationCap className="size-8" aria-hidden="true" /> Nexora
-          <span className="text-xs font-normal tracking-widest text-slate-400">FOR SCHOOLS</span>
+          <span className="text-xs font-normal tracking-widest text-sidebar-foreground">
+            FOR SCHOOLS
+          </span>
         </div>
         <div className="max-w-lg py-16">
-          <p className="mb-6 text-xs font-medium tracking-[0.2em] text-teal-300">
+          <p className="mb-6 text-xs font-medium tracking-[0.2em] text-sidebar-accent">
             A PLACE TO LEARN. ROOM TO GROW.
           </p>
-          <h1 className="text-5xl leading-[1.12] font-semibold tracking-tight xl:text-6xl">
+          <h1 className="brand-heading text-5xl leading-[1.12] font-semibold tracking-tight xl:text-6xl">
             Every exam.
             <br />A step forward.
           </h1>
-          <p className="mt-7 max-w-sm text-lg leading-relaxed text-slate-300">
+          <p className="mt-7 max-w-sm text-lg leading-relaxed text-sidebar-foreground">
             One place for your school’s exams, results and continued practice.
           </p>
-          <div className="mt-12 flex gap-6 border-t border-slate-700 pt-6 text-sm text-slate-400">
+          <div className="mt-12 flex gap-6 border-t border-sidebar-border pt-6 text-sm text-sidebar-foreground">
             <span>Prepare</span>
             <span aria-hidden="true">/</span>
             <span>Take your exam</span>
@@ -65,7 +67,7 @@ export function LoginPage() {
             <span>Keep learning</span>
           </div>
         </div>
-        <p className="text-xs text-slate-400">Nexora School Exam Platform</p>
+        <p className="text-xs text-sidebar-foreground">Nexora School Exam Platform</p>
       </aside>
       <main id="main-content" className="flex flex-col justify-center px-6 py-12 sm:px-12">
         <div className="mx-auto w-full max-w-sm">

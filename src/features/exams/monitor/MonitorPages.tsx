@@ -1,3 +1,4 @@
+import { SupervisionPanel } from './SupervisionPanel';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -140,15 +141,15 @@ function SittingInfo({ sitting: s }: { sitting: MonitorSitting }) {
       <p className="text-sm">
         Frozen roster: {s.rosterCount} students · Schedule revision {s.scheduleRevision}
       </p>
-      <p className="rounded-lg bg-muted p-3 text-sm">
+      <p className="border-b py-4 text-sm">
         Ready (last reported): <strong>{s.readyCount}</strong> of {s.counts.preparing} preparing
         students. This is a subset, not an additional roster count.
       </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {monitorStatus.options.map((status) => (
-          <div key={status} className="rounded-lg bg-muted p-3 text-sm">
+          <div key={status} className="border-b py-4 text-sm">
             {statusLabels[status]}
-            <strong className="block text-xl">{s.counts[status]}</strong>
+            <strong className="mt-2 block font-heading text-3xl">{s.counts[status]}</strong>
           </div>
         ))}
       </div>
@@ -376,6 +377,7 @@ function MonitorAttemptContent({ attemptId }: { attemptId: string }) {
         Back to sitting monitor
       </Link>
       <h1 className="text-3xl font-semibold">Device replacement</h1>
+      <SupervisionPanel attemptId={attemptId} />
       <Refresh
         at={d?.serverNow}
         fresh={fresh}

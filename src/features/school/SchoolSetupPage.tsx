@@ -1,3 +1,4 @@
+import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useBeforeUnload, useBlocker } from 'react-router';
@@ -97,14 +98,12 @@ export function useSchoolPage<T>(
     query,
     controls: (
       <div className="flex flex-wrap items-center gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={query.isFetching}
-          onClick={() => void query.refetch()}
-        >
-          Refresh
-        </Button>
+        <RefreshControl
+          label="Refresh"
+          busy={query.isFetching}
+          updatedAt={query.dataUpdatedAt}
+          refresh={() => query.refetch()}
+        />
         {query.hasNextPage && (
           <Button
             type="button"
@@ -228,14 +227,25 @@ function StructurePage({ kind }: { kind: 'class' | 'subject' }) {
   const subjects = useSchoolPage(['subjects'], api.subjects);
   const list = kind === 'class' ? classes : subjects;
   const [selected, setSelected] = useState<SchoolClass | Subject | null>(null);
+  const [adding, setAdding] = useState(false);
   return (
     <div className="space-y-5">
-      <StructureForm
-        key={`${kind}:${selected && ('classId' in selected ? selected.classId : selected.subjectId)}:${selected?.revision}`}
-        kind={kind}
-        selected={selected}
-        onDone={() => setSelected(null)}
-      />
+      {!adding && !selected && (
+        <Button className="min-h-11" onClick={() => setAdding(true)}>
+          Add {kind}
+        </Button>
+      )}
+      {(adding || selected) && (
+        <StructureForm
+          key={`${kind}:${selected && ('classId' in selected ? selected.classId : selected.subjectId)}:${selected?.revision}`}
+          kind={kind}
+          selected={selected}
+          onDone={() => {
+            setSelected(null);
+            setAdding(false);
+          }}
+        />
+      )}
       {list.controls}
       <div className="grid gap-3 sm:grid-cols-2">
         {list.rows.map((row) => (
@@ -248,7 +258,13 @@ function StructurePage({ kind }: { kind: 'class' | 'subject' }) {
               {'academicYear' in row ? row.academicYear : row.code} ·{' '}
               {row.active ? 'Active' : 'Archived'}
             </p>
-            <Button variant="outline" onClick={() => setSelected(row)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSelected(row);
+                setAdding(false);
+              }}
+            >
               Edit {row.name}
             </Button>
           </section>
@@ -303,12 +319,7 @@ function StructureForm({
                   key,
                 ),
           () => {
-            if (selected) onDone();
-            else {
-              setName('');
-              setDetail('');
-              setReason('');
-            }
+            onDone();
           },
         );
       }}
@@ -347,11 +358,9 @@ function StructureForm({
           <Button className="min-h-11" disabled={!name.trim() || !detail.trim() || !reason.trim()}>
             Save {kind}
           </Button>
-          {selected && (
-            <Button type="button" variant="outline" onClick={onDone}>
-              Cancel edit
-            </Button>
-          )}
+          <Button type="button" variant="outline" onClick={onDone}>
+            {selected ? 'Cancel edit' : 'Cancel adding'}
+          </Button>
         </div>
       </fieldset>
       {op.feedback}
@@ -421,6 +430,7 @@ function AccountList({
   const [confirmed, setConfirmed] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [resetting, setResetting] = useState<Account | null>(null);
+  const [addingTeacher, setAddingTeacher] = useState(false);
   const show = (v: CredentialIssue) => {
     setChecked([]);
     setConfirmed(false);
@@ -428,7 +438,12 @@ function AccountList({
   };
   return (
     <>
-      {role === 'teacher' && (
+      {role === 'teacher' && !addingTeacher && (
+        <Button className="min-h-11" onClick={() => setAddingTeacher(true)}>
+          Add teacher
+        </Button>
+      )}
+      {role === 'teacher' && addingTeacher && (
         <form
           className={`${panel} space-y-4`}
           onSubmit={(e) => {
@@ -436,7 +451,12 @@ function AccountList({
             void op.run(
               JSON.stringify(['teacher', name, reason]),
               (key) => api.createTeacher(name.trim(), reason.trim(), key),
-              show,
+              (value) => {
+                setAddingTeacher(false);
+                setName('');
+                setReason('');
+                show(value);
+              },
             );
           }}
         >
@@ -454,6 +474,9 @@ function AccountList({
             <Reason value={reason} onChange={setReason} />
             <Button className="min-h-11" disabled={!name.trim() || !reason.trim()}>
               Create teacher and credentials
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setAddingTeacher(false)}>
+              Cancel adding
             </Button>
           </fieldset>
         </form>

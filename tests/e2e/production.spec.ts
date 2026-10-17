@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { accessible } from './helpers';
+import { accessible, navigateWorkspace } from './helpers';
 import { submissionFixture } from './submission-fixture';
 
 test('a failed feature download shows recoverable guidance', async ({ page, context }) => {
@@ -27,7 +27,9 @@ test('lost final response retains the exact submission across a production reloa
   await page.getByRole('button', { name: 'Confirm submission', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Pending upload', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Retry submission', exact: true })).toBeEnabled();
-  await expect(page.getByRole('heading', { name: 'Submitted', exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole('heading', { name: 'Submitted successfully', exact: true }),
+  ).toHaveCount(0);
   const original = fixture.sent[0];
   expect(original?.body).toContain('option-b');
   expect(original?.key).toBeTruthy();
@@ -36,7 +38,9 @@ test('lost final response retains the exact submission across a production reloa
   await expect(page.getByRole('radio')).toHaveCount(0);
   fixture.restore();
   await page.getByRole('button', { name: 'Retry submission', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Submitted', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Submitted successfully', exact: true }),
+  ).toBeVisible();
   expect(fixture.sent.length).toBeGreaterThanOrEqual(2);
   for (const sent of fixture.sent) expect(sent).toEqual(original);
   await accessible(page);
@@ -135,7 +139,7 @@ test('production role guard and expired session return the student to sign-in', 
   expect(requested.some((path) => path.includes('/admin/'))).toBe(false);
   await expect(page.getByRole('link', { name: 'School setup', exact: true })).toHaveCount(0);
   expired = true;
-  await page.getByRole('link', { name: 'Official results', exact: true }).click();
+  await navigateWorkspace(page, 'Official results');
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByLabel('Password', { exact: true })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Workspace' })).toHaveCount(0);

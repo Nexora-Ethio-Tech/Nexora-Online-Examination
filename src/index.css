@@ -37,7 +37,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-heading: var(--font-sans);
+  --font-heading: Georgia, 'Times New Roman', serif;
   --font-sans: 'Geist Variable', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -80,41 +80,45 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #ffffff;
+  --foreground: #203e30;
+  --card: #ffffff;
+  --card-foreground: #203e30;
+  --popover: #ffffff;
+  --popover-foreground: #203e30;
+  --primary: #244b37;
+  --primary-foreground: #ffffff;
+  --secondary: #c6e9d3;
+  --secondary-foreground: #203e30;
+  --muted: #f0f4f1;
+  --muted-foreground: #50685a;
+  --accent: #e5f4eb;
+  --accent-foreground: #203e30;
+  --destructive: #b42318;
+  --border: #cbded1;
+  --input: #a2c1a0;
+  --ring: #376b4f;
+  --chart-1: #244b37;
+  --chart-2: #507d5d;
+  --chart-3: #a2c1a0;
+  --chart-4: #c6e9d3;
+  --chart-5: #6c9275;
+  --radius: 0.125rem;
+  --sidebar: #203e30;
+  --sidebar-foreground: #e5f4eb;
+  --sidebar-primary: #c6e9d3;
+  --sidebar-primary-foreground: #203e30;
+  --sidebar-accent: #c6e9d3;
+  --sidebar-accent-foreground: #203e30;
+  --sidebar-border: #466352;
+  --sidebar-ring: #c6e9d3;
+  --canvas: #f7f9f7;
+  --sage: #a2c1a0;
 }
 
 .dark {
+  --canvas: #14251c;
+  --sage: #a2c1a0;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -160,43 +164,85 @@
   }
 }
 
-/* Role colors. Set through the data-role attribute on <html> (see use-role-theme.ts). */
-:root[data-role='platform_owner'] {
-  --primary: #7c3aed;
-  --primary-foreground: #ffffff;
-  --ring: #7c3aed;
-  --sidebar-primary: #7c3aed;
-  --sidebar-primary-foreground: #ffffff;
+/* Shared visual language. Role distinctions use labels, not unrelated brand colours. */
+@layer components {
+  .workspace-shell {
+    background: var(--canvas);
+  }
+  .nexora-surface {
+    background: var(--card);
+    box-shadow: none;
+  }
+  .page-intro {
+    padding: 0 0 1.25rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--foreground);
+  }
+  .workspace-shell h1,
+  .workspace-shell h2,
+  .brand-heading {
+    font-family: var(--font-heading);
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+  .workspace-shell h1 {
+    line-height: 1.2;
+  }
+  .workspace-shell table {
+    width: 100%;
+  }
+  .workspace-shell th {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.85rem 0.75rem;
+    background: var(--muted);
+  }
+  .workspace-shell td {
+    padding: 0.85rem 0.75rem;
+  }
+  .workspace-shell tbody tr {
+    border-bottom: 1px solid var(--border);
+  }
+  .workspace-shell tbody tr:hover {
+    background: var(--muted);
+  }
+  .workspace-shell input[type='checkbox'],
+  .workspace-shell input[type='radio'] {
+    accent-color: var(--primary);
+  }
+  .workspace-shell :is(input, textarea, select):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .exam-topbar {
+    background: var(--sidebar);
+    color: var(--sidebar-foreground);
+    border-radius: 0.125rem;
+    padding: 1rem 1.25rem;
+  }
+  .exam-topbar h1 {
+    font-family: var(--font-sans);
+  }
+}
+@media print {
+  .workspace-shell {
+    background: white;
+  }
+  .nexora-surface {
+    box-shadow: none;
+  }
+  .page-intro::after {
+    display: none;
+  }
 }
 
-:root[data-role='school_admin'] {
-  --primary: #1d4ed8;
-  --primary-foreground: #ffffff;
-  --ring: #1d4ed8;
-  --sidebar-primary: #1d4ed8;
-  --sidebar-primary-foreground: #ffffff;
+/* Explicit tab colours keep inactive labels readable on mint surfaces. */
+.workspace-shell [data-slot='tabs-trigger'] {
+  color: var(--foreground);
+  transition: none;
 }
-
-:root[data-role='teacher'] {
-  --primary: #15803d;
-  --primary-foreground: #ffffff;
-  --ring: #15803d;
-  --sidebar-primary: #15803d;
-  --sidebar-primary-foreground: #ffffff;
-}
-
-:root[data-role='student'] {
-  --primary: #9a3412;
-  --primary-foreground: #ffffff;
-  --ring: #9a3412;
-  --sidebar-primary: #9a3412;
-  --sidebar-primary-foreground: #ffffff;
-}
-
-:root[data-role='invigilator'] {
-  --primary: #0f766e;
-  --primary-foreground: #ffffff;
-  --ring: #0f766e;
-  --sidebar-primary: #0f766e;
-  --sidebar-primary-foreground: #ffffff;
+.workspace-shell [data-slot='tabs-trigger'][data-state='active'] {
+  color: var(--primary-foreground);
+  background: var(--primary);
 }

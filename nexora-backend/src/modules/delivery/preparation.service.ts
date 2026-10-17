@@ -17,6 +17,7 @@ import {
 } from './preparation-schemas';
 
 type AttemptRecord = {
+  suspended: boolean;
   id: string;
   session_id: string;
   student_id: string;
@@ -472,6 +473,11 @@ export class PreparationService {
   }
 
   private requireEditable(att: AttemptRecord) {
+    if (att.suspended)
+      throw DomainException.conflict(
+        'ATTEMPT_SUSPENDED',
+        'Administrator approval is required to resume. The deadline is unchanged.',
+      );
     if (att.state === 'submitted' || att.state === 'invalidated') {
       throw DomainException.conflict('ALREADY_FINALIZED', 'Attempt is already finalized');
     }

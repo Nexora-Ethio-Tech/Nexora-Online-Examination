@@ -1,3 +1,4 @@
+import { ExamBadge } from '@/components/shared/ExamBadge';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
@@ -12,7 +13,7 @@ import { authoringApi } from './api';
 import { metadataSchema, type Metadata, type Assignment } from './schemas';
 
 export const control = 'min-h-11 w-full rounded-md border bg-background px-3 py-2 text-sm';
-export const panel = 'rounded-xl border bg-background p-5 sm:p-6';
+export const panel = 'nexora-surface rounded-xl border bg-background p-5 sm:p-6';
 export function useTeacherScope() {
   const { session } = useAuth();
   const schoolId = session?.school.id;
@@ -169,13 +170,9 @@ export function TeacherPage() {
   });
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="page-intro flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm text-muted-foreground">Prepare · Review · Submit</p>
           <h1 className="mt-2 text-3xl font-semibold">My exam papers</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Create a paper for your class. Your administrator approves and schedules it.
-          </p>
         </div>
         <Button className="min-h-11" onClick={() => setCreating(!creating)}>
           {creating ? 'Close new draft' : 'New exam'}
@@ -221,23 +218,25 @@ export function TeacherPage() {
           </p>
         </section>
       )}
-      {list.data?.pages
-        .flatMap((p) => p.items)
-        .map((d) => (
-          <article key={d.examId} className={panel}>
-            <div className="flex justify-between gap-3">
-              <h2 className="text-xl font-semibold">{d.title}</h2>
-              <span className="text-sm capitalize">{d.status.replace('_', ' ')}</span>
-            </div>
-            <p className="my-3 text-sm text-muted-foreground">
-              {d.itemCount} questions · {d.totalMarks} marks · {d.reviewedCount} reviewed ·{' '}
-              {d.durationMinutes} minutes
-            </p>
-            <Button variant="outline" asChild>
-              <Link to={`/teacher/exams/${d.examId}`}>Open paper</Link>
-            </Button>
-          </article>
-        ))}
+      <div className="grid gap-5 xl:grid-cols-2">
+        {list.data?.pages
+          .flatMap((p) => p.items)
+          .map((d) => (
+            <article key={d.examId} className={panel}>
+              <div className="flex flex-wrap justify-between gap-3">
+                <h2 className="text-xl font-semibold">{d.title}</h2>
+                <ExamBadge status={d.status} />
+              </div>
+              <p className="my-3 text-sm text-muted-foreground">
+                {d.itemCount} questions · {d.totalMarks} marks · {d.reviewedCount} reviewed ·{' '}
+                {d.durationMinutes} minutes
+              </p>
+              <Button variant="outline" asChild>
+                <Link to={`/teacher/exams/${d.examId}`}>Open paper</Link>
+              </Button>
+            </article>
+          ))}
+      </div>
       {list.hasNextPage && (
         <Button disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
           Load more papers

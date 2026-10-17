@@ -42,12 +42,14 @@ function submitRosterPreview() {
 describe('school setup UI', () => {
   it('creates a class and subject and records who changed them', async () => {
     const { user, store } = setup();
+    await user.click(await screen.findByRole('button', { name: 'Add class' }, { timeout: 5000 }));
     await user.type(await screen.findByLabelText('Class name'), 'Grade 9 B');
     await user.type(screen.getByLabelText('Academic year'), '2026');
     await user.type(screen.getByLabelText('Reason'), 'New intake');
     await user.click(screen.getByRole('button', { name: 'Save class' }));
     expect(await screen.findByRole('heading', { name: 'Grade 9 B' })).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Subjects' }));
+    await user.click(screen.getByRole('button', { name: 'Add subject' }));
     await user.type(screen.getByLabelText('Subject name'), 'Physics');
     await user.type(screen.getByLabelText('Subject code'), 'PHY');
     await user.type(screen.getByLabelText('Reason'), 'New subject');
@@ -150,6 +152,7 @@ describe('school setup UI', () => {
     });
     await user.click(await screen.findByRole('tab', { name: 'Accounts' }));
     await user.click(screen.getByRole('button', { name: 'Teachers' }));
+    await user.click(screen.getByRole('button', { name: 'Add teacher' }));
     await user.type(screen.getByLabelText('Teacher name'), 'Teacher Example');
     await user.type(screen.getByLabelText('Reason'), 'New staff');
     await user.click(screen.getByRole('button', { name: 'Create teacher and credentials' }));

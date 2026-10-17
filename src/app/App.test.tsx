@@ -39,20 +39,20 @@ describe('authentication and routing', () => {
   ])('signs in %s and opens its role workspace', async (id, path) => {
     const { user, router } = setup();
     await signIn(user, id);
-    expect(await screen.findByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Open account menu' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(path);
   });
   it('keeps an administrator out until MFA succeeds, and allows a bad code to be retried', async () => {
     const { user, router } = setup();
     await signIn(user, 'DEMO-ADMIN');
     await user.type(await screen.findByLabelText('Verification code'), '000000');
-    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open account menu' })).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/mfa');
     await user.click(screen.getByRole('button', { name: 'Verify and continue' }));
     expect(await screen.findByText('The verification code is incorrect.')).toBeInTheDocument();
     await user.type(screen.getByLabelText('Verification code'), '123456');
     await user.click(screen.getByRole('button', { name: 'Verify and continue' }));
-    expect(await screen.findByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Open account menu' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/admin');
   });
   it('rejects bad credentials without an auth redirect or retaining the password', async () => {
@@ -64,7 +64,7 @@ describe('authentication and routing', () => {
   });
   it('restores an authenticated session and redirects a wrong-role URL', async () => {
     const { router } = setup(createDemoTransport('teacher'), '/admin');
-    expect(await screen.findByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Open account menu' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/teacher');
   });
   it('redirects anonymous protected URLs to login', async () => {
@@ -74,10 +74,11 @@ describe('authentication and routing', () => {
   });
   it('clears private query data on logout without touching unrelated browser evidence', async () => {
     const { user, queryClient } = setup(createDemoTransport('student'), '/student');
-    await screen.findByRole('button', { name: 'Sign out' });
+    await screen.findByRole('button', { name: 'Open account menu' });
     queryClient.setQueryData(['school', 'private'], { students: ['private'] });
     sessionStorage.setItem('test-unrelated-evidence', 'retained');
-    await user.click(screen.getByRole('button', { name: 'Sign out' }));
+    await user.click(screen.getByRole('button', { name: 'Open account menu' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Sign out' }));
     expect(await screen.findByLabelText('User ID')).toBeInTheDocument();
     expect(queryClient.getQueryData(['school', 'private'])).toBeUndefined();
     expect(sessionStorage.getItem('test-unrelated-evidence')).toBe('retained');
@@ -90,7 +91,8 @@ describe('authentication and routing', () => {
         ? Promise.resolve(new Response('unavailable', { status: 503 }))
         : demo(url, init);
     const { user, router } = setup(transport, '/student');
-    await user.click(await screen.findByRole('button', { name: 'Sign out' }));
+    await user.click(await screen.findByRole('button', { name: 'Open account menu' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Sign out' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The server could not complete');
     expect(router.state.location.pathname).toBe('/student');
   });
@@ -114,7 +116,7 @@ describe('authentication and routing', () => {
         ? Promise.resolve(new Response('{}', { status: 401 }))
         : demo(url, init);
     const { client, queryClient } = setup(transport, '/student');
-    await screen.findByRole('button', { name: 'Sign out' });
+    await screen.findByRole('button', { name: 'Open account menu' });
     queryClient.setQueryData(['private'], 'secret');
     const { z } = await import('zod');
     await expect(client.request('/private', z.unknown())).rejects.toMatchObject({ status: 401 });

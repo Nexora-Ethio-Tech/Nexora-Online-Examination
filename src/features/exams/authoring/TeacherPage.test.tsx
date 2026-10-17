@@ -97,13 +97,14 @@ describe('teacher workspace', () => {
     const first = (await screen.findByRole('heading', { name: 'MATH-001' })).closest('section');
     if (!first) throw new Error('Missing first question');
     await user.click(within(first).getByRole('checkbox'));
-    await user.click(within(first).getByRole('button', { name: 'Save question review' }));
+    expect(screen.getByRole('button', { name: 'Review MATH-002' })).toBeDisabled();
+    await user.click(within(first).getByRole('button', { name: 'Save and next' }));
     await waitFor(() => expect(screen.getByText(/1 reviewed/)).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Submit for approval' })).toBeDisabled();
-    const second = screen.getByRole('heading', { name: 'MATH-002' }).closest('section');
+    const second = (await screen.findByRole('heading', { name: 'MATH-002' })).closest('section');
     if (!second) throw new Error('Missing second question');
     await user.click(within(second).getByRole('checkbox'));
-    await user.click(within(second).getByRole('button', { name: 'Save question review' }));
+    await user.click(within(second).getByRole('button', { name: 'Save and next' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('resolution note');
     await user.type(
       within(second).getByLabelText('Review note / flag resolution'),
@@ -113,7 +114,12 @@ describe('teacher workspace', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Submit for approval' })).toBeEnabled(),
     );
+    await user.click(screen.getByRole('button', { name: 'Needs review' }));
+    expect(screen.getByText('No questions match this filter.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Reviewed' }));
+    expect(screen.getByRole('button', { name: 'Review MATH-001' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Submit for approval' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm send for approval' }));
     expect(
       await screen.findByText('Submitted for administrator approval. This paper is now read-only.'),
     ).toBeInTheDocument();

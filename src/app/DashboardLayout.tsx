@@ -1,6 +1,33 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
-import { Navigate, NavLink, Outlet } from 'react-router';
-import { GraduationCap, LayoutDashboard, LogOut, Menu } from 'lucide-react';
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
+import {
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  BarChart3,
+  BookOpen,
+  Radio,
+  School,
+  LifeBuoy,
+  UserCircle,
+} from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { roleHome, roleLabel } from '@/features/auth/role-home';
@@ -9,6 +36,9 @@ import { useRoleTheme } from '@/lib/use-role-theme';
 
 export function DashboardLayout() {
   const auth = useAuth();
+  const location = useLocation();
+  const focused = /^\/student\/attempts\/[^/]+\/?$/.test(location.pathname);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const container = useRef<HTMLDivElement>(null);
   const header = useRef<HTMLElement>(null);
@@ -24,7 +54,7 @@ export function DashboardLayout() {
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [focused]);
   useRoleTheme(auth.session?.user.role ?? 'student');
   if (!auth.session) return <Navigate to="/login" replace />;
   const { user, school } = auth.session;
@@ -36,117 +66,150 @@ export function DashboardLayout() {
       setError(failure);
     }
   }
+  const links = [
+    {
+      to: roleHome[user.role],
+      label:
+        user.role === 'student'
+          ? 'My exams'
+          : user.role === 'teacher'
+            ? 'My exam papers'
+            : 'Exam approvals',
+      icon: LayoutDashboard,
+      end: true,
+    },
+    { to: `${roleHome[user.role]}/results`, label: 'Official results', icon: BarChart3 },
+    ...(user.role !== 'teacher'
+      ? [
+          {
+            to: `${roleHome[user.role]}/practice`,
+            label: user.role === 'student' ? 'Practice' : 'Practice release',
+            icon: BookOpen,
+          },
+        ]
+      : []),
+    ...(user.role === 'school_admin'
+      ? [
+          { to: '/admin/monitor', label: 'Live exams', icon: Radio },
+          { to: '/admin/recovery', label: 'Recovery review', icon: LifeBuoy },
+          { to: '/admin/school', label: 'School setup', icon: School },
+        ]
+      : []),
+  ];
+  const navigation = (
+    <nav aria-label="Workspace" className="space-y-1.5">
+      {links.map(({ to, label, icon: Icon, end }) => (
+        <NavLink
+          key={to}
+          to={to}
+          end={end}
+          onClick={() => setMenuOpen(false)}
+          className="flex min-h-12 items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground"
+        >
+          <Icon className="size-4 shrink-0" aria-hidden="true" />
+          {label}
+        </NavLink>
+      ))}
+      {user.role === 'student' && (
+        <div className="mt-6 border-t border-sidebar-border pt-4">
+          <p className="px-4 text-xs font-medium text-sidebar-foreground">Help and devices</p>
+          <NavLink
+            to="/student/device"
+            onClick={() => setMenuOpen(false)}
+            className="mt-2 flex min-h-11 items-center gap-3 rounded-xl px-4 text-sm text-sidebar-foreground hover:bg-sidebar-accent/15 aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground"
+          >
+            <LifeBuoy className="size-4 shrink-0" aria-hidden="true" />
+            Register replacement browser
+          </NavLink>
+        </div>
+      )}
+    </nav>
+  );
   return (
-    <div ref={container} className="min-h-svh bg-muted/30">
+    <div ref={container} className="workspace-shell min-h-svh">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-background focus:p-3 focus:text-foreground focus:ring-2"
       >
         Skip to main content
       </a>
-      <header ref={header} className="sticky top-0 z-20 border-b bg-background px-4 sm:px-8">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 py-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <GraduationCap className="size-8 shrink-0" aria-hidden="true" />
-            <div className="min-w-0">
-              <p className="text-lg font-semibold tracking-tight">Nexora</p>
-              <p className="max-w-48 truncate text-xs text-muted-foreground sm:max-w-md">
-                {school.name}
-              </p>
+      {!focused && (
+        <header ref={header} className="sticky top-0 z-20 border-b bg-background px-4 sm:px-8">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 py-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" className="min-h-11 lg:hidden">
+                    <Menu aria-hidden="true" />
+                    <span className="sr-only">Navigation</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent
+                  side="left"
+                  className="overflow-y-auto border-sidebar-border bg-sidebar p-4 text-sidebar-foreground"
+                >
+                  <SheetHeader>
+                    <SheetTitle>Workspace navigation</SheetTitle>
+                    <SheetDescription className="text-sidebar-foreground">
+                      {school.name} · {roleLabel[user.role]}
+                    </SheetDescription>
+                  </SheetHeader>
+                  {navigation}
+                  <p className="mt-6 text-xs text-sidebar-foreground">
+                    Exam schedules use East Africa Time (EAT).
+                  </p>
+                </SheetContent>
+              </Sheet>
+              <GraduationCap className="size-8 shrink-0" aria-hidden="true" />
+              <div className="min-w-0 overflow-hidden">
+                <p className="brand-heading truncate text-2xl font-semibold tracking-tight">
+                  Nexora
+                </p>
+                <p className="max-w-32 truncate text-xs text-muted-foreground sm:max-w-md">
+                  {school.name}
+                </p>
+              </div>
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="min-h-11" aria-label="Open account menu">
+                  <UserCircle aria-hidden="true" />
+                  <span className="hidden max-w-48 truncate sm:inline">{user.displayName}</span>
+                  <span className="sm:hidden">Account</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-w-80">
+                <DropdownMenuLabel>
+                  <p>{user.displayName}</p>
+                  <p className="text-xs font-normal">
+                    {roleLabel[user.role]} · {school.name}
+                  </p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled={auth.logout.isPending} onSelect={() => void logout()}>
+                  <LogOut aria-hidden="true" />
+                  {auth.logout.isPending ? 'Signing out…' : 'Sign out'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <Button asChild variant="outline" className="min-h-11">
-            <a href="#workspace-navigation">
-              <Menu aria-hidden="true" />
-              Navigation
-            </a>
-          </Button>
-          <Button
-            variant="outline"
-            className="min-h-11"
-            disabled={auth.logout.isPending}
-            onClick={() => void logout()}
-          >
-            <LogOut aria-hidden="true" />
-            {auth.logout.isPending ? 'Signing out…' : 'Sign out'}
-          </Button>
-        </div>
-      </header>
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-8 lg:grid-cols-[200px_1fr] lg:gap-12 lg:py-10">
-        <aside className="min-w-0 self-start lg:sticky lg:top-[calc(var(--workspace-header-height)+1rem)] lg:max-h-[calc(100svh-var(--workspace-header-height)-2rem)] lg:overflow-y-auto">
-          <p className="mb-4 text-xs font-semibold tracking-widest text-muted-foreground">
-            {roleLabel[user.role].toUpperCase()}
-          </p>
-          <nav
-            id="workspace-navigation"
-            tabIndex={-1}
-            aria-label="Workspace"
-            className="scroll-mt-[calc(var(--workspace-header-height)+1rem)] rounded-lg border bg-background p-2 focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <p className="px-4 py-2 text-sm font-semibold">Workspace navigation</p>
-            {user.role === 'school_admin' && (
-              <NavLink
-                to="/admin/monitor"
-                className="mb-2 flex min-h-11 items-center rounded-lg px-4 text-sm font-medium aria-[current=page]:bg-primary/10"
-              >
-                Live exams
-              </NavLink>
-            )}
-            {user.role === 'student' && (
-              <NavLink
-                to="/student/device"
-                className="mb-2 flex min-h-11 items-center rounded-lg px-4 text-sm font-medium aria-[current=page]:bg-primary/10"
-              >
-                Register replacement browser
-              </NavLink>
-            )}
-            {user.role === 'school_admin' && (
-              <NavLink
-                to="/admin/school"
-                className="mb-2 flex min-h-11 items-center rounded-lg px-4 text-sm font-medium aria-[current=page]:bg-primary/10"
-              >
-                School setup
-              </NavLink>
-            )}
-            {user.role !== 'teacher' && (
-              <NavLink
-                to={`${roleHome[user.role]}/practice`}
-                className="mb-2 flex min-h-11 items-center rounded-lg px-4 text-sm font-medium aria-[current=page]:bg-primary/10"
-              >
-                {user.role === 'student' ? 'Practice' : 'Practice release'}
-              </NavLink>
-            )}
-            {user.role === 'school_admin' && (
-              <NavLink
-                to="/admin/recovery"
-                className="mb-2 flex min-h-11 items-center rounded-lg px-4 text-sm font-medium aria-[current=page]:bg-primary/10"
-              >
-                Recovery review
-              </NavLink>
-            )}
-            <NavLink
-              to={`${roleHome[user.role]}/results`}
-              className="mb-2 flex min-h-11 items-center rounded-lg px-4 text-sm font-medium aria-[current=page]:bg-primary/10"
-            >
-              Official results
-            </NavLink>
-            <NavLink
-              to={roleHome[user.role]}
-              end
-              className="flex min-h-11 items-center gap-3 rounded-lg px-4 text-sm font-medium text-primary aria-[current=page]:bg-primary/10"
-            >
-              <LayoutDashboard className="size-4" aria-hidden="true" />
-              {user.role === 'student'
-                ? 'My exams'
-                : user.role === 'teacher'
-                  ? 'My exam papers'
-                  : 'Exam approvals'}
-            </NavLink>
-          </nav>
-          <p className="mt-6 hidden text-xs leading-relaxed text-muted-foreground lg:block">
-            Exam schedules are shown in East Africa Time (EAT).
-          </p>
-        </aside>
+        </header>
+      )}
+      <div
+        className={
+          focused
+            ? 'mx-auto max-w-4xl px-4 py-6 sm:px-8'
+            : 'mx-auto grid max-w-[1600px] gap-6 px-4 py-6 sm:px-8 lg:grid-cols-[240px_1fr] lg:gap-8'
+        }
+      >
+        {!focused && (
+          <aside className="hidden min-w-0 self-start rounded-2xl bg-sidebar p-3 text-sidebar-foreground lg:sticky lg:top-[calc(var(--workspace-header-height)+1rem)] lg:flex lg:max-h-[calc(100svh-var(--workspace-header-height)-2rem)] lg:min-h-[calc(100svh-var(--workspace-header-height)-4rem)] lg:flex-col lg:overflow-y-auto">
+            <p className="mb-4 px-4 pt-4 text-xs font-semibold tracking-widest text-sidebar-foreground">
+              {roleLabel[user.role].toUpperCase()}
+            </p>
+            {navigation}
+          </aside>
+        )}
         <main
           id="main-content"
           tabIndex={-1}
