@@ -59,6 +59,10 @@ async function main() {
   const terminal = createInterface({ input: process.stdin, output: process.stdout });
   const pool = new Pool(databasePoolConfig('migration'));
   try {
+    const clock = await pool.query<{ now: Date }>('SELECT clock_timestamp() AS now');
+    if (Math.abs(Date.now() - clock.rows[0].now.getTime()) > 90_000) {
+      throw new Error('Computer and database clocks differ by more than 90 seconds. Enable automatic date/time and synchronize the computer and phone before retrying.');
+    }
     const verified = await terminal.question(
       'Verify authorization and administrator identity through the school support contact. Type VERIFIED to continue: ',
     );
@@ -110,7 +114,23 @@ async function main() {
   }
 }
 
-main().catch(() => {
+main().catch((error: unknown) => {
+  const safeMessages = new Set([
+    'Computer and database clocks differ by more than 90 seconds. Enable automatic date/time and synchronize the computer and phone before retrying.',
+    'Incorrect code; administrator remains inactive',
+    'Enrollment absent, expired or locked; restart protected enrollment',
+    'Already enrolled; verified recovery is required',
+    'Administrator not found in this school',
+    'School is inactive',
+    'Identity verification required',
+  ]);
+  if (error instanceof Error && safeMessages.has(error.message)) {
+    logger.error(error.message);
+    if (error.message === 'Incorrect code; administrator remains inactive')
+      logger.error('Use the newest enrollment key and enable automatic date/time on the phone and computer.');
+    process.exitCode = 1;
+    return;
+  }
   logger.error(
     'MFA operator command failed; administrator activation was not confirmed. Check arguments, private configuration and enrollment state.',
   );
