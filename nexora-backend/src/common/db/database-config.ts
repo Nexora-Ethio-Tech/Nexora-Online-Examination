@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { config } from 'dotenv';
 import { PoolConfig } from 'pg';
+import { X509Certificate } from 'crypto';
 
 const sourceRoot = path.resolve(__dirname, '../../..');
 const backendRoot = existsSync(path.join(sourceRoot, 'package.json'))
@@ -49,9 +50,26 @@ export function databasePoolConfig(
   const secureTransport = isSupabase || (sslMode !== null && sslMode !== 'disable');
   const localDevelopment =
     environment.VERCEL !== '1' && ['development', 'test'].includes(environment.NODE_ENV ?? '');
-  const ca = environment.DB_SSL_CA_FILE
-    ? readFileSync(environment.DB_SSL_CA_FILE, 'utf8')
-    : undefined;
+  const inlineCa = environment.DB_SSL_CA?.trim();
+  const caFile = environment.DB_SSL_CA_FILE?.trim();
+  if (inlineCa && caFile) {
+    throw new Error('Configure only one of DB_SSL_CA or DB_SSL_CA_FILE.');
+  }
+  const ca = (inlineCa || (caFile ? readFileSync(caFile, 'utf8') : undefined))
+    ?.replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n');
+  if (ca !== undefined) {
+    try {
+      const pattern = /-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g;
+      const certificates = ca.match(pattern);
+      if (!certificates?.length || ca.replace(pattern, '').trim()) throw new Error();
+      for (const certificate of certificates) new X509Certificate(certificate);
+    } catch {
+      throw new Error(
+        'DB_SSL_CA or DB_SSL_CA_FILE must contain a valid PEM CA certificate bundle.',
+      );
+    }
+  }
   // pg connection-string SSL parameters otherwise replace the explicit TLS options.
   if (secureTransport)
     for (const parameter of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert'])
