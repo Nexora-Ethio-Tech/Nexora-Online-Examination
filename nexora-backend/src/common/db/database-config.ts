@@ -1,4 +1,4 @@
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { config } from 'dotenv';
 import { PoolConfig } from 'pg';
@@ -46,15 +46,25 @@ export function databasePoolConfig(
     throw new Error('DB_POOL_MAX must be a positive integer.');
   }
   const sslMode = url.searchParams.get('sslmode');
+  const secureTransport = isSupabase || (sslMode !== null && sslMode !== 'disable');
+  const localDevelopment =
+    environment.VERCEL !== '1' && ['development', 'test'].includes(environment.NODE_ENV ?? '');
+  const ca = environment.DB_SSL_CA_FILE
+    ? readFileSync(environment.DB_SSL_CA_FILE, 'utf8')
+    : undefined;
+  // pg connection-string SSL parameters otherwise replace the explicit TLS options.
+  if (secureTransport)
+    for (const parameter of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert'])
+      url.searchParams.delete(parameter);
+
   return {
-    connectionString,
+    connectionString: secureTransport ? url.toString() : connectionString,
     max: mode === 'migration' ? 1 : max,
     // Release session-pooler slots before Vercel can suspend an idle instance.
     maxUses: vercelRuntime ? 1 : undefined,
-    ssl:
-      isSupabase || (sslMode !== null && sslMode !== 'disable')
-        ? { rejectUnauthorized: false }
-        : undefined,
+    ssl: secureTransport
+      ? { rejectUnauthorized: !localDevelopment || ca !== undefined, ...(ca ? { ca } : {}) }
+      : undefined,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
   };

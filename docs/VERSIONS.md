@@ -10,6 +10,8 @@
 | fast-xml-parser | 5.11.2 |
 | @types/yauzl | 3.4.0 |
 
-The importer uses lazy ZIP entry reads with bounded expanded size and validated XML. Dependency versions are locked in `nexora-backend/package-lock.json`. These additions did not upgrade the existing NestJS major version.
+The importer uses lazy ZIP entry reads with bounded expanded size and validated XML. Dependencies are locked in `nexora-backend/package-lock.json`.
 
-The backend dependency audit currently reports 11 findings: one low, six moderate, two high and two critical. The reported packages are the existing NestJS/Express multipart dependency chain and Vitest tooling, not the added ZIP/XML parsers. Runtime multipart vulnerabilities and the remaining audit findings require remediation and regression checks before deployment. No automatic force-upgrade has been applied.
+Security remediation during the integration work upgraded all Nest packages together to **11.2.7**, including testing and platform-express, and backend Vitest to **4.1.11** (matching the frontend). The installed multipart parser is **multer 2.4.0**. This was required by dependency advisories; it was not a feature-driven upgrade. `npm audit` subsequently reported **0 vulnerabilities**, and backend compilation plus 74 unit tests passed. The combined database/browser regression is recorded separately in the testing guide.
+
+Nest 11 uses Express 5; the application uses explicit named routes rather than legacy wildcard patterns. Reference: [Nest Express 5 changes](https://nestjs.io/tutorials/what-s-new-in-express-5-eeb51579), [Vitest migration guidance](https://vitest.dev/guide/migration/).

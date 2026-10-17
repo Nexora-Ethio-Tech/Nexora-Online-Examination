@@ -12,7 +12,7 @@ import {
 } from '../delivery/preparation-schemas';
 import { draftSchema, itemSchema, metadataSchema, revision, Item } from './schemas';
 
-type Exam = {
+export type Exam = {
   id: string;
   title: string;
   instructions: string;

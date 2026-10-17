@@ -1,3 +1,10 @@
+import { z } from 'zod';
+import {
+  parsePreparationInput as parse,
+  resourceIdSchema,
+  idempotencyKeySchema,
+} from './preparation-schemas';
+import { captureResultSnapshot } from '../../common/db/result-snapshot';
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { Request } from 'express';
 import { randomUUID } from 'crypto';
@@ -7,6 +14,20 @@ import { DomainException } from '../../common/errors/domain.exception';
 import { hashSha256 } from '../../common/crypto/password';
 import { computeFinalSnapshotDigest } from '../../common/crypto/canonical-digest';
 
+const deliveryVersion = z.number().int().positive().safe();
+const deliveryId = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+const finalBody = z
+  .object({
+    examVersion: deliveryVersion,
+    scheduleRevision: deliveryVersion,
+    deviceGeneration: deliveryVersion,
+    finalSeq: z.number().int().nonnegative().safe(),
+    answers: z
+      .array(z.object({ itemId: deliveryId, value: deliveryId.nullable() }).strict())
+      .max(200),
+  })
+  .strict();
+
 @Injectable()
 export class DeliveryService {
   constructor(
@@ -15,6 +36,23 @@ export class DeliveryService {
   ) {}
 
   async saveAnswers(req: Request, attemptId: string, body: SaveAnswersDto) {
+    parse(resourceIdSchema, attemptId);
+    body = parse(
+      finalBody.omit({ finalSeq: true }).extend({
+        answers: z
+          .array(
+            z
+              .object({
+                itemId: deliveryId,
+                value: deliveryId.nullable(),
+                clientSeq: deliveryVersion,
+              })
+              .strict(),
+          )
+          .max(200),
+      }),
+      body,
+    );
     const student = req.sessionUser;
     const school = req.school;
     if (!student || !school || student.role !== 'student') {
@@ -276,6 +314,9 @@ export class DeliveryService {
     idempotencyKey: string | undefined,
     body: SubmitAttemptDto,
   ) {
+    parse(resourceIdSchema, attemptId);
+    parse(idempotencyKeySchema, idempotencyKey);
+    body = parse(finalBody, body);
     // 1. Capture receivedAt immediately after complete body arrives, before waiting on database lock
     const receivedAt = this.clock.now();
 
@@ -355,6 +396,12 @@ export class DeliveryService {
 
     // 4. Run inside tenant transaction with row locking
     return this.db.withTenantTransaction(school.id, async (client) => {
+      const sittingLock = await client.query(
+        'SELECT es.id FROM exam_sessions es JOIN attempts a ON a.school_id=es.school_id AND a.session_id=es.id WHERE a.school_id=$1 AND a.id=$2 AND a.student_id=$3 FOR UPDATE OF es',
+        [school.id, attemptId, student.id],
+      );
+      if (!sittingLock.rowCount) throw DomainException.notFound('Attempt not found');
+
       // Row lock attempt
       const attRes = await client.query(
         `SELECT a.*, es.starts_at, es.exam_version_id
@@ -582,6 +629,8 @@ export class DeliveryService {
         [school.id, att.id, totalScore, totalMaxScore, percent, receiptId],
       );
 
+      await captureResultSnapshot(client, school.id, att.session_id);
+
       // Record idempotency key
       const responsePayload = {
         status: 'submitted',
@@ -669,6 +718,9 @@ export class DeliveryService {
     idempotencyKey: string | undefined,
     body: UploadRecoveryDto,
   ) {
+    parse(resourceIdSchema, attemptId);
+    parse(idempotencyKeySchema, idempotencyKey);
+    body = parse(finalBody.extend({ reason: z.string().trim().min(1).max(2000) }), body);
     const serverNow = this.clock.now();
 
     const student = req.sessionUser;
@@ -742,6 +794,12 @@ export class DeliveryService {
     }
 
     return this.db.withTenantTransaction(school.id, async (client) => {
+      const sittingLock = await client.query(
+        'SELECT es.id FROM exam_sessions es JOIN attempts a ON a.school_id=es.school_id AND a.session_id=es.id WHERE a.school_id=$1 AND a.id=$2 AND a.student_id=$3 FOR UPDATE OF es',
+        [school.id, attemptId, student.id],
+      );
+      if (!sittingLock.rowCount) throw DomainException.notFound('Attempt not found');
+
       // Row lock attempt
       const attRes = await client.query(
         `SELECT a.*, es.starts_at, es.exam_version_id
@@ -879,6 +937,28 @@ export class DeliveryService {
         ],
       );
 
+      const timely = (
+        await client.query(
+          'SELECT item_id "itemId",value,client_seq "clientSeq" FROM attempt_answers WHERE school_id=$1 AND attempt_id=$2 ORDER BY item_id',
+          [school.id, att.id],
+        )
+      ).rows;
+      await client.query(
+        'UPDATE recovery_uploads SET generation_at_upload=$1,timely_evidence=$2 WHERE school_id=$3 AND id=$4',
+        [
+          att.device_generation,
+          JSON.stringify({
+            savedAt: att.last_server_save_at
+              ? new Date(att.last_server_save_at).toISOString()
+              : null,
+            highestAcceptedSeq: att.highest_accepted_seq,
+            answers: timely,
+          }),
+          school.id,
+          recoveryId,
+        ],
+      );
+
       // Move attempt to recovery_pending
       await client.query(
         `UPDATE attempts
@@ -888,6 +968,7 @@ export class DeliveryService {
         [att.id],
       );
 
+      await captureResultSnapshot(client, school.id, att.session_id);
       return {
         statusCode: HttpStatus.CREATED,
         data: {
@@ -905,6 +986,17 @@ export class DeliveryService {
     idempotencyKey: string | undefined,
     body: DecideRecoveryDto,
   ) {
+    parse(resourceIdSchema, recoveryId);
+    parse(idempotencyKeySchema, idempotencyKey);
+    body = parse(
+      z
+        .object({
+          decision: z.enum(['accept', 'reject']),
+          reason: z.string().trim().min(1).max(2000),
+        })
+        .strict(),
+      body,
+    );
     const admin = req.sessionUser;
     const school = req.school;
     if (!admin || !school || admin.role !== 'school_admin') {
@@ -932,6 +1024,15 @@ export class DeliveryService {
     const serverNow = this.clock.now();
 
     return this.db.withTenantTransaction(school.id, async (client) => {
+      const sittingLock = await client.query(
+        'SELECT es.id FROM exam_sessions es JOIN attempts a ON a.school_id=es.school_id AND a.session_id=es.id JOIN recovery_uploads r ON r.school_id=a.school_id AND r.attempt_id=a.id WHERE r.school_id=$1 AND r.id=$2 FOR UPDATE OF es',
+        [school.id, recoveryId],
+      );
+      if (!sittingLock.rowCount) throw DomainException.notFound('Recovery upload not found');
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+        `${school.id}:${admin.id}:recovery_decision:${idempotencyKey}`,
+      ]);
+
       // Check idempotency replay for this decision
       const idempRes = await client.query(
         `SELECT response_body, payload_digest FROM idempotency_keys
@@ -988,7 +1089,11 @@ export class DeliveryService {
           `SELECT id FROM submissions WHERE school_id = $1 AND attempt_id = $2`,
           [school.id, att.id],
         );
-        if (existingSub.rows.length > 0) {
+        if (
+          existingSub.rows.length > 0 ||
+          att.state === 'invalidated' ||
+          att.state === 'submitted'
+        ) {
           throw DomainException.conflict(
             'ALREADY_FINALIZED',
             'Attempt already has a committed submission',
@@ -997,8 +1102,8 @@ export class DeliveryService {
 
         // Grade the recovery snapshot answers
         const itemsRes = await client.query(
-          `SELECT item_id, type, marks, correct_key FROM exam_items WHERE exam_version_id = $1`,
-          [rec.exam_version_id],
+          `SELECT item_id, type, marks, correct_key, options FROM exam_items WHERE exam_version_id = $1 AND school_id = $2`,
+          [rec.exam_version_id, school.id],
         );
 
         const answersList = rec.answers_snapshot as Array<{ itemId: string; value: string | null }>;
@@ -1006,6 +1111,40 @@ export class DeliveryService {
         for (const a of answersList) {
           ansMap.set(a.itemId, a.value);
         }
+
+        const digest = computeFinalSnapshotDigest({
+          attemptId: att.id,
+          examVersion: rec.exam_version,
+          scheduleRevision: rec.schedule_revision,
+          deviceGeneration: rec.device_generation,
+          finalSeq: rec.final_seq,
+          answers: answersList,
+        }).snapshotDigest;
+        const known =
+          rec.exam_version === att.exam_version &&
+          rec.schedule_revision === att.schedule_revision &&
+          Number.isSafeInteger(rec.device_generation) &&
+          rec.device_generation >= 1 &&
+          rec.device_generation <= att.device_generation;
+        if (
+          digest !== rec.snapshot_digest ||
+          !known ||
+          answersList.length !== itemsRes.rows.length ||
+          ansMap.size !== itemsRes.rows.length ||
+          itemsRes.rows.some(
+            (item) =>
+              !ansMap.has(item.item_id) ||
+              (ansMap.get(item.item_id) !== null &&
+                !z
+                  .array(z.object({ id: z.string() }))
+                  .parse(item.options)
+                  .some((o) => o.id === ansMap.get(item.item_id))),
+          )
+        )
+          throw DomainException.conflict(
+            'REVISION_CONFLICT',
+            'Recovery evidence does not match its approved version',
+          );
 
         let totalScore = 0;
         let totalMaxScore = 0;
@@ -1081,7 +1220,7 @@ export class DeliveryService {
            SET status = 'rejected',
                decided_by = $1,
                decided_at = $2,
-               decision_reason = 'superseded-by-accepted-recovery'
+               decision_reason = 'Superseded by accepted recovery ' || $4::text
            WHERE attempt_id = $3 AND id != $4 AND status = 'recovery_pending'`,
           [admin.id, serverNow, att.id, rec.id],
         );
@@ -1093,11 +1232,16 @@ export class DeliveryService {
           [school.id, admin.id, rec.id, body.reason.trim()],
         );
 
+        const resultRevision = await captureResultSnapshot(client, school.id, att.session_id);
+        await client.query(
+          'UPDATE recovery_uploads SET decision_result_revision=$1 WHERE school_id=$2 AND id=$3',
+          [resultRevision, school.id, rec.id],
+        );
         const responsePayload = {
           recoveryId: rec.id,
           decision: 'accept',
           decidedAt: serverNow.toISOString(),
-          resultRevision: 1,
+          resultRevision,
         };
 
         const payloadDigest = hashSha256(`${recoveryId}:${body.decision}:${body.reason}`);
@@ -1129,7 +1273,7 @@ export class DeliveryService {
         );
         const remainingPending = parseInt(pendingCountRes.rows[0].count, 10);
 
-        if (remainingPending === 0) {
+        if (remainingPending === 0 && att.state !== 'submitted' && att.state !== 'invalidated') {
           // Return attempt to awaiting_upload
           await client.query(
             `UPDATE attempts SET state = 'awaiting_upload', updated_at = NOW() WHERE id = $1`,
@@ -1144,6 +1288,7 @@ export class DeliveryService {
           [school.id, admin.id, rec.id, body.reason.trim()],
         );
 
+        await captureResultSnapshot(client, school.id, att.session_id);
         const responsePayload = {
           recoveryId: rec.id,
           decision: 'reject',
@@ -1162,151 +1307,6 @@ export class DeliveryService {
 
         return responsePayload;
       }
-    });
-  }
-
-  async transferDevice(
-    req: Request,
-    attemptId: string,
-    idempotencyKey: string | undefined,
-    body: TransferDeviceDto,
-  ) {
-    const admin = req.sessionUser;
-    const school = req.school;
-    if (!admin || !school || admin.role !== 'school_admin') {
-      throw DomainException.forbidden('School admin access required');
-    }
-
-    if (!idempotencyKey || typeof idempotencyKey !== 'string') {
-      throw DomainException.validation([
-        { path: 'Idempotency-Key', message: 'Missing required Idempotency-Key header' },
-      ]);
-    }
-
-    if (!body.newDeviceId || typeof body.newDeviceId !== 'string') {
-      throw DomainException.validation([
-        { path: 'newDeviceId', message: 'newDeviceId is required' },
-      ]);
-    }
-
-    if (!body.reason || typeof body.reason !== 'string' || !body.reason.trim()) {
-      throw DomainException.validation([
-        { path: 'reason', message: 'A non-empty transfer reason is required' },
-      ]);
-    }
-
-    const serverNow = this.clock.now();
-
-    return this.db.withTenantTransaction(school.id, async (client) => {
-      // Check idempotency replay
-      const idempRes = await client.query(
-        `SELECT response_body, payload_digest FROM idempotency_keys
-         WHERE school_id = $1 AND actor_id = $2 AND operation = 'device_transfer' AND idempotency_key = $3`,
-        [school.id, admin.id, idempotencyKey],
-      );
-
-      if (idempRes.rows.length > 0) {
-        const stored = idempRes.rows[0];
-        const currentPayloadDigest = hashSha256(`${attemptId}:${body.newDeviceId}:${body.reason}`);
-        if (stored.payload_digest === currentPayloadDigest) {
-          return stored.response_body;
-        }
-        throw DomainException.conflict(
-          'REVISION_CONFLICT',
-          'Idempotency-Key reused with different device transfer payload',
-        );
-      }
-
-      // Lock attempt row
-      const attRes = await client.query(
-        `SELECT * FROM attempts WHERE id = $1 AND school_id = $2 FOR UPDATE`,
-        [attemptId, school.id],
-      );
-
-      if (attRes.rows.length === 0) {
-        throw DomainException.notFound('Attempt not found');
-      }
-
-      const att = attRes.rows[0];
-
-      // Reject closed or invalidated attempts
-      if (att.state === 'submitted' || att.state === 'invalidated') {
-        throw DomainException.conflict('ALREADY_FINALIZED', 'Attempt is already finalized');
-      }
-      if (att.state === 'recovery_pending') {
-        throw DomainException.conflict('RECOVERY_REQUIRED', 'Attempt has pending recovery');
-      }
-
-      // After deadline return RECOVERY_REQUIRED
-      if (serverNow >= new Date(att.deadline_at)) {
-        throw DomainException.conflict(
-          'RECOVERY_REQUIRED',
-          'Exam deadline has passed. Cannot transfer device.',
-        );
-      }
-
-      // Verify newDeviceId is already enrolled by that attempt's student in the same school
-      const devRes = await client.query(
-        `SELECT id FROM device_bindings
-         WHERE school_id = $1 AND user_id = $2 AND device_id = $3`,
-        [school.id, att.student_id, body.newDeviceId],
-      );
-
-      if (devRes.rows.length === 0) {
-        throw DomainException.validation([
-          { path: 'newDeviceId', message: 'Target device is not enrolled for this student' },
-        ]);
-      }
-
-      // Increment device generation
-      const newGeneration = att.device_generation + 1;
-
-      // Update attempt: bind new device, set state to preparing until replacement browser unlocks
-      await client.query(
-        `UPDATE attempts
-         SET device_id = $1,
-             device_generation = $2,
-             highest_accepted_seq = 0,
-             state = 'preparing',
-             unlocked_at = NULL,
-             updated_at = NOW()
-         WHERE id = $3`,
-        [body.newDeviceId, newGeneration, att.id],
-      );
-
-      // Carry confirmed answers into new generation as clientSeq = 0
-      await client.query(
-        `UPDATE attempt_answers
-         SET device_generation = $1,
-             client_seq = 0,
-             saved_at = NOW()
-         WHERE attempt_id = $2 AND school_id = $3`,
-        [newGeneration, att.id, school.id],
-      );
-
-      // Audit event
-      await client.query(
-        `INSERT INTO audit_events (school_id, actor_id, action, resource_id, reason, server_at)
-         VALUES ($1, $2, 'device_transfer', $3, $4, NOW())`,
-        [school.id, admin.id, att.id, body.reason.trim()],
-      );
-
-      const responsePayload = {
-        attemptId: att.id,
-        deviceGeneration: newGeneration,
-        state: 'preparing',
-      };
-
-      const payloadDigest = hashSha256(`${attemptId}:${body.newDeviceId}:${body.reason}`);
-      await client.query(
-        `INSERT INTO idempotency_keys (
-           school_id, actor_id, operation, idempotency_key, payload_digest, status_code, response_body, created_at
-         ) VALUES ($1, $2, 'device_transfer', $3, $4, 200, $5, NOW())
-         ON CONFLICT (school_id, actor_id, operation, idempotency_key) DO NOTHING`,
-        [school.id, admin.id, idempotencyKey, payloadDigest, JSON.stringify(responsePayload)],
-      );
-
-      return responsePayload;
     });
   }
 }
@@ -1347,10 +1347,5 @@ export interface UploadRecoveryDto {
 
 export interface DecideRecoveryDto {
   decision: 'accept' | 'reject';
-  reason: string;
-}
-
-export interface TransferDeviceDto {
-  newDeviceId: string;
   reason: string;
 }

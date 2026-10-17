@@ -1,4 +1,5 @@
 import { OperationalService } from './operational.service';
+import { RecoveryReviewService } from './recovery-review.service';
 import { MonitorService } from './monitor.service';
 import { SupervisionService } from './supervision.service';
 import {
@@ -30,12 +31,26 @@ import { DeviceBindingGuard } from '../../common/guards/device-binding.guard';
 @Controller()
 export class DeliveryController {
   constructor(
+    private readonly recoveryReview: RecoveryReviewService,
     private readonly operations: OperationalService,
     private readonly monitor: MonitorService,
     private readonly supervision: SupervisionService,
     private readonly deliveryService: DeliveryService,
     private readonly preparationService: PreparationService,
   ) {}
+
+  @Roles('school_admin') @Get('admin/recovery') recoveryList(
+    @Req() req: Request,
+    @Query() query: unknown,
+  ) {
+    return this.recoveryReview.list(req, query);
+  }
+  @Roles('school_admin') @Get('admin/recovery/:id') recoveryDetail(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ) {
+    return this.recoveryReview.detail(req, id);
+  }
 
   @Roles('student')
   @HttpCode(HttpStatus.OK)

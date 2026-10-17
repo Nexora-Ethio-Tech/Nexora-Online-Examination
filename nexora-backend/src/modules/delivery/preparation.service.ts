@@ -1,4 +1,7 @@
+import { unwrapPackageKey } from '../../common/crypto/package-key';
+import { captureResultSnapshot } from '../../common/db/result-snapshot';
 import { Injectable } from '@nestjs/common';
+import { randomInt } from 'crypto';
 import { Request } from 'express';
 import { PoolClient } from 'pg';
 import { z } from 'zod';
@@ -290,15 +293,17 @@ export class PreparationService {
         starts_at: Date;
         ends_at: Date;
         extra_time_minutes: number;
+        ordering: string;
       }>(
         `SELECT es.exam_version_id, ev.version AS exam_version, es.schedule_revision,
-          es.preparation_visible_at, es.starts_at, es.ends_at, sr.extra_time_minutes
+          es.preparation_visible_at, es.starts_at, es.ends_at, sr.extra_time_minutes,
+          COALESCE(ev.frozen_metadata->>'ordering','fixed') ordering
           FROM exam_sessions es
           JOIN exam_versions ev ON ev.id = es.exam_version_id AND ev.school_id = es.school_id
           JOIN session_roster sr ON sr.session_id = es.id AND sr.school_id = es.school_id
           WHERE es.id = $1 AND es.school_id = $2 AND sr.student_id = $3
             AND sr.admission_status = 'admitted' AND ev.approved_at IS NOT NULL
-          FOR SHARE OF es, sr, ev`,
+          FOR UPDATE OF es FOR SHARE OF sr, ev`,
         [sessionId, school.id, student.id],
       );
       const sitting = session.rows[0];
@@ -366,8 +371,20 @@ export class PreparationService {
           [school.id, sitting.exam_version_id],
         );
         const questionOrder = items.rows.map((item) => item.item_id);
+        const shuffle = (values: string[]) => {
+          for (let i = values.length - 1; i > 0; i--) {
+            const j = randomInt(i + 1);
+            [values[i], values[j]] = [values[j], values[i]];
+          }
+          return values;
+        };
+        const shuffled = sitting.ordering === 'shuffle_questions_and_options';
+        if (shuffled) shuffle(questionOrder);
         const optionOrders = Object.fromEntries(
-          items.rows.map((item) => [item.item_id, item.options.map((option) => option.id)]),
+          items.rows.map((item) => {
+            const ids = item.options.map((option) => option.id);
+            return [item.item_id, shuffled ? shuffle(ids) : ids];
+          }),
         );
         const inserted = await client.query<AttemptRecord>(
           `INSERT INTO attempts (school_id, session_id, student_id, exam_version, schedule_revision,
@@ -389,6 +406,7 @@ export class PreparationService {
         );
         att = inserted.rows[0];
         if (!att) throw new Error('Attempt creation did not return a record');
+        await captureResultSnapshot(client, school.id, sessionId);
       }
       await client.query(
         'UPDATE attempts SET last_contact_at=GREATEST(last_contact_at,$1) WHERE id=$2',
@@ -432,10 +450,11 @@ export class PreparationService {
       ciphertext_base64url: string;
       sha256_hex: string;
       key_enc: string;
+      exam_version_id: string;
       preparation_visible_at: Date;
     }>(
       `SELECT ep.id AS package_id, ev.version, ep.algorithm, ep.iv_base64url,
-        ep.ciphertext_base64url, ep.sha256_hex, ep.key_enc, es.preparation_visible_at
+        ep.ciphertext_base64url, ep.sha256_hex, ep.key_enc,ep.exam_version_id, es.preparation_visible_at
         FROM exam_sessions es
         JOIN exam_versions ev ON ev.id = es.exam_version_id AND ev.school_id = es.school_id
         JOIN exam_packages ep ON ep.exam_version_id = ev.id AND ep.school_id = es.school_id
@@ -538,7 +557,7 @@ export class PreparationService {
       );
       return {
         packageId: paper.package_id,
-        key: paper.key_enc,
+        key: unwrapPackageKey(paper.key_enc, school.id, paper.exam_version_id),
         serverNow: now.toISOString(),
         deadlineAt: att.deadline_at.toISOString(),
         finalAcceptUntil: att.final_accept_until.toISOString(),

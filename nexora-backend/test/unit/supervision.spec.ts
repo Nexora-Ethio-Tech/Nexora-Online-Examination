@@ -55,6 +55,8 @@ beforeEach(() => {
   dbMock.query.mockClear();
   vi.spyOn(clock, 'now').mockImplementation(() => now);
   dbMock.query.mockImplementation(async (sql: string, values: unknown[]) => {
+    if (sql.startsWith('SELECT es.id FROM exam_sessions'))
+      return { rows: [{ id: attemptId }], rowCount: 1 };
     if (sql.startsWith('SELECT * FROM attempts') || sql.startsWith('SELECT a.*'))
       return { rows: [{ ...attempt }] };
     if (sql.startsWith('SELECT count'))

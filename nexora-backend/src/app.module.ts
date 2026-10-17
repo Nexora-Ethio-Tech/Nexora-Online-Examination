@@ -1,5 +1,8 @@
 import { DirectoryModule } from './modules/directory/directory.module';
+import { ResultsModule } from './modules/results/results.module';
+import { PracticeModule } from './modules/practice/practice.module';
 import { AuthoringModule } from './modules/authoring/authoring.module';
+import { AdministrationModule } from './modules/administration/administration.module';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, Reflector } from '@nestjs/core';
 import { OperationsModule } from './modules/operations/operations.module';
@@ -16,6 +19,9 @@ import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
   imports: [
+    ResultsModule,
+    PracticeModule,
+    AdministrationModule,
     AuthoringModule,
     DirectoryModule,
     DatabaseModule,

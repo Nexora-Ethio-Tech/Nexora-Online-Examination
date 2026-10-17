@@ -21,6 +21,7 @@ import { DomainException } from '../../common/errors/domain.exception';
 import { parsePreparationInput } from '../delivery/preparation-schemas';
 import { ImportService } from './import.service';
 import { ImportWorkerService } from './import-worker.service';
+import { PackageWorkerService } from './package-worker.service';
 
 @Controller()
 @Roles('teacher')
@@ -59,12 +60,15 @@ export class ImportController {
 
 @Controller()
 export class ImportWorkerController {
-  constructor(private readonly worker: ImportWorkerService) {}
+  constructor(
+    private readonly worker: ImportWorkerService,
+    private readonly packages: PackageWorkerService,
+  ) {}
   @Post('internal/import-worker')
   @HttpCode(200)
   @Public()
   @SkipCsrf()
-  run(@Headers('authorization') authorization: unknown, @Body() input: unknown) {
+  async run(@Headers('authorization') authorization: unknown, @Body() input: unknown) {
     const secret = process.env.IMPORT_WORKER_SECRET;
     const hash = (value: string) => createHash('sha256').update(value).digest();
     if (
@@ -78,6 +82,9 @@ export class ImportWorkerController {
       z.object({ schoolId: z.string().uuid() }).strict(),
       input,
     );
-    return this.worker.run(schoolId);
+    return {
+      ...(await this.worker.run(schoolId)),
+      packageProcessed: await this.packages.run(schoolId),
+    };
   }
 }

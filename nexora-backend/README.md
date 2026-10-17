@@ -8,7 +8,7 @@ Supabase is the database for ongoing backend development, application data and m
 
 Keep private connection strings in `nexora-backend/.env`, which Git ignores. The backend reads this exact file regardless of the command's working directory. Process environment variables take precedence, allowing deployment configuration and explicitly isolated tests.
 
-Use [.env.example](.env.example) as the list of server settings. Required database settings:
+Required private settings are `DATABASE_URL`, `MIGRATION_DATABASE_URL`, `MFA_ENCRYPTION_KEY`, `APP_ORIGIN`, `CORS_ORIGIN`, `NODE_ENV` and `PORT`. AI/worker settings are documented in `docs/ai-provider-configuration.md` and `docs/import-worker-operations.md`. The owner removed `.env.example`; do not restore or commit their environment file. Required database settings:
 
 - `DATABASE_URL`: application/runtime PostgreSQL connection.
 - `MIGRATION_DATABASE_URL`: privileged PostgreSQL connection for schema migrations.
@@ -121,3 +121,17 @@ RUN_SUPABASE_MFA_TESTS=true RUN_SUPABASE_ISOLATION_TESTS=true npm run test -- te
 ```
 
 The legacy seed-based recovery suite's fixed-secret setup is historical and must be ported to protected synthetic enrollment with the rest of those guarded suites before remote execution. It was not run against this application database.
+
+## Integration implementation (17 October 2026)
+
+See [current testing evidence](../docs/backend-integration-testing.md) and [handoff](../docs/backend-handoff.md). The old architecture guide contains historical claims and proposed extensions; the owner selected the existing frontend contracts first. Migrations through 018 are applied to the authorized test database. Scoped tests create and remove random synthetic schools; never run the legacy reset/seed suites against shared data.
+
+Local Windows-compatible API startup: `npm run start:dev`. Continuous durable import/package worker: `npm run worker -- --school <UUID>` in another terminal. Production runs `npm run build` followed by `npm start`, plus the protected worker/scheduler. Configure a real backend origin and same-origin frontend API proxy before enabling hosted workflows; the frontend's development `API_PROXY_TARGET` does not deploy a Vercel proxy.
+
+### Database TLS before hosting
+
+Production and Vercel connections require certificate verification. Supply `DB_SSL_CA_FILE` pointing to a trusted PostgreSQL CA PEM file when the runtime does not already trust the issuer. Obtain this certificate through the database provider's authenticated settings or your organization's trusted certificate administrator. Never copy a certificate from an unverified connection merely to silence the error. The current local connection's strict check returned `self-signed certificate in certificate chain`; hosted TLS acceptance remains outstanding. Explicit non-Vercel development/test mode retains the previous unverified encrypted connection behavior if no CA file is provided. Do not use development mode to host real school data.
+
+### Request limits
+
+Migration 018 adds durable counters, separate from official exam writes. Login allows ten attempts per login ID per five minutes; practice mutations allow 120 per student/school per minute. A limited request returns 429 with `Retry-After`. Counters survive API restarts and contain hashed scope identifiers, not passwords. Configure host-level connection/IP limits as well, particularly for anonymous CSRF bootstrap and multipart requests. Counter housekeeping may remove expired counter rows; it must never delete academic recovery or pending-submission evidence.

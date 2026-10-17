@@ -1,3 +1,9 @@
+import { newMfaSecret, encryptMfaSecret, totpCode } from '../src/common/crypto/mfa';
+import { unwrapPackageKey } from '../src/common/crypto/package-key';
+import { chromium, expect as browserExpect } from '@playwright/test';
+import { spawn } from 'child_process';
+import { PackageWorkerService } from '../src/modules/authoring/package-worker.service';
+import { decryptExamPackage } from '../src/common/crypto/package-cipher';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import {
@@ -50,6 +56,10 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       teacherCookie = `nexora_session=${teacherToken}`,
       foreignCookie = `nexora_session=${foreignToken}`;
     const browserIds: string[] = [];
+    const anonymousHashes: string[] = [];
+    const loginPassword = randomUUID(),
+      mfaSecret = newMfaSecret(),
+      mfaVersion = randomUUID();
     let browser = '',
       replacement = '',
       attemptId = '',
@@ -57,6 +67,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
     let app: INestApplication | undefined;
     let pool: Pool | undefined;
     let report: unknown;
+    let reviewedExamId = '';
     const reportKey = randomUUID(),
       transferKey = randomUUID();
     const read = (path: string, cookie = adminCookie) => {
@@ -88,7 +99,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
           "INSERT INTO schools(id,name,slug) VALUES($1::uuid,'Operational integration',$1::text),($2::uuid,'Foreign integration',$2::text)",
           [school, otherSchool],
         );
-        const password = await hashPassword(randomUUID());
+        const password = await hashPassword(loginPassword);
         for (const [id, tenant, role] of [
           [student, school, 'student'],
           [admin, school, 'school_admin'],
@@ -99,6 +110,15 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
             'INSERT INTO users(id,school_id,login_id,display_name,role,password_hash,mfa_enrolled_at) VALUES($1::uuid,$2,$1::text,$3,$3,$4,$5)',
             [id, tenant, role, password, now],
           );
+        await c.query(
+          'UPDATE users SET mfa_secret_enc=$1,mfa_secret_version=$2 WHERE id=$3 AND school_id=$4',
+          [
+            encryptMfaSecret(mfaSecret, { schoolId: school, userId: admin, version: mfaVersion }),
+            mfaVersion,
+            admin,
+            school,
+          ],
+        );
         for (const [id, tenant, token] of [
           [student, school, studentToken],
           [admin, school, adminToken],
@@ -121,6 +141,11 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
           'INSERT INTO teacher_assignments(id,school_id,teacher_id,class_id,subject_id) VALUES($1,$2,$3,$4,$5)',
           [assignment, school, teacher, classId, subject],
         );
+        await c.query('INSERT INTO enrollments(school_id,student_id,class_id) VALUES($1,$2,$3)', [
+          school,
+          student,
+          classId,
+        ]);
         await c.query(
           "INSERT INTO exams(id,school_id,owner_id,title,subject_id,class_id,state) VALUES($1,$2,$3,'Synthetic exam',$4,$5,'approved')",
           [exam, school, teacher, subject, classId],
@@ -134,7 +159,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
           { id: 'false', text: 'False' },
         ];
         await c.query(
-          "INSERT INTO exam_items(school_id,exam_version_id,item_id,position,type,stem,options,correct_key,marks) VALUES($1,$2,'q1',1,'true_false','1 < 2',$3,'true',2)",
+          "INSERT INTO exam_items(school_id,exam_version_id,item_id,position,type,stem,options,correct_key,marks,explanation) VALUES($1,$2,'q1',1,'true_false','1 < 2',$3,'true',2,'One is less than two.')",
           [school, version, JSON.stringify(options)],
         );
         const encrypted = encryptExamPackage({
@@ -219,6 +244,16 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
             await c.query(`DELETE FROM ${table} WHERE school_id=ANY($1::uuid[])`, [
               [school, otherSchool],
             ]);
+          await c.query('DELETE FROM request_limits WHERE bucket=ANY($1::text[])', [
+            [
+              hashSha256(`login:${student}`),
+              hashSha256(`login:${admin}`),
+              hashSha256(`practice:${school}:${student}`),
+            ],
+          ]);
+          await c.query('DELETE FROM auth_sessions WHERE token_hash=ANY($1::text[])', [
+            anonymousHashes,
+          ]);
           await c.query('DELETE FROM schools WHERE id=ANY($1::uuid[])', [[school, otherSchool]]);
           await c.query('DELETE FROM browser_devices WHERE device_id=ANY($1::text[])', [
             browserIds,
@@ -241,6 +276,57 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       deviceGeneration: 1,
       shellBuild: 'integration-build',
     });
+    it('authenticates passwords and requires real TOTP before admin access', async () => {
+      if (!app) throw new Error('Not started');
+      const server = app.getHttpServer();
+      for (const actor of [student, admin]) {
+        const bootstrap = await request(server).get('/api/v1/auth/csrf').expect(200),
+          anonymous = responseCookie(bootstrap, 'nexora_session');
+        anonymousHashes.push(hashSha256(anonymous.slice('nexora_session='.length)));
+        const login = await request(server)
+          .post('/api/v1/auth/login')
+          .set('Cookie', anonymous)
+          .set('Origin', 'http://localhost:5173')
+          .set('X-CSRF-Token', bootstrap.body.csrfToken)
+          .send({ loginId: actor, password: loginPassword })
+          .expect(200);
+        let cookie = responseCookie(login, 'nexora_session');
+        if (actor === admin) {
+          expect(login.body.status).toBe('mfa_required');
+          await read('/admin/recovery', cookie).expect(401);
+          const challenge = await request(server)
+            .get('/api/v1/auth/csrf')
+            .set('Cookie', cookie)
+            .expect(200);
+          const verified = await request(server)
+            .post('/api/v1/auth/mfa/verify')
+            .set('Cookie', cookie)
+            .set('Origin', 'http://localhost:5173')
+            .set('X-CSRF-Token', challenge.body.csrfToken)
+            .send({ code: totpCode(mfaSecret, Math.floor(clock.now().getTime() / 30000)) })
+            .expect(200);
+          cookie = responseCookie(verified, 'nexora_session');
+          await read('/admin/recovery', cookie).expect(200);
+        }
+        const me = await read('/auth/me', cookie).expect(200);
+        expect(me.body.user.id).toBe(actor);
+        await request(server)
+          .post('/api/v1/auth/logout')
+          .set('Cookie', cookie)
+          .set('Origin', 'https://foreign.invalid')
+          .set('X-CSRF-Token', me.body.csrfToken)
+          .send({})
+          .expect(403);
+        await request(server)
+          .post('/api/v1/auth/logout')
+          .set('Cookie', cookie)
+          .set('Origin', 'http://localhost:5173')
+          .set('X-CSRF-Token', me.body.csrfToken)
+          .send({})
+          .expect(204);
+        await read('/auth/me', cookie).expect(401);
+      }
+    }, 60000);
     it('enforces teacher draft revisions and freezes reviewed submission', async () => {
       if (!app || !pool) throw new Error('Not started');
       const server = app.getHttpServer();
@@ -274,6 +360,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         created.body,
       );
       const id = created.body.examId;
+      reviewedExamId = id;
       await post(`/exams/${id}/submit-for-approval`, { revision: 1 }, teacherCookie).expect(409);
       await patch(`/exams/${id}`, { ...body, revision: 2 }).expect(409);
       await pool.query(
@@ -318,6 +405,120 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       );
       expect(evidence.rows.map((r) => r.kind).sort()).toEqual(['before_item_edit', 'submitted']);
     }, 90000);
+    it('approves a frozen paper, builds a private package and schedules accommodated delivery', async () => {
+      if (!app || !pool) throw new Error('Not started');
+      const id = reviewedExamId,
+        approveKey = randomUUID();
+      await post(
+        `/exams/${id}/approve`,
+        { revision: 3, comment: 'Verified synthetic paper' },
+        teacherCookie,
+      ).expect(403);
+      const approved = await post(
+        `/exams/${id}/approve`,
+        { revision: 3, comment: 'Verified synthetic paper' },
+        adminCookie,
+        browser,
+        approveKey,
+      ).expect(200);
+      expect(approved.body).toMatchObject({
+        approvedVersion: 1,
+        packageState: 'pending',
+        exam: { revision: 4, status: 'approved' },
+      });
+      expect(
+        (
+          await post(
+            `/exams/${id}/approve`,
+            { revision: 3, comment: 'Verified synthetic paper' },
+            adminCookie,
+            browser,
+            approveKey,
+          ).expect(200)
+        ).body,
+      ).toEqual(approved.body);
+      await app.get(PackageWorkerService).run(school);
+      expect((await read(`/admin/exams/${id}`).expect(200)).body.packageState).toBe('ready');
+      const encrypted = (
+        await pool.query(
+          'SELECT p.* FROM exam_packages p JOIN exam_versions v ON v.id=p.exam_version_id AND v.school_id=p.school_id WHERE v.school_id=$1 AND v.exam_id=$2',
+          [school, id],
+        )
+      ).rows[0];
+      const paper = decryptExamPackage<{ items: Record<string, unknown>[] }>(
+        encrypted.ciphertext_base64url,
+        encrypted.iv_base64url,
+        unwrapPackageKey(encrypted.key_enc, school, encrypted.exam_version_id),
+      );
+      expect(paper.items).toHaveLength(1);
+      expect(paper.items[0]).not.toHaveProperty('correctOptionId');
+      expect(paper.items[0]).not.toHaveProperty('explanation');
+      expect(paper.items[0]).not.toHaveProperty('correct_key');
+      const prep = new Date(now.getTime() + 120000),
+        release = new Date(now.getTime() + 90 * 60000);
+      const schedule = {
+          revision: 4,
+          approvedVersion: 1,
+          preparationVisibleAt: prep.toISOString(),
+          resultsReleaseAt: release.toISOString(),
+        },
+        scheduleKey = randomUUID();
+      const scheduled = await post(
+        `/exams/${id}/sessions`,
+        schedule,
+        adminCookie,
+        browser,
+        scheduleKey,
+      ).expect(201);
+      expect(
+        (
+          await post(`/exams/${id}/sessions`, schedule, adminCookie, browser, scheduleKey).expect(
+            200,
+          )
+        ).body,
+      ).toEqual(scheduled.body);
+      const sitting = scheduled.body.sessions[0];
+      expect(Date.parse(sitting.startsAt) - Date.parse(sitting.preparationVisibleAt)).toBe(600000);
+      const server = app.getHttpServer();
+      const extra = {
+          scheduleRevision: 1,
+          studentId: student,
+          extraMinutes: 5,
+          reason: 'Synthetic extra-time check',
+        },
+        extraKey = randomUUID();
+      const patchExtra = () =>
+        request(server)
+          .patch(`/api/v1/sessions/${sitting.sessionId}/accommodations`)
+          .set('Cookie', adminCookie)
+          .set('Origin', 'http://localhost:5173')
+          .set('X-CSRF-Token', csrf)
+          .set('Idempotency-Key', extraKey)
+          .send(extra);
+      const accommodation = await patchExtra().expect(200);
+      expect(Date.parse(accommodation.body.student.deadlineAt) - Date.parse(sitting.endsAt)).toBe(
+        300000,
+      );
+      clock.setMockTime(prep);
+      expect((await patchExtra().expect(200)).body).toEqual(accommodation.body);
+      const locked = await request(server)
+        .patch(`/api/v1/sessions/${sitting.sessionId}/accommodations`)
+        .set('Cookie', adminCookie)
+        .set('Origin', 'http://localhost:5173')
+        .set('X-CSRF-Token', csrf)
+        .set('Idempotency-Key', randomUUID())
+        .send({ ...extra, scheduleRevision: 2, extraMinutes: 6 })
+        .expect(409);
+      expect(locked.body.code ?? locked.body.error?.code).toBe('ACCOMMODATIONS_LOCKED');
+      const delivered = await post(
+        `/sessions/${sitting.sessionId}/attempts`,
+        { deviceId: browserIds[0] },
+        studentCookie,
+      ).expect(201);
+      expect(delivered.body.deadlineAt).toBe(accommodation.body.student.deadlineAt);
+      expect(delivered.body.scheduleRevision).toBe(2);
+      clock.setMockTime(now);
+    }, 120000);
     it('durably imports a real template and preserves questions on failed replacement', async () => {
       if (!app) throw new Error('Not started');
       const server = app.getHttpServer();
@@ -371,7 +572,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
     }, 120000);
     it('imports a roster atomically and returns passwords only once', async () => {
       if (!app || !pool) throw new Error('Not started');
-      await read('/students', studentCookie).expect(403);
+      await read('/classes', studentCookie).expect(403);
       const server = app.getHttpServer();
       const upload = () =>
         request(server)
@@ -558,5 +759,476 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       const monitor = await read(`/admin/monitor/sessions/${session}`).expect(200);
       expect(monitor.body.sitting).toMatchObject({ readyCount: 0, counts: { active: 1 } });
     });
+    it('publishes immutable official results only after acceptance and release gates', async () => {
+      await read(`/sessions/${session}/results`, studentCookie).expect(403);
+      await read(`/sessions/${session}/results`, foreignCookie).expect(404);
+      const before = await read(`/sessions/${session}/results`).expect(200);
+      expect(before.body.rows[0]).toMatchObject({
+        status: 'awaiting_upload',
+        score: null,
+        rank: null,
+      });
+      const receipt = await post(`/attempts/${attemptId}/submit`, {
+        examVersion: 1,
+        scheduleRevision: 1,
+        deviceGeneration: 2,
+        finalSeq: 1,
+        answers: [{ itemId: 'q1', value: 'true' }],
+      }).expect(200);
+      expect(receipt.body.status).toBe('submitted');
+      expect(receipt.body).not.toHaveProperty('score');
+      const current = await read(`/sessions/${session}/results`, teacherCookie).expect(200);
+      expect(current.body.rows[0]).toMatchObject({
+        status: 'finalized',
+        score: 2,
+        percent: 100,
+        rank: 1,
+        passed: true,
+      });
+      expect(current.body.summary.revision).toBeGreaterThan(before.body.summary.revision);
+      const boundary = new Date(end.getTime() + 5000),
+        release = new Date(end.getTime() + 60000);
+      const body = {
+          revision: current.body.summary.revision,
+          releaseAt: release.toISOString(),
+          reason: 'Verified synthetic results',
+          exclusions: [],
+        },
+        key = randomUUID();
+      clock.setMockTime(boundary);
+      await post(`/sessions/${session}/results-publication`, body, adminCookie).expect(409);
+      clock.setMockTime(new Date(boundary.getTime() + 1));
+      const publication = await post(
+        `/sessions/${session}/results-publication`,
+        body,
+        adminCookie,
+        browser,
+        key,
+      ).expect(200);
+      clock.setMockTime(new Date(release.getTime() - 1));
+      const hidden = await read('/me/results', studentCookie).expect(200);
+      expect(
+        hidden.body.items.find((i: { sessionId: string }) => i.sessionId === session),
+      ).toMatchObject({ publicationRevision: null, result: null });
+      clock.setMockTime(release);
+      const released = await read('/me/results', studentCookie).expect(200);
+      expect(
+        released.body.items.find((i: { sessionId: string }) => i.sessionId === session),
+      ).toMatchObject({
+        publicationRevision: body.revision,
+        result: { score: 2, percent: 100, rank: 1 },
+      });
+      const replay = await post(
+        `/sessions/${session}/results-publication`,
+        body,
+        adminCookie,
+        browser,
+        key,
+      ).expect(200);
+      expect(replay.body).toEqual(publication.body);
+      await post(
+        `/sessions/${session}/results-publication`,
+        { ...body, reason: 'Changed' },
+        adminCookie,
+        browser,
+        key,
+      ).expect(409);
+      const historical = await read(
+        `/exports/report?sessionId=${session}&revision=${before.body.summary.revision}`,
+      ).expect(200);
+      expect(historical.body.rows[0].score).toBeNull();
+      const report = await read(
+        `/exports/report?sessionId=${session}&revision=${body.revision}`,
+      ).expect(200);
+      expect(report.body.analytics).toMatchObject({ includedCount: 1, statusCount: 0 });
+      expect(JSON.stringify(report.body)).not.toContain('correctKey');
+      const csv = await read(
+        `/exports/results.csv?sessionId=${session}&revision=${body.revision}`,
+      ).expect(200);
+      expect(csv.headers['content-type']).toContain('text/csv');
+      expect(csv.text).toContain('"finalized","2","2","100","1"');
+      clock.setMockTime(now);
+    }, 60000);
+    it('retains recovery evidence and keeps an older publication unchanged after acceptance', async () => {
+      if (!pool) throw new Error('Not started');
+      const sitting = randomUUID();
+      await pool.query(
+        'INSERT INTO exam_sessions(id,school_id,exam_id,exam_version_id,preparation_visible_at,starts_at,ends_at) VALUES($1,$2,$3,$4,$5,$6,$7)',
+        [sitting, school, exam, version, now, start, end],
+      );
+      await pool.query(
+        'INSERT INTO session_roster(school_id,session_id,student_id) VALUES($1,$2,$3)',
+        [school, sitting, student],
+      );
+      const device = browserIds.at(-1);
+      const made = await post(`/sessions/${sitting}/attempts`, { deviceId: device }).expect(201),
+        id = made.body.attemptId;
+      clock.setMockTime(start);
+      await post(`/attempts/${id}/unlock`, {
+        packageId,
+        examVersion: 1,
+        scheduleRevision: 1,
+        deviceGeneration: 1,
+      }).expect(200);
+      await post(`/attempts/${id}/answers`, {
+        examVersion: 1,
+        scheduleRevision: 1,
+        deviceGeneration: 1,
+        answers: [{ itemId: 'q1', value: 'false', clientSeq: 1 }],
+      }).expect(200);
+      clock.setMockTime(new Date(end.getTime() + 5001));
+      const final = {
+          examVersion: 1,
+          scheduleRevision: 1,
+          deviceGeneration: 1,
+          finalSeq: 2,
+          answers: [{ itemId: 'q1', value: 'true' }],
+          reason: 'Synthetic network interruption',
+        },
+        uploadKey = randomUUID();
+      const uploaded = await post(
+          `/attempts/${id}/recovery`,
+          final,
+          studentCookie,
+          browser,
+          uploadKey,
+        ).expect(201),
+        recovery = uploaded.body.recoveryId;
+      const detail = await read(`/admin/recovery/${recovery}`).expect(200);
+      expect(detail.body).toMatchObject({
+        canAccept: true,
+        currentDeviceGeneration: 1,
+        latestTimelySave: { answers: [{ itemId: 'q1', value: 'false', clientSeq: 1 }] },
+        snapshot: { answers: [{ itemId: 'q1', value: 'true' }] },
+      });
+      expect(JSON.stringify(detail.body.paper)).not.toContain('correct_key');
+      await read(`/admin/recovery/${recovery}`, studentCookie).expect(403);
+      await read(`/admin/recovery/${recovery}`, foreignCookie).expect(404);
+      const candidate = await read(`/sessions/${sitting}/results`).expect(200),
+        revision = candidate.body.summary.revision;
+      const publish = {
+        revision,
+        releaseAt: clock.now().toISOString(),
+        reason: 'Exclude pending synthetic evidence',
+        exclusions: [],
+      };
+      await post(`/sessions/${sitting}/results-publication`, publish, adminCookie).expect(409);
+      await post(
+        `/sessions/${sitting}/results-publication`,
+        { ...publish, exclusions: [{ attemptId: id, reason: 'Under review' }] },
+        adminCookie,
+      ).expect(200);
+      const decision = { decision: 'accept', reason: 'Verified synthetic timely work' },
+        decisionKey = randomUUID();
+      const accepted = await post(
+        `/recovery/${recovery}/decision`,
+        decision,
+        adminCookie,
+        browser,
+        decisionKey,
+      ).expect(200);
+      expect(accepted.body.resultRevision).toBeGreaterThan(revision);
+      const receipt = await read(`/attempts/${id}/receipt`, studentCookie).expect(200);
+      expect(receipt.body.receipt).toMatchObject({
+        idempotencyKey: uploadKey,
+        finalSeq: 2,
+        snapshotDigest: detail.body.snapshotDigest,
+      });
+      const old = await read(`/exports/report?sessionId=${sitting}&revision=${revision}`).expect(
+        200,
+      );
+      expect(old.body.rows[0]).toMatchObject({ status: 'excluded', score: null });
+      const updated = await read(`/sessions/${sitting}/results`).expect(200);
+      expect(updated.body.rows[0]).toMatchObject({ status: 'finalized', score: 2 });
+      const own = await read('/me/results', studentCookie).expect(200);
+      expect(
+        own.body.items.find((i: { sessionId: string }) => i.sessionId === sitting).result,
+      ).toMatchObject({ status: 'excluded', score: null });
+      const retry = await post(
+        `/recovery/${recovery}/decision`,
+        decision,
+        adminCookie,
+        browser,
+        decisionKey,
+      ).expect(200);
+      expect(retry.body).toEqual(accepted.body);
+      const settled = await read(`/admin/recovery/${recovery}`).expect(200);
+      expect(settled.body).toMatchObject({
+        canAccept: false,
+        status: 'accepted',
+        decision: { resultRevision: accepted.body.resultRevision },
+      });
+      expect(settled.body.latestTimelySave).toEqual(detail.body.latestTimelySave);
+      clock.setMockTime(now);
+    }, 60000);
+    it('gates practice feedback, preserves first answers and keeps official results separate', async () => {
+      clock.setMockTime(new Date(end.getTime() + 60000));
+      const before = await read(`/sessions/${session}/results`).expect(200);
+      const config = await read(`/exams/${exam}/practice-access`).expect(200);
+      expect(config.body.available).toBe(false);
+      const body = {
+        revision: config.body.revision,
+        examVersion: 1,
+        enabled: true,
+        releaseAt: clock.now().toISOString(),
+        reason: 'Synthetic practice release',
+      };
+      const enabled = await post(`/exams/${exam}/practice-access`, body, adminCookie).expect(200);
+      expect(enabled.body).toMatchObject({
+        available: true,
+        contentReleasedAt: expect.any(String),
+      });
+      const startKey = randomUUID(),
+        started = await post(
+          `/exams/${exam}/practice-attempts`,
+          { examVersion: 1 },
+          studentCookie,
+          browser,
+          startKey,
+        ).expect(200),
+        id = started.body.practiceAttemptId;
+      expect(started.body.items[0].feedback).toBeNull();
+      expect(JSON.stringify(started.body)).not.toContain('correctKey');
+      await post(`/practice-attempts/${id}/complete`, {}).expect(409);
+      const answerKey = randomUUID();
+      const wrong = await post(
+        `/practice-attempts/${id}/answers`,
+        { itemId: 'q1', value: 'false' },
+        studentCookie,
+        browser,
+        answerKey,
+      ).expect(200);
+      expect(wrong.body.items[0].feedback).toMatchObject({
+        correct: false,
+        correctOptionId: 'true',
+        earnedMarks: 0,
+      });
+      const changed = await post(`/practice-attempts/${id}/answers`, {
+        itemId: 'q1',
+        value: 'true',
+      }).expect(409);
+      expect(changed.body.code).toBe('ALREADY_ANSWERED');
+      const completed = await post(`/practice-attempts/${id}/complete`, {}).expect(200);
+      expect(completed.body).toMatchObject({
+        state: 'completed',
+        score: 0,
+        percent: 0,
+        bestPercent: 0,
+      });
+      const second = await post(`/exams/${exam}/practice-attempts`, { examVersion: 1 }).expect(200),
+        id2 = second.body.practiceAttemptId;
+      await post(`/practice-attempts/${id2}/answers`, { itemId: 'q1', value: 'true' }).expect(200);
+      const best = await post(`/practice-attempts/${id2}/complete`, {}).expect(200);
+      expect(best.body.bestPercent).toBe(100);
+      await post(`/practice-attempts/${id}/complete`, {}).expect(200);
+      const list = await read('/me/practice', studentCookie).expect(200);
+      expect(list.body.items.find((i: { examId: string }) => i.examId === exam)).toMatchObject({
+        completedCount: 2,
+        bestPercent: 100,
+      });
+      await post(
+        `/exams/${exam}/practice-access`,
+        { ...body, revision: enabled.body.revision, enabled: false },
+        adminCookie,
+      ).expect(200);
+      await read(`/practice-attempts/${id}`, studentCookie).expect(409);
+      await post(
+        `/practice-attempts/${id}/answers`,
+        { itemId: 'q1', value: 'false' },
+        studentCookie,
+        browser,
+        answerKey,
+      ).expect(409);
+      await post(
+        `/exams/${exam}/practice-attempts`,
+        { examVersion: 1 },
+        studentCookie,
+        browser,
+        startKey,
+      ).expect(409);
+      const disabled = await read(`/exams/${exam}/practice-access`).expect(200);
+      expect(disabled.body.contentReleasedAt).toBe(enabled.body.contentReleasedAt);
+      const own = await read('/me/results', studentCookie).expect(200);
+      expect(
+        own.body.items.find((i: { sessionId: string }) => i.sessionId === session),
+      ).toMatchObject({ bestPracticePercent: 100, practice: { available: false } });
+      const after = await read(`/sessions/${session}/results`).expect(200);
+      expect(after.body.summary).toEqual(before.body.summary);
+      expect(after.body.rows).toEqual(before.body.rows);
+      clock.setMockTime(now);
+    }, 60000);
+    it.runIf(process.env.RUN_REAL_BROWSER === 'true')(
+      'renders the real frontend and completes practice through browser controls',
+      async () => {
+        if (!app) throw new Error('Not started');
+        clock.setMockTime(new Date(end.getTime() + 60000));
+        const candidate = await read(`/sessions/${session}/results`).expect(200);
+        if (!candidate.body.summary.publication)
+          await post(
+            `/sessions/${session}/results-publication`,
+            {
+              revision: candidate.body.summary.revision,
+              releaseAt: clock.now().toISOString(),
+              reason: 'Browser-only synthetic release',
+              exclusions: candidate.body.rows
+                .filter(
+                  (r: { status: string }) =>
+                    r.status === 'awaiting_upload' || r.status === 'recovery_pending',
+                )
+                .map((r: { attemptId: string }) => ({
+                  attemptId: r.attemptId,
+                  reason: 'Synthetic unresolved attempt',
+                })),
+            },
+            adminCookie,
+          ).expect(200);
+        const config = await read(`/exams/${exam}/practice-access`).expect(200);
+        await post(
+          `/exams/${exam}/practice-access`,
+          {
+            revision: config.body.revision,
+            examVersion: 1,
+            enabled: true,
+            releaseAt: clock.now().toISOString(),
+            reason: 'Browser acceptance',
+          },
+          adminCookie,
+        ).expect(200);
+        await app.listen(0, '127.0.0.1');
+        const apiUrl = await app.getUrl();
+        const vite = spawn(
+          process.execPath,
+          [
+            resolve('../node_modules/vite/bin/vite.js'),
+            '--host',
+            'localhost',
+            '--port',
+            '5173',
+            '--strictPort',
+          ],
+          {
+            cwd: resolve('..'),
+            env: {
+              ...process.env,
+              API_PROXY_TARGET: apiUrl,
+              VITE_USE_MOCKS: 'false',
+              VITE_API_BASE_URL: '/api/v1',
+            },
+            stdio: 'ignore',
+            windowsHide: true,
+          },
+        );
+        let browserProcess;
+        try {
+          let ready = false;
+          for (let i = 0; i < 100; i++) {
+            try {
+              ready = (await fetch('http://localhost:5173')).ok;
+            } catch {
+              ready = false;
+            }
+            if (ready) break;
+            if (vite.exitCode !== null)
+              throw new Error('Vite exited before startup (port 5173 must be free)');
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          if (!ready) throw new Error('Vite startup timed out');
+          const direct = await fetch(apiUrl + '/api/v1/auth/me', {
+            headers: { Cookie: adminCookie },
+          });
+          const proxied = await fetch('http://localhost:5173/api/v1/auth/me', {
+            headers: { Cookie: adminCookie },
+          });
+          if (direct.status !== 200 || proxied.status !== 200)
+            throw new Error(
+              JSON.stringify({
+                directStatus: direct.status,
+                proxyStatus: proxied.status,
+                apiUrl,
+                proxyError: proxied.status === 200 ? '' : await proxied.text(),
+              }),
+            );
+          browserProcess = await chromium.launch();
+          for (const [token, path, title, endpoint] of [
+            [adminToken, '/admin/school', 'School setup', '/classes'],
+            [teacherToken, '/teacher/results', 'Official results', '/results/sessions'],
+            [studentToken, '/student/practice', 'Practice', '/me/practice'],
+          ]) {
+            const context = await browserProcess.newContext({
+              viewport: { width: 1280, height: 900 },
+            });
+            await context.addCookies([
+              {
+                name: 'nexora_session',
+                value: token,
+                url: 'http://localhost:5173',
+                httpOnly: true,
+                sameSite: 'Lax',
+              },
+            ]);
+            const page = await context.newPage();
+            const failures: string[] = [];
+            const responses: string[] = [];
+            page.on('response', async (r) => {
+              if (r.url().includes('/api/'))
+                responses.push(
+                  `${r.status()} ${r.url()} ${r.status() >= 400 ? await r.text() : ''}`,
+                );
+            });
+            page.on('pageerror', (error) => failures.push(error.message));
+            const response = page.waitForResponse(
+              (r) => r.url().includes('/api/v1' + endpoint) && r.status() === 200,
+              { timeout: 20000 },
+            );
+            await page.goto('http://localhost:5173' + path);
+            try {
+              await response;
+            } catch {
+              throw new Error(
+                JSON.stringify({
+                  path,
+                  responses,
+                  errors: failures,
+                  url: page.url(),
+                  visible: (await page.locator('body').innerText()).slice(0, 2000),
+                }),
+              );
+            }
+            await browserExpect(
+              page.getByRole('heading', { name: title, exact: true, level: 1 }),
+            ).toBeVisible();
+            if (token === studentToken) {
+              const card = page.locator('section').filter({
+                has: page.getByRole('heading', { name: 'Synthetic exam', exact: true }),
+              });
+              await card.getByRole('button', { name: 'Start new practice' }).click();
+              await browserExpect(
+                page.getByRole('heading', { name: 'Practice attempt', exact: true }),
+              ).toBeVisible();
+              await page.getByRole('radio', { name: 'True', exact: true }).check();
+              await page.getByRole('button', { name: 'Check answer', exact: true }).click();
+              await browserExpect(
+                page.getByRole('button', { name: 'Complete practice', exact: true }),
+              ).toBeEnabled();
+              await page.getByRole('button', { name: 'Complete practice', exact: true }).click();
+              await browserExpect(
+                page.getByRole('heading', { name: 'Practice completed', exact: true }),
+              ).toBeVisible();
+              await page.reload();
+              await browserExpect(
+                page.getByRole('heading', { name: 'Practice completed', exact: true }),
+              ).toBeVisible();
+            }
+            expect(failures).toEqual([]);
+            await context.close();
+          }
+        } finally {
+          if (browserProcess) await browserProcess.close();
+          vite.kill();
+          clock.setMockTime(now);
+        }
+      },
+      120000,
+    );
   },
 );

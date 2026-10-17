@@ -1,12 +1,12 @@
 {
   "name": "nexora-backend",
   "version": "1.0.0",
-  "description": "Nexora School Exam Platform — Master Backend API",
+  "description": "Nexora School Exam Platform \u2014 Master Backend API",
   "main": "dist/src/main.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/main.js",
-    "start:dev": "npm run build -- --incremental false && NODE_ENV=development node dist/src/main.js",
+    "start:dev": "npm run build -- --incremental false && node scripts/start-dev.mjs",
     "db:status": "tsx scripts/database-status.ts",
     "db:provision-runtime": "tsx scripts/provision-runtime.ts",
     "mfa:operator": "tsx scripts/mfa-operator.ts",
@@ -14,12 +14,14 @@
     "seed": "tsx scripts/seed-staging.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "vitest run test/*.e2e-spec.ts"
+    "test:e2e": "vitest run test/*.e2e-spec.ts",
+    "worker": "npm run build && node dist/scripts/run-worker.js",
+    "test:unit": "vitest run test/unit"
   },
   "dependencies": {
-    "@nestjs/common": "^10.4.15",
-    "@nestjs/core": "^10.4.15",
-    "@nestjs/platform-express": "^10.4.15",
+    "@nestjs/common": "11.2.7",
+    "@nestjs/core": "11.2.7",
+    "@nestjs/platform-express": "11.2.7",
     "argon2": "^0.41.1",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.7",
@@ -33,7 +35,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@nestjs/testing": "^10.4.22",
+    "@nestjs/testing": "11.2.7",
     "@types/cookie-parser": "^1.4.8",
     "@types/node": "^22.10.7",
     "@types/pg": "^8.11.10",
@@ -44,6 +46,9 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "unplugin-swc": "^2.0.0",
-    "vitest": "^3.0.4"
+    "vitest": "4.1.11"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

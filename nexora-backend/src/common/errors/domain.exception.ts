@@ -6,6 +6,11 @@ export type ErrorDetail = {
 };
 
 export type PermittedErrorCode =
+  | 'PRACTICE_INCOMPLETE'
+  | 'ALREADY_ANSWERED'
+  | 'ACCOMMODATIONS_LOCKED'
+  | 'RESULTS_TIME_CONFLICT'
+  | 'SCHEDULE_OVERLAP'
   | 'READINESS_MISMATCH'
   | 'STATE_CHANGED'
   | 'IDEMPOTENCY_CONFLICT'

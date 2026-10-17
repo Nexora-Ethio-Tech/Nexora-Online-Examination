@@ -21,3 +21,10 @@ Failed parsing leaves prior questions intact. Failed AI retains parsed questions
 The scoped Supabase suite includes actual DOCX upload, durable processing with a deterministic synthetic AI adapter, duplicate upload replay, unauthorized status access, and failed-replacement preservation. Parser tests compare the real DOCX/XLSX fixtures, read the twenty-question workbook, preserve Unicode, and reject malformed archives, external relationships, embedded objects, XML entities and invalid rows. The live English provider sample was tested separately; Amharic acceptance was explicitly deferred by the owner.
 
 The remaining acceptance work includes broader restart/race/failure cases, full browser authoring through the deployed API, maximum-size performance, deployment scheduling, dependency-audit remediation, and the administrator approval/package/scheduling flow.
+
+
+## Local continuous worker
+
+From `nexora-backend`, run `npm run worker -- --school <school UUID>` in a separate terminal alongside the API. This uses the same ignored environment file and restricted database role. The school UUID is available in the authenticated `/api/v1/auth/me` response. Add `--once` for one bounded pass. Stop with Ctrl+C; committed leases allow another worker to recover unfinished work. The process prints counts only, not question content or credentials. Run one process per configured school, or use an authenticated external scheduler to call the existing internal endpoint. A platform that freezes processes after HTTP responses must use that external scheduler; do not rely on background promises.
+
+The worker now processes approved package jobs as well as imports/AI. New release keys are wrapped with a derived, purpose-separated key from `MFA_ENCRYPTION_KEY`, bound to school and version. Back up that master secret privately; changing it without rewrapping stored MFA secrets and package keys makes them unreadable. Historical raw package keys remain read-compatible, but new writes never use that format.
