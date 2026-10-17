@@ -3,7 +3,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, Reflector } from '@nestjs/core'
 import { OperationsModule } from './modules/operations/operations.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
-import { DbService } from './common/db/db.service';
+import { DatabaseModule } from './common/db/database.module';
 import { ClockService } from './common/clock/clock.service';
 import { IdempotencyService } from './common/db/idempotency.service';
 import { GlobalExceptionFilter } from './common/errors/global-exception.filter';
@@ -13,10 +13,9 @@ import { CsrfOriginGuard } from './common/guards/csrf-origin.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
-  imports: [OperationsModule, AuthModule, DeliveryModule],
+  imports: [DatabaseModule, OperationsModule, AuthModule, DeliveryModule],
   providers: [
     Reflector,
-    DbService,
     ClockService,
     IdempotencyService,
     {
@@ -40,6 +39,6 @@ import { RolesGuard } from './common/guards/roles.guard';
       useClass: RolesGuard,
     },
   ],
-  exports: [Reflector, DbService, ClockService, IdempotencyService],
+  exports: [Reflector, DatabaseModule, ClockService, IdempotencyService],
 })
 export class AppModule {}
