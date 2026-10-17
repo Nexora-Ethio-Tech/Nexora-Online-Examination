@@ -16,7 +16,7 @@ export type Exam = {
   id: string;
   title: string;
   instructions: string;
-  assignment_id: string;
+  assignment_id: string | null;
   language: string;
   duration_minutes: number;
   pass_percent: string | number;
@@ -64,9 +64,9 @@ export class AuthoringService {
       .max(200)
       .parse((await c.query(itemSelect, [school, id])).rows);
   }
-  async dto(c: PoolClient, school: string, e: Exam) {
+  async draftData(c: PoolClient, school: string, e: Exam) {
     const items = await this.items(c, school, e.id);
-    return draftSchema.parse({
+    return {
       examId: e.id,
       title: e.title,
       instructions: e.instructions,
@@ -82,7 +82,10 @@ export class AuthoringService {
       reviewedCount: items.filter((i) => i.reviewed).length,
       importId: e.import_id,
       returnComment: e.return_comment,
-    });
+    };
+  }
+  async dto(c: PoolClient, school: string, e: Exam) {
+    return draftSchema.parse(await this.draftData(c, school, e));
   }
   async mutable(c: PoolClient, school: string, e: Exam, expected: number) {
     if (e.revision !== expected || !['draft', 'returned'].includes(e.state))

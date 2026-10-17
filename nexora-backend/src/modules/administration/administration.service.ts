@@ -61,6 +61,11 @@ export class AdministrationService {
       )
     ).rows[0];
     if (!e) throw DomainException.notFound();
+    if (lock && !e.assignment_id)
+      throw DomainException.conflict(
+        'LEGACY_EXAM_REPAIR_REQUIRED',
+        'This legacy paper has no teacher assignment. Recreate and review it under a valid teacher assignment before approval or scheduling.',
+      );
     return e;
   }
   async version(c: PoolClient, school: string, id: string) {
@@ -130,7 +135,7 @@ export class AdministrationService {
       packageError = info.error_message;
     }
     return {
-      exam: await this.authoring.dto(c, school, e),
+      exam: await this.authoring.draftData(c, school, e),
       teacherName: e.teacher_name,
       className: e.class_name,
       subjectName: e.subject_name,
@@ -140,6 +145,11 @@ export class AdministrationService {
     };
   }
   async detail(c: PoolClient, school: string, e: AdminExam) {
+    if (!e.assignment_id)
+      throw DomainException.conflict(
+        'LEGACY_EXAM_REPAIR_REQUIRED',
+        'This legacy paper has no teacher assignment. Recreate and review it under a valid teacher assignment before approval or scheduling.',
+      );
     const summary = await this.summary(c, school, e);
     const v = await this.version(c, school, e.id);
     const items =
