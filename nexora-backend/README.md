@@ -147,3 +147,7 @@ Backend deployment builds use tsconfig.build.json and compile src/ plus operator
 5. The backend's `/api/v1/auth/me` should return an application JSON response (normally 401 when signed out), rather than a function invocation failure. Configure exact HTTPS `APP_ORIGIN`/`CORS_ORIGIN` values if startup next reports an origin configuration error.
 
 The 17 October runtime log confirmed this failure during `DbService.onModuleInit`; it is separate from frontend proxy routing. Hosted recovery requires the actual trusted provider CA to be supplied by the operator.
+
+### Temporary staging TLS verification bypass (owner-authorized)
+
+Set DB_SSL_REJECT_UNAUTHORIZED=false in the backend Vercel environment to bypass certificate verification temporarily while retaining TLS encryption. This explicitly supersedes the verified-certificate requirement for the owner's current staging run. The backend logs that verification is disabled. Remove the variable (or set true) and configure DB_SSL_CA to restore verified production TLS. This setting does not resolve missing production origins or other startup errors. Redeploy after changing it.

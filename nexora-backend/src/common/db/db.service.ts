@@ -9,7 +9,11 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     loadBackendEnvironment();
-    this.pool = new Pool(databasePoolConfig('runtime'));
+    const config = databasePoolConfig('runtime');
+    if (config.ssl && typeof config.ssl === 'object' && config.ssl.rejectUnauthorized === false) {
+      this.logger.warn('Database TLS certificate verification is disabled.');
+    }
+    this.pool = new Pool(config);
 
     this.pool.on('error', (err) => {
       this.logger.error('Unexpected error on idle PostgreSQL client', err.stack);
