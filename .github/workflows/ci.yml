@@ -24,6 +24,7 @@ jobs:
         working-directory: .
       - run: npm ci
       - run: npm run build
+      - run: npx tsc --noEmit --incremental false
       - run: npx vitest run test/unit
       - run: npm audit --audit-level=high
   check:
