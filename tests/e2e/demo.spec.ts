@@ -64,7 +64,12 @@ test('student answers offline, navigates questions and receives a confirmed subm
     'aria-pressed',
     'true',
   );
-  await page.getByRole('button', { name: 'Show question numbers' }).click();
+  const numbers = page.getByRole('region', { name: 'Question navigator' });
+  const question = page.locator('fieldset').first();
+  const numberBox = await numbers.boundingBox();
+  const questionBox = await question.boundingBox();
+  expect(numberBox && questionBox && numberBox.y < questionBox.y).toBeTruthy();
+  await page.screenshot({ path: test.info().outputPath('active-exam.png'), fullPage: true });
   await expect(page.getByRole('button', { name: 'Hide question numbers' })).toHaveAttribute(
     'aria-expanded',
     'true',

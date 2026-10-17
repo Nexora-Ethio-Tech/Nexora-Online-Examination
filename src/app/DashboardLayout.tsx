@@ -97,26 +97,26 @@ export function DashboardLayout() {
       : []),
   ];
   const navigation = (
-    <nav aria-label="Workspace" className="space-y-1">
+    <nav aria-label="Workspace" className="space-y-1.5">
       {links.map(({ to, label, icon: Icon, end }) => (
         <NavLink
           key={to}
           to={to}
           end={end}
           onClick={() => setMenuOpen(false)}
-          className="flex min-h-11 items-center gap-3 rounded-lg border-l-4 border-transparent px-3 py-2 text-sm font-medium hover:bg-muted aria-[current=page]:border-primary aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary"
+          className="flex min-h-12 items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground"
         >
           <Icon className="size-4 shrink-0" aria-hidden="true" />
           {label}
         </NavLink>
       ))}
       {user.role === 'student' && (
-        <div className="mt-6 border-t pt-4">
-          <p className="px-4 text-xs font-medium text-muted-foreground">Help and devices</p>
+        <div className="mt-6 border-t border-sidebar-border pt-4">
+          <p className="px-4 text-xs font-medium text-sidebar-foreground">Help and devices</p>
           <NavLink
             to="/student/device"
             onClick={() => setMenuOpen(false)}
-            className="mt-2 flex min-h-11 items-center gap-3 rounded-lg px-4 text-sm hover:bg-muted aria-[current=page]:bg-primary/10"
+            className="mt-2 flex min-h-11 items-center gap-3 rounded-xl px-4 text-sm text-sidebar-foreground hover:bg-sidebar-accent/15 aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground"
           >
             <LifeBuoy className="size-4 shrink-0" aria-hidden="true" />
             Register replacement browser
@@ -126,7 +126,7 @@ export function DashboardLayout() {
     </nav>
   );
   return (
-    <div ref={container} className="min-h-svh bg-muted/30">
+    <div ref={container} className="workspace-shell min-h-svh">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-background focus:p-3 focus:text-foreground focus:ring-2"
@@ -135,7 +135,7 @@ export function DashboardLayout() {
       </a>
       {!focused && (
         <header ref={header} className="sticky top-0 z-20 border-b bg-background px-4 sm:px-8">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 py-3">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
                 <SheetTrigger asChild>
@@ -144,22 +144,27 @@ export function DashboardLayout() {
                     <span className="sr-only">Navigation</span>
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="overflow-y-auto p-4">
+                <SheetContent
+                  side="left"
+                  className="overflow-y-auto border-sidebar-border bg-sidebar p-4 text-sidebar-foreground"
+                >
                   <SheetHeader>
                     <SheetTitle>Workspace navigation</SheetTitle>
-                    <SheetDescription>
+                    <SheetDescription className="text-sidebar-foreground">
                       {school.name} · {roleLabel[user.role]}
                     </SheetDescription>
                   </SheetHeader>
                   {navigation}
-                  <p className="mt-6 text-xs text-muted-foreground">
+                  <p className="mt-6 text-xs text-sidebar-foreground">
                     Exam schedules use East Africa Time (EAT).
                   </p>
                 </SheetContent>
               </Sheet>
               <GraduationCap className="size-8 shrink-0" aria-hidden="true" />
-              <div className="min-w-0">
-                <p className="text-lg font-semibold tracking-tight">Nexora</p>
+              <div className="min-w-0 overflow-hidden">
+                <p className="brand-heading truncate text-2xl font-semibold tracking-tight">
+                  Nexora
+                </p>
                 <p className="max-w-32 truncate text-xs text-muted-foreground sm:max-w-md">
                   {school.name}
                 </p>
@@ -194,16 +199,16 @@ export function DashboardLayout() {
         className={
           focused
             ? 'mx-auto max-w-4xl px-4 py-6 sm:px-8'
-            : 'mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-8 lg:grid-cols-[224px_1fr] lg:gap-8'
+            : 'mx-auto grid max-w-[1600px] gap-6 px-4 py-6 sm:px-8 lg:grid-cols-[240px_1fr] lg:gap-8'
         }
       >
         {!focused && (
-          <aside className="hidden min-w-0 self-start lg:sticky lg:top-[calc(var(--workspace-header-height)+1rem)] lg:block lg:max-h-[calc(100svh-var(--workspace-header-height)-2rem)] lg:overflow-y-auto">
-            <p className="mb-4 px-4 text-xs font-semibold tracking-widest text-muted-foreground">
+          <aside className="hidden min-w-0 self-start rounded-2xl bg-sidebar p-3 text-sidebar-foreground lg:sticky lg:top-[calc(var(--workspace-header-height)+1rem)] lg:flex lg:max-h-[calc(100svh-var(--workspace-header-height)-2rem)] lg:min-h-[calc(100svh-var(--workspace-header-height)-4rem)] lg:flex-col lg:overflow-y-auto">
+            <p className="mb-4 px-4 pt-4 text-xs font-semibold tracking-widest text-sidebar-foreground">
               {roleLabel[user.role].toUpperCase()}
             </p>
             {navigation}
-            <p className="mt-6 px-4 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-auto px-4 pt-8 pb-4 text-xs leading-relaxed text-sidebar-foreground">
               Exam schedules are shown in East Africa Time (EAT).
             </p>
           </aside>

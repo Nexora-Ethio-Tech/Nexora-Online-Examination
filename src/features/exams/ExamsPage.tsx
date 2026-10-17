@@ -38,6 +38,18 @@ export function examStatus(exam: Exam) {
         ended: 'Exam window ended',
       }[exam.phase];
 }
+export function examGroup(exam: Pick<Exam, 'phase' | 'attemptState'>) {
+  if (exam.attemptState === 'submitted' || exam.attemptState === 'invalidated') return 'Past exams';
+  if (
+    exam.attemptState === 'awaiting_upload' ||
+    exam.attemptState === 'recovery_pending' ||
+    (exam.phase === 'ended' && exam.attemptState)
+  )
+    return 'Needs attention';
+  if (exam.phase === 'scheduled') return 'Upcoming';
+  if (exam.phase === 'preparing' || exam.phase === 'open') return 'Preparing and open';
+  return 'Past exams';
+}
 export function ExamsPage() {
   const client = useApiClient();
   const { session } = useAuth();
@@ -60,8 +72,8 @@ export function ExamsPage() {
     ) ?? [];
   return (
     <div className="space-y-6">
-      <div>
-        <p className="mb-2 text-sm text-muted-foreground">Your school workspace</p>
+      <div className="page-intro">
+        <p className="mb-2 text-sm text-muted-foreground">Welcome, {session?.user.displayName}</p>
         <h1 className="text-3xl font-semibold tracking-tight">My exams</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
           Your assigned papers and preparation times. All times are East Africa Time (EAT).
@@ -87,67 +99,78 @@ export function ExamsPage() {
         />
       ) : null}
       {!query.isPending && !query.error && exams.length === 0 ? (
-        <div className="rounded-xl border bg-background p-8">
+        <div className="nexora-surface rounded-xl border bg-background p-8">
           <h2 className="text-lg font-semibold">No exams assigned yet</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Your school’s scheduled papers will appear here.
           </p>
         </div>
       ) : null}
-      <div className="space-y-4">
-        {exams.map((exam) => (
-          <article key={exam.sessionId} className="rounded-xl border bg-background p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="text-xs font-medium text-muted-foreground">
-                {exam.subjectName} · {exam.className}
-              </span>
-              <span
-                className={
-                  exam.attemptState === 'submitted'
-                    ? 'inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-950'
-                    : 'rounded-full bg-muted px-3 py-1 text-xs font-medium'
-                }
-              >
-                {exam.attemptState === 'submitted' && (
-                  <CircleCheck className="size-4" aria-hidden="true" />
-                )}
-                {examStatus(exam)}
-              </span>
+      {['Preparing and open', 'Needs attention', 'Upcoming', 'Past exams']
+        .map((title) => ({ title, items: exams.filter((exam) => examGroup(exam) === title) }))
+        .filter((group) => group.items.length)
+        .map((group) => (
+          <section key={group.title} className="space-y-4" aria-label={group.title}>
+            <h2 className="text-xl font-semibold">{group.title}</h2>
+            <div className="grid gap-4 xl:grid-cols-2">
+              {group.items.map((exam) => (
+                <article
+                  key={exam.sessionId}
+                  className="nexora-surface rounded-xl border bg-background p-5 sm:p-6"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {exam.subjectName} · {exam.className}
+                    </span>
+                    <span
+                      className={
+                        exam.attemptState === 'submitted'
+                          ? 'inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-950'
+                          : 'rounded-full bg-muted px-3 py-1 text-xs font-medium'
+                      }
+                    >
+                      {exam.attemptState === 'submitted' && (
+                        <CircleCheck className="size-4" aria-hidden="true" />
+                      )}
+                      {examStatus(exam)}
+                    </span>
+                  </div>
+                  <h3 className="mt-3 text-xl font-semibold">{exam.title}</h3>
+                  <p className="mt-3 flex items-start gap-2 text-sm">
+                    <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
+                    {eatTime(exam.startsAt)}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {exam.durationMinutes} minutes · Your deadline: {eatTime(exam.deadlineAt)}
+                  </p>
+                  <ScheduleCountdown
+                    sample={exam.clock}
+                    target={
+                      exam.phase === 'scheduled'
+                        ? exam.preparationVisibleAt
+                        : exam.phase === 'preparing'
+                          ? exam.startsAt
+                          : exam.deadlineAt
+                    }
+                    label={
+                      exam.phase === 'scheduled'
+                        ? 'preparation'
+                        : exam.phase === 'preparing'
+                          ? 'common start'
+                          : 'your deadline'
+                    }
+                  />
+                  <Button asChild variant="outline" className="mt-5 min-h-11">
+                    <Link to={`/student/exams/${encodeURIComponent(exam.sessionId)}`}>
+                      View schedule and preparation
+                      <ArrowRight aria-hidden="true" />
+                    </Link>
+                  </Button>
+                </article>
+              ))}
             </div>
-            <h2 className="mt-3 text-xl font-semibold">{exam.title}</h2>
-            <p className="mt-3 flex items-start gap-2 text-sm">
-              <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
-              {eatTime(exam.startsAt)}
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {exam.durationMinutes} minutes · Your deadline: {eatTime(exam.deadlineAt)}
-            </p>
-            <ScheduleCountdown
-              sample={exam.clock}
-              target={
-                exam.phase === 'scheduled'
-                  ? exam.preparationVisibleAt
-                  : exam.phase === 'preparing'
-                    ? exam.startsAt
-                    : exam.deadlineAt
-              }
-              label={
-                exam.phase === 'scheduled'
-                  ? 'preparation'
-                  : exam.phase === 'preparing'
-                    ? 'common start'
-                    : 'your deadline'
-              }
-            />
-            <Button asChild variant="outline" className="mt-5 min-h-11">
-              <Link to={`/student/exams/${encodeURIComponent(exam.sessionId)}`}>
-                View schedule and preparation
-                <ArrowRight aria-hidden="true" />
-              </Link>
-            </Button>
-          </article>
+          </section>
         ))}
-      </div>
       {query.hasNextPage ? (
         <Button
           variant="outline"

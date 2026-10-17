@@ -1,5 +1,9 @@
 # Backend handoff
 
+## Sage and mint design — 16 October 2026
+
+The visual update on feat/sage-mint-design changes shared styling, exam grouping, card layouts, charts and the default question navigator display. It adds no API contract or backend requirements. The earlier browser-supervision migration and real integration acceptance below remain outstanding. See [sage-mint-design-testing.md](sage-mint-design-testing.md) for the UI checks. Existing server data remains authoritative; no screenshot sample statistics are used.
+
 ## Browser controls — 16 October 2026
 
 New additive endpoints and migration are issued in [backend-browser-controls-task.md](backend-browser-controls-task.md). The matching frontend and backend source are implemented on feat/browser-exam-controls. Apply migration 009 and complete the required real API tests before deployment; no hosted migration or integration acceptance is claimed. Send this document together with [browser-controls-testing.md](browser-controls-testing.md) to the backend developer.

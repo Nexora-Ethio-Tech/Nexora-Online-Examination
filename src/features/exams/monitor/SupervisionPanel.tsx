@@ -36,7 +36,7 @@ export function SupervisionPanel({ attemptId }: { attemptId: string }) {
   });
   const d = query.data;
   return (
-    <section className="space-y-4 rounded-xl border bg-background p-5">
+    <section className="space-y-4 nexora-surface rounded-xl border bg-background p-5">
       <h2 className="text-xl font-semibold">Browser supervision</h2>
       <p className="text-sm">
         Interruptions are browser reports, not proof of cheating. Suspension requires your decision,

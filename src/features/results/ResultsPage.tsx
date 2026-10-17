@@ -335,8 +335,20 @@ function PublicationForm({ report }: { report: Report }) {
 
 export function ReportView({ report }: { report: Report }) {
   return (
-    <div className="results-print space-y-6">
-      <section className={panel}>
+    <div className="results-print grid gap-6 xl:grid-cols-2">
+      <dl className="grid gap-4 sm:grid-cols-3 xl:col-span-2">
+        {[
+          ['Finalized results', report.analytics.includedCount],
+          ['Status rows', report.analytics.statusCount],
+          ['Topics assessed', report.analytics.topics.length],
+        ].map(([label, value]) => (
+          <div className={panel} key={label}>
+            <dt className="text-sm text-muted-foreground">{label}</dt>
+            <dd className="mt-2 font-heading text-4xl">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <section className={`${panel} xl:col-span-2`}>
         <h2 className="text-2xl font-semibold">{report.summary.title}</h2>
         <p>
           {report.summary.className} · {report.summary.subjectName}
@@ -416,7 +428,7 @@ export function ReportView({ report }: { report: Report }) {
                   >
                     <span className="text-sm font-semibold">{bin.count}</span>
                     <div
-                      className="w-full max-w-20 rounded-t bg-primary"
+                      className="w-full max-w-20 rounded-t-lg bg-primary"
                       style={{
                         height: `${(bin.count / Math.max(1, ...report.analytics.distribution.map((value) => value.count))) * 75}%`,
                       }}
@@ -462,8 +474,11 @@ export function ReportView({ report }: { report: Report }) {
               {topic.earnedMarks} / {topic.availableMarks} marks · {topic.itemCount} questions ·{' '}
               {topic.studentCount} students
             </p>
-            <div className="mt-2 h-6 rounded bg-muted" aria-hidden="true">
-              <div className="h-6 rounded bg-primary" style={{ width: `${topic.percent ?? 0}%` }} />
+            <div className="mt-2 h-3 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+              <div
+                className="h-3 rounded-full bg-primary"
+                style={{ width: `${topic.percent ?? 0}%` }}
+              />
             </div>
           </div>
         ))}

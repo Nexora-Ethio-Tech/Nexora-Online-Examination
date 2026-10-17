@@ -15,13 +15,16 @@ export function QuestionNavigator({
   onSelect: (index: number) => void;
   reviewItemIds?: string[];
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const id = useId();
   const [onlyMarked, setOnlyMarked] = useState(false);
   const answered = new Set(answers.filter((a) => a.value !== null).map((a) => a.itemId));
   const count = items.filter((item) => answered.has(item.itemId)).length;
   return (
-    <section className="rounded-xl border bg-background p-4" aria-label="Question navigator">
+    <section
+      className="nexora-surface rounded-xl border bg-background p-4"
+      aria-label="Question navigator"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm">
           <p className="font-medium">
@@ -35,22 +38,15 @@ export function QuestionNavigator({
           type="button"
           variant="outline"
           className="min-h-11"
+          aria-label={expanded ? 'Hide question numbers' : 'Show question numbers'}
           aria-expanded={expanded}
           aria-controls={id}
           onClick={() => setExpanded((value) => !value)}
         >
-          {expanded ? 'Hide question numbers' : 'Show question numbers'}
+          {expanded ? 'Hide' : 'Show'}
         </Button>
       </div>
       <nav id={id} aria-label="Questions" hidden={!expanded}>
-        <label className="mt-3 flex min-h-11 items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={onlyMarked}
-            onChange={(e) => setOnlyMarked(e.target.checked)}
-          />
-          Show marked for review only ({reviewItemIds.length})
-        </label>
         {onlyMarked && !reviewItemIds.length && (
           <p className="text-sm">No questions marked for review.</p>
         )}
@@ -62,7 +58,7 @@ export function QuestionNavigator({
                   type="button"
                   key={question.itemId}
                   variant={position === index ? 'default' : 'outline'}
-                  className="min-h-11 min-w-11"
+                  className={`min-h-11 min-w-11 ${position !== index && answered.has(question.itemId) ? 'border-primary/30 bg-secondary text-secondary-foreground' : ''} ${reviewItemIds.includes(question.itemId) ? 'ring-2 ring-amber-700 ring-offset-2' : ''}`}
                   aria-current={position === index ? 'step' : undefined}
                   aria-label={`Question ${position + 1}, ${answered.has(question.itemId) ? 'answered' : 'unanswered'}${reviewItemIds.includes(question.itemId) ? ', marked for review' : ''}`}
                   onClick={() => onSelect(position)}
@@ -76,6 +72,22 @@ export function QuestionNavigator({
               ),
           )}
         </div>
+        <details className="mt-3 text-sm">
+          <summary className="min-h-11 cursor-pointer py-3 text-muted-foreground">
+            Review filters and status key
+          </summary>{' '}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Filled: current · ✓: answered · flag and outline: marked for review
+          </p>
+          <label className="mt-3 flex min-h-11 items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={onlyMarked}
+              onChange={(e) => setOnlyMarked(e.target.checked)}
+            />
+            Show marked for review only ({reviewItemIds.length})
+          </label>
+        </details>
       </nav>
     </section>
   );

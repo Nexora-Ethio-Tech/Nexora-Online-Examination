@@ -378,9 +378,15 @@ export function TeacherDetail() {
         }}
       >
         <TabsList className="mb-3 h-auto flex-wrap">
-          <TabsTrigger value="details">Exam details</TabsTrigger>
-          <TabsTrigger value="import">Import</TabsTrigger>
-          <TabsTrigger value="review">Review questions</TabsTrigger>
+          <TabsTrigger value="details" aria-label="Exam details">
+            1 · Exam details
+          </TabsTrigger>
+          <TabsTrigger value="import" aria-label="Import">
+            2 · Upload
+          </TabsTrigger>
+          <TabsTrigger value="review" aria-label="Review questions">
+            3 · Review questions
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="details" className={panel}>
           <MetadataForm

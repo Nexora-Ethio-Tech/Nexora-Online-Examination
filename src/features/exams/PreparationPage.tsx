@@ -32,7 +32,7 @@ function Countdown({
   }, []);
   const seconds = Math.max(0, Math.ceil((Date.parse(target) - serverTime(sample)) / 1000));
   return (
-    <p className="mt-2 text-sm text-muted-foreground">
+    <p className="mt-4 rounded-xl bg-muted p-4 text-lg font-semibold tabular-nums text-foreground">
       {seconds
         ? `${Math.floor(seconds / 86400)}d ${Math.floor(seconds / 3600) % 24}h ${Math.floor(seconds / 60) % 60}m ${seconds % 60}s until ${label}`
         : `${label === 'common start' ? 'Start' : 'Preparation'} time reached. Refresh the schedule for the latest status.`}
@@ -126,14 +126,14 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
       ) : null}
       {exam && query.data ? (
         <>
-          <div>
+          <div className="page-intro">
             <p className="mb-2 text-sm text-muted-foreground">
               {exam.subjectName} · {exam.className}
             </p>
             <h1 className="text-3xl font-semibold tracking-tight">{exam.title}</h1>
             <p className="mt-3 text-sm font-medium">{examStatus(exam)}</p>
           </div>
-          <dl className="grid gap-5 rounded-xl border bg-background p-6 sm:grid-cols-2">
+          <dl className="grid gap-5 nexora-surface rounded-xl border bg-background p-6 sm:grid-cols-2">
             {[
               ['Preparation opens', exam.preparationVisibleAt],
               ['Common start', exam.startsAt],
@@ -148,7 +148,7 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
               </div>
             ))}
           </dl>
-          <section className="rounded-xl border bg-background p-6">
+          <section className="nexora-surface rounded-xl border bg-background p-6">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <LockKeyhole className="size-5" aria-hidden="true" />
               Prepare this browser
@@ -227,7 +227,7 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
           )}
           {step ? (
             <section
-              className="rounded-xl border bg-background p-5"
+              className="nexora-surface rounded-xl border bg-background p-5"
               aria-label="Preparation progress"
             >
               <h2 className="font-semibold">Preparation progress</h2>

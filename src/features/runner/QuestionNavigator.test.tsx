@@ -24,10 +24,12 @@ it('supports keyboard collapse and selection across 200 questions without losing
   }
   render(<Exam />);
   const user = userEvent.setup();
-  const toggle = screen.getByRole('button', { name: 'Show question numbers' });
-  expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  expect(screen.queryByRole('navigation', { name: 'Questions' })).not.toBeInTheDocument();
+  const toggle = screen.getByRole('button', { name: 'Hide question numbers' });
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  expect(screen.getByRole('navigation', { name: 'Questions' })).toBeVisible();
   await user.tab();
+  await user.keyboard('{Enter}');
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await user.keyboard('{Enter}');
   expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await user.click(screen.getByRole('button', { name: 'Question 200, answered' }));
@@ -55,7 +57,7 @@ it('filters marked questions while keeping answered and review states separate',
       onSelect={() => undefined}
     />,
   );
-  await user.click(screen.getByRole('button', { name: 'Show question numbers' }));
+  await user.click(screen.getByText('Review filters and status key'));
   await user.click(screen.getByRole('checkbox', { name: /Show marked for review only/ }));
   expect(screen.queryByRole('button', { name: 'Question 1, answered' })).not.toBeInTheDocument();
   expect(

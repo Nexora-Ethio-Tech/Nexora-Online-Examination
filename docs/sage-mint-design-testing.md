@@ -1,0 +1,32 @@
+# Sage and mint design review
+
+16 October 2026 · feat/sage-mint-design · follows browser-controls commit 6bf933d.
+
+## Scope
+
+Screenshots supplied by the project owner inspired the visual treatment. Existing exam, role, approval, recovery, credential and timing rules remain authoritative. This update adds no backend endpoints, dependencies, migrations, grading rules or timing changes.
+
+Shared palette: sage #A2C1A0 (form borders and accents), mint #C6E9D3 (banners, selected navigation and answered questions), pale mint #E5F4EB (workspace), forest #203E30 / #244B37 (navigation and primary actions), white cards. Amber/red still identify attention and error states with readable text. System Georgia headings and the existing locally bundled Geist body font need no external font service.
+
+## Manual review
+
+Run npm run dev:demo in the repository. Use the existing demo credentials shown on the login page.
+
+1. Sign in as student, teacher and administrator. Check forest navigation, white cards, readable selected links, mint backgrounds, account menu and logout. Roles remain explicitly labelled.
+2. At 360px width, open Navigation, choose a page and close/reopen the drawer by keyboard. Increase browser text size to 200%; header controls must wrap rather than overlap. Check horizontal overflow and visible focus outlines.
+3. Student My exams groups loaded papers into Preparing and open, Needs attention, Upcoming and Past exams. A submitted paper stays in Past exams even if its sitting is still open. Pending upload/recovery stays under Needs attention. Pagination remains available; these groups do not claim school-wide totals.
+4. Open preparation. Check prominent countdown, unchanged EAT labels and actual download/check states. No skip-wait button or simulated download percentage has been added.
+5. Start the current-window exam. Workspace navigation/account menu must disappear. Question numbers must be visible above the question by default. Current is filled, answered includes a check, and marked questions show a flag/outline. Hide/Show retains the current question and answers.
+6. Expand Review filters and status key to filter marked questions. Expand Instructions and browser controls to read instructions, request fullscreen or leave via the existing route guard. These disclosures never change saved answers or deadlines.
+7. Verify save feedback, offline indication and timer readability. Answer, navigate, mark for review, go offline, reconnect and submit. Confirm receipt-backed success still works. Supervision behavior remains as documented in browser-controls-testing.md.
+8. Teacher papers use responsive cards and status badges. Open a paper and use numbered Details, Upload and Review tabs. Verify the upload, review and submission flows.
+9. Administrator approvals use the same cards/status language. School forms, recovery decisions and monitoring retain their existing controls. Check selected tab contrast and readable status counts.
+10. Results show finalized-result/status-row/topic counts from the report, score-distribution columns, topic bars and exact data tables. Check CSV export and printing. No sample average, pass rate or student count was invented from the design references.
+
+## Backend handoff
+
+No new backend work is required for this visual update. Continue the outstanding real integration checks and browser-supervision migration from backend-browser-controls-task.md. Do not interpret local demo screenshots as proof of live database integration.
+
+## Verification
+
+Verified locally: npm run check passed (TypeScript, lint, formatting, 192 frontend tests and 9 release-source tests); npm run build passed; all 26 Chrome Playwright/accessibility journeys passed after fixing inactive-tab contrast, navigation colour transitions and the enlarged-text mobile header. Desktop monitor and mobile exam screenshots were visually reviewed. Browser tests cover desktop, 360px mobile and landscape; they assert that question navigation is above the question, check accessible contrast and exercise the existing exam/approval/recovery workflows. Active-exam screenshots are saved in ignored test-results folders for visual review. No deployment or push is part of this change.
