@@ -88,7 +88,7 @@ export class AuthoringService {
     if (e.revision !== expected || !['draft', 'returned'].includes(e.state))
       throw DomainException.conflict('REVISION_CONFLICT', 'Refresh this editable draft');
     const busy = await c.query(
-      "SELECT id FROM import_jobs WHERE school_id=$1 AND exam_id=$2 AND state IN ('queued','parsing','ai_queued','ai_running') LIMIT 1",
+      "SELECT id FROM import_jobs WHERE school_id=$1 AND exam_id=$2 AND state IN ('queued','parsing') LIMIT 1",
       [school, e.id],
     );
     if (busy.rowCount)
@@ -311,11 +311,17 @@ export class AuthoringService {
             stem: old.stem,
             options: old.options,
             key: old.correctOptionId,
+            primaryTopic: old.primaryTopic,
+            secondaryTopics: old.secondaryTopics,
+            explanation: old.explanation,
           }) !==
           computeCanonicalDigest({
             stem: item.stem,
             options: item.options,
             key: item.correctOptionId,
+            primaryTopic: item.primaryTopic,
+            secondaryTopics: item.secondaryTopics,
+            explanation: item.explanation,
           });
         await c.query(
           `UPDATE exam_items SET stem=$1,options=$2,correct_key=$3,marks=$4,primary_topic=$5,secondary_topics=$6,explanation=$7,reviewed=$8,review_note=$9,reviewed_by=CASE WHEN $8 THEN $10::uuid ELSE NULL END,reviewed_at=CASE WHEN $8 THEN now() ELSE NULL END,ai_input_hash=CASE WHEN $11 THEN NULL ELSE ai_input_hash END WHERE school_id=$12 AND exam_id=$13 AND item_id=$14 AND exam_version_id IS NULL`,

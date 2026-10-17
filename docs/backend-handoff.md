@@ -47,3 +47,5 @@ No API contract revision or new backend endpoint is issued by this update. Exist
 Test the existing teacher save/submit flow, scheduled preparation/unlock, offline answer retry and receipt recovery, result publication/analytics, and school creation/credential flows against the real API. Report the endpoint, request ID, expected response, actual response and reproducible steps for any mismatch. No backend changes are needed merely to support the new layout.
 
 See [the frontend testing guide](group-2-design-testing.md) for the revised controls and expected states.
+
+Teacher import behavior update: parsed questions become editable before AI completion. Only queued/parsing imports block edits; AI remains optional background assistance. Submission still requires complete saved teacher reviews. Late AI output cannot overwrite reviewed questions or manually saved topic/explanation changes. Backend compilation succeeded; test suites were not rerun per the owner's earlier instruction.
