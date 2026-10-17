@@ -1,3 +1,5 @@
+import { OperationalService } from './operational.service';
+import { MonitorService } from './monitor.service';
 import { SupervisionService } from './supervision.service';
 import { Module } from '@nestjs/common';
 import { DeliveryController } from './delivery.controller';
@@ -12,6 +14,8 @@ import { DeviceBindingGuard } from '../../common/guards/device-binding.guard';
   controllers: [DeliveryController],
   providers: [
     SupervisionService,
+    OperationalService,
+    MonitorService,
     PreparationService,
     DeliveryService,
     ClockService,

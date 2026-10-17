@@ -390,6 +390,10 @@ export class PreparationService {
         att = inserted.rows[0];
         if (!att) throw new Error('Attempt creation did not return a record');
       }
+      await client.query(
+        'UPDATE attempts SET last_contact_at=GREATEST(last_contact_at,$1) WHERE id=$2',
+        [now, att.id],
+      );
       const data = await this.attemptResponse(client, att, now);
       if (!replay.rows[0]) {
         await client.query(
@@ -411,6 +415,10 @@ export class PreparationService {
         this.clock.now(),
       );
       const now = this.clock.now();
+      await client.query(
+        'UPDATE attempts SET last_contact_at=GREATEST(last_contact_at,$1) WHERE id=$2',
+        [now, att.id],
+      );
       return this.attemptResponse(client, att, now);
     });
   }
@@ -460,6 +468,10 @@ export class PreparationService {
       }
       if (now >= att.deadline_at)
         throw DomainException.conflict('RECOVERY_REQUIRED', 'Exam deadline has passed');
+      await client.query(
+        'UPDATE attempts SET last_contact_at=GREATEST(last_contact_at,$1) WHERE id=$2',
+        [now, att.id],
+      );
       return {
         packageId: paper.package_id,
         examVersion: att.exam_version,
@@ -520,6 +532,10 @@ export class PreparationService {
           [now, att.id],
         );
       }
+      await client.query(
+        'UPDATE attempts SET last_contact_at=GREATEST(last_contact_at,$1) WHERE id=$2',
+        [now, att.id],
+      );
       return {
         packageId: paper.package_id,
         key: paper.key_enc,

@@ -254,6 +254,7 @@ export class DeliveryService {
         `UPDATE attempts
          SET highest_accepted_seq = $1,
              last_server_save_at = $2,
+             last_contact_at = GREATEST(last_contact_at, $2),
              updated_at = NOW()
          WHERE id = $3`,
         [newHighest, serverNow, att.id],
@@ -565,6 +566,7 @@ export class DeliveryService {
          SET state = 'submitted',
              highest_accepted_seq = GREATEST(highest_accepted_seq, $1),
              last_server_save_at = $2,
+             last_contact_at = GREATEST(last_contact_at, $2),
              updated_at = NOW()
          WHERE id = $3`,
         [body.finalSeq, acceptedAt, att.id],

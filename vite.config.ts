@@ -9,6 +9,8 @@ import { offlineShell } from './scripts/offline-shell';
 export default defineConfig(({ command, mode }) => {
   const buildId = randomUUID();
   const env = loadEnv(mode, process.cwd(), 'VITE_');
+  const serverEnv = loadEnv(mode, process.cwd(), 'API_PROXY_TARGET');
+  const apiTarget = process.env.API_PROXY_TARGET ?? serverEnv.API_PROXY_TARGET;
   if (
     command === 'build' &&
     (mode === 'demo' || (process.env.VITE_USE_MOCKS ?? env.VITE_USE_MOCKS) === 'true')
@@ -18,6 +20,9 @@ export default defineConfig(({ command, mode }) => {
     );
   }
   return {
+    server: apiTarget
+      ? { proxy: { '/api/v1': { target: apiTarget, changeOrigin: false } } }
+      : undefined,
     plugins: [react(), tailwindcss(), offlineShell(buildId)],
     define: { __APP_BUILD__: JSON.stringify(buildId) },
     resolve: {

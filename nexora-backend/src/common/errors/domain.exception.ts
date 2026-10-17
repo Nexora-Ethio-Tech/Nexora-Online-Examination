@@ -6,6 +6,9 @@ export type ErrorDetail = {
 };
 
 export type PermittedErrorCode =
+  | 'READINESS_MISMATCH'
+  | 'STATE_CHANGED'
+  | 'IDEMPOTENCY_CONFLICT'
   | 'ATTEMPT_SUSPENDED'
   | 'AUTH_REQUIRED'
   | 'FORBIDDEN'
