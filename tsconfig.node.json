@@ -20,6 +20,7 @@
   },
   "include": [
     "vite.config.ts",
+    "vercel.ts",
     "playwright.config.ts",
     "tests/e2e/**/*.ts",
     "scripts/release-manifest.ts",

@@ -49,3 +49,5 @@ Test the existing teacher save/submit flow, scheduled preparation/unlock, offlin
 See [the frontend testing guide](group-2-design-testing.md) for the revised controls and expected states.
 
 Teacher import behavior update: parsed questions become editable before AI completion. Only queued/parsing imports block edits; AI remains optional background assistance. Submission still requires complete saved teacher reviews. Late AI output cannot overwrite reviewed questions or manually saved topic/explanation changes. Backend compilation succeeded; test suites were not rerun per the owner's earlier instruction.
+
+Hosted API routing: frontend deployment now uses root vercel.ts instead of vercel.json, reading API_PROXY_TARGET from frontend Vercel environment settings. VITE_API_BASE_URL remains /api/v1. See docs/hosted-api-connection.md for frontend/backend origin settings, deployment protection and hosted acceptance steps. No hosted acceptance is claimed by this change.
