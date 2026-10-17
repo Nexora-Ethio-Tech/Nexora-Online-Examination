@@ -18,7 +18,7 @@ Remove-Item Env:RUN_SUPABASE_OPERATIONAL_TESTS
 
 The operational tests cover role and tenant denial, readiness identity and replay, monitor reads without student-contact changes, concurrent duplicate device transfer, unchanged deadline, invalidated readiness, generation checks, and replacement-browser readiness/unlock. The directory extension covers roster preview/commit replay, foreign-school denial, unchanged frozen roster, salted password hashes, and credential replay returning `credentials: null` without retaining plaintext in idempotency records.
 
-Current evidence: backend compilation and 62 unit tests passed. All six expanded operational tests passed against Supabase (101 seconds), including teardown of the synthetic records. Earlier runs identified a multipart-limit bug (corrected) and transient network/query delays. These tests are correctness checks, not latency or capacity acceptance.
+Current evidence: backend compilation and 68 unit tests passed. All eight expanded operational tests passed against Supabase (99 seconds), including authoring and durable import, including teardown of the synthetic records. The two authoring cases also passed after aligning first-create/replay HTTP status codes. Earlier runs identified a multipart-limit bug (corrected) and transient network/query delays. These tests are correctness checks, not latency or capacity acceptance.
 
 ## Local frontend connection
 

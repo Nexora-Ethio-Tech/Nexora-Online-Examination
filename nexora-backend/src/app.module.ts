@@ -1,4 +1,5 @@
 import { DirectoryModule } from './modules/directory/directory.module';
+import { AuthoringModule } from './modules/authoring/authoring.module';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, Reflector } from '@nestjs/core';
 import { OperationsModule } from './modules/operations/operations.module';
@@ -14,7 +15,14 @@ import { CsrfOriginGuard } from './common/guards/csrf-origin.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
-  imports: [DirectoryModule, DatabaseModule, OperationsModule, AuthModule, DeliveryModule],
+  imports: [
+    AuthoringModule,
+    DirectoryModule,
+    DatabaseModule,
+    OperationsModule,
+    AuthModule,
+    DeliveryModule,
+  ],
   providers: [
     Reflector,
     ClockService,

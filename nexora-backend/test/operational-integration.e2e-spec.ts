@@ -1,3 +1,9 @@
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+import {
+  ImportWorkerService,
+  QuestionAiService,
+} from '../src/modules/authoring/import-worker.service';
 import 'reflect-metadata';
 import { randomUUID } from 'crypto';
 import { INestApplication } from '@nestjs/common';
@@ -23,6 +29,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       admin = randomUUID(),
       foreign = randomUUID(),
       teacher = randomUUID(),
+      assignment = randomUUID(),
       classId = randomUUID(),
       subject = randomUUID(),
       exam = randomUUID(),
@@ -36,9 +43,11 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
     const csrf = randomUUID(),
       studentToken = randomUUID(),
       adminToken = randomUUID(),
+      teacherToken = randomUUID(),
       foreignToken = randomUUID();
     const studentCookie = `nexora_session=${studentToken}`,
       adminCookie = `nexora_session=${adminToken}`,
+      teacherCookie = `nexora_session=${teacherToken}`,
       foreignCookie = `nexora_session=${foreignToken}`;
     const browserIds: string[] = [];
     let browser = '',
@@ -93,6 +102,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         for (const [id, tenant, token] of [
           [student, school, studentToken],
           [admin, school, adminToken],
+          [teacher, school, teacherToken],
           [foreign, otherSchool, foreignToken],
         ])
           await c.query(
@@ -107,6 +117,10 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
           subject,
           school,
         ]);
+        await c.query(
+          'INSERT INTO teacher_assignments(id,school_id,teacher_id,class_id,subject_id) VALUES($1,$2,$3,$4,$5)',
+          [assignment, school, teacher, classId, subject],
+        );
         await c.query(
           "INSERT INTO exams(id,school_id,owner_id,title,subject_id,class_id,state) VALUES($1,$2,$3,'Synthetic exam',$4,$5,'approved')",
           [exam, school, teacher, subject, classId],
@@ -159,6 +173,21 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       }
       clock.setMockTime(now);
       const module = await Test.createTestingModule({ imports: [AppModule] })
+        .overrideProvider(QuestionAiService)
+        .useValue({
+          suggest: async () => ({
+            suggestion: {
+              primaryTopic: 'Arithmetic',
+              secondaryTopics: [],
+              explanation: 'Synthetic provider response for integration testing.',
+              keyConsistent: true,
+              reviewFlags: [],
+            },
+            model: 'synthetic-test',
+            promptVersion: 'objective-review-v1',
+            usage: { inputTokens: 10, outputTokens: 10 },
+          }),
+        })
         .overrideProvider(ClockService)
         .useValue(clock)
         .compile();
@@ -212,6 +241,134 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       deviceGeneration: 1,
       shellBuild: 'integration-build',
     });
+    it('enforces teacher draft revisions and freezes reviewed submission', async () => {
+      if (!app || !pool) throw new Error('Not started');
+      const server = app.getHttpServer();
+      const patch = (path: string, body: object, key = randomUUID()) =>
+        request(server)
+          .patch(`/api/v1${path}`)
+          .set('Cookie', teacherCookie)
+          .set('Origin', 'http://localhost:5173')
+          .set('X-CSRF-Token', csrf)
+          .set('Idempotency-Key', key)
+          .send(body);
+      const body = {
+        title: 'Synthetic authoring',
+        instructions: 'Choose one',
+        assignmentId: assignment,
+        language: 'en',
+        durationMinutes: 30,
+        passPercent: 62.5,
+        ordering: 'fixed',
+      };
+      const key = randomUUID();
+      await post('/exams', body, studentCookie).expect(403);
+      const created = await post('/exams', body, teacherCookie, browser, key).expect(201);
+      expect(created.body).toMatchObject({
+        revision: 1,
+        status: 'draft',
+        passPercent: 62.5,
+        itemCount: 0,
+      });
+      expect((await post('/exams', body, teacherCookie, browser, key).expect(200)).body).toEqual(
+        created.body,
+      );
+      const id = created.body.examId;
+      await post(`/exams/${id}/submit-for-approval`, { revision: 1 }, teacherCookie).expect(409);
+      await patch(`/exams/${id}`, { ...body, revision: 2 }).expect(409);
+      await pool.query(
+        "INSERT INTO exam_items(school_id,exam_id,item_id,external_id,position,type,stem,options,correct_key,marks,primary_topic,explanation) VALUES($1,$2,'draft-q','EXT-1',1,'true_false','2 + 2 = 4',$3,'true',2,'Arithmetic','Two plus two is four')",
+        [
+          school,
+          id,
+          JSON.stringify([
+            { id: 'true', text: 'True' },
+            { id: 'false', text: 'False' },
+          ]),
+        ],
+      );
+      const list = await read(`/exams/${id}/items`, teacherCookie).expect(200);
+      const item = { ...list.body.items[0], reviewed: true };
+      const reviewed = await patch(`/exams/${id}/items`, { revision: 1, item }).expect(200);
+      expect(reviewed.body).toMatchObject({ revision: 2, reviewedCount: 1, totalMarks: 2 });
+      const submitKey = randomUUID();
+      const submitted = await post(
+        `/exams/${id}/submit-for-approval`,
+        { revision: 2 },
+        teacherCookie,
+        browser,
+        submitKey,
+      ).expect(200);
+      expect(submitted.body).toMatchObject({ revision: 3, status: 'in_review' });
+      expect(
+        (
+          await post(
+            `/exams/${id}/submit-for-approval`,
+            { revision: 2 },
+            teacherCookie,
+            browser,
+            submitKey,
+          ).expect(200)
+        ).body,
+      ).toEqual(submitted.body);
+      await patch(`/exams/${id}`, { ...body, revision: 3 }).expect(409);
+      const evidence = await pool.query(
+        'SELECT kind FROM authoring_snapshots WHERE school_id=$1 AND exam_id=$2',
+        [school, id],
+      );
+      expect(evidence.rows.map((r) => r.kind).sort()).toEqual(['before_item_edit', 'submitted']);
+    }, 90000);
+    it('durably imports a real template and preserves questions on failed replacement', async () => {
+      if (!app) throw new Error('Not started');
+      const server = app.getHttpServer();
+      const body = {
+        title: 'Synthetic file import',
+        instructions: 'Choose one',
+        assignmentId: assignment,
+        language: 'en',
+        durationMinutes: 30,
+        passPercent: 50,
+        ordering: 'fixed',
+      };
+      const created = await post('/exams', body, teacherCookie).expect(201);
+      const id = created.body.examId,
+        uploadKey = randomUUID();
+      const upload = (bytes: Buffer, revision: number, key: string) =>
+        request(server)
+          .post('/api/v1/imports')
+          .set('Cookie', teacherCookie)
+          .set('Origin', 'http://localhost:5173')
+          .set('X-CSRF-Token', csrf)
+          .set('Idempotency-Key', key)
+          .field('examId', id)
+          .field('revision', String(revision))
+          .attach('file', bytes, 'questions.docx');
+      const bytes = readFileSync(resolve('../public/templates/nexora-questions.docx'));
+      const job = await upload(bytes, 1, uploadKey).expect(202);
+      expect((await upload(bytes, 1, uploadKey).expect(202)).body).toEqual(job.body);
+      await read(`/imports/${job.body.importId}`, studentCookie).expect(403);
+      await post('/internal/import-worker', { schoolId: school }, adminCookie).expect(403);
+      await app.get(ImportWorkerService).run(school);
+      const ready = await read(`/imports/${job.body.importId}`, teacherCookie).expect(200);
+      expect(ready.body).toMatchObject({ state: 'ready', parsedCount: 2, completedCount: 2 });
+      const before = await read(`/exams/${id}/items`, teacherCookie).expect(200);
+      expect(before.body.items.map((i: { correctOptionId: string }) => i.correctOptionId)).toEqual([
+        'B',
+        'true',
+      ]);
+      const failed = await upload(
+        Buffer.from('not a zip'),
+        before.body.revision,
+        randomUUID(),
+      ).expect(202);
+      await app.get(ImportWorkerService).run(school);
+      const failure = await read(`/imports/${failed.body.importId}`, teacherCookie).expect(200);
+      expect(failure.body.state).toBe('failed');
+      expect(failure.body.diagnostics.length).toBeGreaterThan(0);
+      expect((await read(`/exams/${id}/items`, teacherCookie).expect(200)).body.items).toEqual(
+        before.body.items,
+      );
+    }, 120000);
     it('imports a roster atomically and returns passwords only once', async () => {
       if (!app || !pool) throw new Error('Not started');
       await read('/students', studentCookie).expect(403);
