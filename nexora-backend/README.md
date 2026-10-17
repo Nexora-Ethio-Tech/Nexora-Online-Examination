@@ -135,3 +135,5 @@ Production and Vercel connections require certificate verification. Supply `DB_S
 ### Request limits
 
 Migration 018 adds durable counters, separate from official exam writes. Login allows ten attempts per login ID per five minutes; practice mutations allow 120 per student/school per minute. A limited request returns 429 with `Retry-After`. Counters survive API restarts and contain hashed scope identifiers, not passwords. Configure host-level connection/IP limits as well, particularly for anonymous CSRF bootstrap and multipart requests. Counter housekeeping may remove expired counter rows; it must never delete academic recovery or pending-submission evidence.
+
+Backend deployment builds use tsconfig.build.json and compile src/ plus operator/worker scripts only. Browser integration tests remain in tsconfig.json and are type-checked separately in CI after the root frontend dependencies are installed. A backend-only Vercel install does not require Playwright.
