@@ -24,9 +24,6 @@ export function AdminExamsPage() {
         <div>
           <p className="text-sm text-muted-foreground">School administration</p>
           <h1 className="mt-2 text-3xl font-semibold">Exam approvals and schedules</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Review teacher submissions, approve a frozen paper, then schedule its class sitting.
-          </p>
         </div>
         <RefreshControl
           label="Refresh papers"

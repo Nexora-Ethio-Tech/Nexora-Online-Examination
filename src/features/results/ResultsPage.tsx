@@ -336,13 +336,13 @@ function PublicationForm({ report }: { report: Report }) {
 export function ReportView({ report }: { report: Report }) {
   return (
     <div className="results-print grid gap-6 xl:grid-cols-2">
-      <dl className="grid gap-4 sm:grid-cols-3 xl:col-span-2">
+      <dl className="grid gap-4 border-y py-5 sm:grid-cols-3 xl:col-span-2">
         {[
           ['Finalized results', report.analytics.includedCount],
           ['Status rows', report.analytics.statusCount],
           ['Topics assessed', report.analytics.topics.length],
         ].map(([label, value]) => (
-          <div className={panel} key={label}>
+          <div className="px-1" key={label}>
             <dt className="text-sm text-muted-foreground">{label}</dt>
             <dd className="mt-2 font-heading text-4xl">{value}</dd>
           </div>
@@ -474,9 +474,9 @@ export function ReportView({ report }: { report: Report }) {
               {topic.earnedMarks} / {topic.availableMarks} marks · {topic.itemCount} questions ·{' '}
               {topic.studentCount} students
             </p>
-            <div className="mt-2 h-3 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+            <div className="mt-2 h-3 overflow-hidden rounded-sm bg-muted" aria-hidden="true">
               <div
-                className="h-3 rounded-full bg-primary"
+                className="h-3 rounded-sm bg-primary"
                 style={{ width: `${topic.percent ?? 0}%` }}
               />
             </div>

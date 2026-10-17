@@ -141,13 +141,13 @@ function SittingInfo({ sitting: s }: { sitting: MonitorSitting }) {
       <p className="text-sm">
         Frozen roster: {s.rosterCount} students · Schedule revision {s.scheduleRevision}
       </p>
-      <p className="rounded-xl border bg-muted p-4 text-sm">
+      <p className="border-b py-4 text-sm">
         Ready (last reported): <strong>{s.readyCount}</strong> of {s.counts.preparing} preparing
         students. This is a subset, not an additional roster count.
       </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {monitorStatus.options.map((status) => (
-          <div key={status} className="rounded-xl border bg-muted p-4 text-sm">
+          <div key={status} className="border-b py-4 text-sm">
             {statusLabels[status]}
             <strong className="mt-2 block font-heading text-3xl">{s.counts[status]}</strong>
           </div>

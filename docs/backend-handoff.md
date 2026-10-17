@@ -1,5 +1,9 @@
 # Backend handoff
 
+## UI simplification — 16 October 2026
+
+The follow-up on feat/quiet-sharp-ui sharpens corners, removes decorative surfaces and redundant copy, and simplifies status styling. No API, timing, permissions, persistence or backend changes. See the updated [design testing guide](sage-mint-design-testing.md).
+
 ## Sage and mint design — 16 October 2026
 
 The visual update on feat/sage-mint-design changes shared styling, exam grouping, card layouts, charts and the default question navigator display. It adds no API contract or backend requirements. The earlier browser-supervision migration and real integration acceptance below remain outstanding. See [sage-mint-design-testing.md](sage-mint-design-testing.md) for the UI checks. Existing server data remains authoritative; no screenshot sample statistics are used.

@@ -97,10 +97,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
           </div>
         ) : null}
       </div>
-      <div
-        role="status"
-        className="nexora-surface rounded-xl border bg-background p-4 text-xs leading-relaxed"
-      >
+      <div role="status" className="border-b py-3 text-xs leading-relaxed">
         <p>{view.message || 'Revalidating your session, device and exam…'}</p>
         {!online ? (
           <p className="mt-2 font-medium">
@@ -236,9 +233,6 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
                 ? 'Remove review mark'
                 : 'Mark for review'}
             </Button>
-            <p className="mt-2 text-xs text-muted-foreground">
-              A personal reminder on this device. It does not change your answer or marks.
-            </p>
           </section>
           <div className="flex flex-wrap justify-between gap-3">
             <Button

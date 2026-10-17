@@ -76,10 +76,10 @@ export function ExamsPage() {
         <p className="mb-2 text-sm text-muted-foreground">Welcome, {session?.user.displayName}</p>
         <h1 className="text-3xl font-semibold tracking-tight">My exams</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Your assigned papers and preparation times. All times are East Africa Time (EAT).
+          All times in East Africa Time (EAT).
         </p>
       </div>
-      <div className="rounded-xl border bg-primary/5 p-5 text-sm leading-relaxed">
+      <div className="text-sm leading-relaxed text-muted-foreground">
         Preparation opens 10 minutes before the common start. Keep this browser connected to prepare
         your paper. Joining late does not extend your deadline.
       </div>
@@ -125,8 +125,8 @@ export function ExamsPage() {
                     <span
                       className={
                         exam.attemptState === 'submitted'
-                          ? 'inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-950'
-                          : 'rounded-full bg-muted px-3 py-1 text-xs font-medium'
+                          ? 'inline-flex items-center gap-2 py-1 text-xs font-medium text-primary'
+                          : 'py-1 text-xs font-medium'
                       }
                     >
                       {exam.attemptState === 'submitted' && (

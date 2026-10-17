@@ -172,11 +172,7 @@ export function TeacherPage() {
     <div className="space-y-6">
       <div className="page-intro flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm text-muted-foreground">Prepare · Review · Submit</p>
           <h1 className="mt-2 text-3xl font-semibold">My exam papers</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Create a paper for your class. Your administrator approves and schedules it.
-          </p>
         </div>
         <Button className="min-h-11" onClick={() => setCreating(!creating)}>
           {creating ? 'Close new draft' : 'New exam'}

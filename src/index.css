@@ -90,7 +90,7 @@
   --primary-foreground: #ffffff;
   --secondary: #c6e9d3;
   --secondary-foreground: #203e30;
-  --muted: #e5f4eb;
+  --muted: #f0f4f1;
   --muted-foreground: #50685a;
   --accent: #e5f4eb;
   --accent-foreground: #203e30;
@@ -103,7 +103,7 @@
   --chart-3: #a2c1a0;
   --chart-4: #c6e9d3;
   --chart-5: #6c9275;
-  --radius: 0.75rem;
+  --radius: 0.125rem;
   --sidebar: #203e30;
   --sidebar-foreground: #e5f4eb;
   --sidebar-primary: #c6e9d3;
@@ -112,7 +112,7 @@
   --sidebar-accent-foreground: #203e30;
   --sidebar-border: #466352;
   --sidebar-ring: #c6e9d3;
-  --canvas: #e5f4eb;
+  --canvas: #f7f9f7;
   --sage: #a2c1a0;
 }
 
@@ -171,27 +171,12 @@
   }
   .nexora-surface {
     background: var(--card);
-    box-shadow: 0 5px 18px -12px rgb(32 62 48 / 28%);
+    box-shadow: none;
   }
   .page-intro {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-    border-radius: 1.5rem 1.5rem 2.5rem 1rem;
-    padding: clamp(1.25rem, 3vw, 2rem);
-    background: var(--secondary);
-    color: var(--secondary-foreground);
-  }
-  .page-intro::after {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    width: 70%;
-    height: 5rem;
-    right: -10%;
-    bottom: -4rem;
-    border-radius: 50%;
-    background: var(--canvas);
+    padding: 0 0 1.25rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--foreground);
   }
   .workspace-shell h1,
   .workspace-shell h2,
@@ -233,7 +218,7 @@
   .exam-topbar {
     background: var(--sidebar);
     color: var(--sidebar-foreground);
-    border-radius: 1rem;
+    border-radius: 0.125rem;
     padding: 1rem 1.25rem;
   }
   .exam-topbar h1 {

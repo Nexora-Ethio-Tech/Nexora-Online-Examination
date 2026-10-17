@@ -57,7 +57,7 @@ it('filters marked questions while keeping answered and review states separate',
       onSelect={() => undefined}
     />,
   );
-  await user.click(screen.getByText('Review filters and status key'));
+  await user.click(screen.getByText('Review filter'));
   await user.click(screen.getByRole('checkbox', { name: /Show marked for review only/ }));
   expect(screen.queryByRole('button', { name: 'Question 1, answered' })).not.toBeInTheDocument();
   expect(

@@ -208,9 +208,6 @@ export function DashboardLayout() {
               {roleLabel[user.role].toUpperCase()}
             </p>
             {navigation}
-            <p className="mt-auto px-4 pt-8 pb-4 text-xs leading-relaxed text-sidebar-foreground">
-              Exam schedules are shown in East Africa Time (EAT).
-            </p>
           </aside>
         )}
         <main

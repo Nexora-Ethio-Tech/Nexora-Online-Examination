@@ -21,10 +21,7 @@ export function QuestionNavigator({
   const answered = new Set(answers.filter((a) => a.value !== null).map((a) => a.itemId));
   const count = items.filter((item) => answered.has(item.itemId)).length;
   return (
-    <section
-      className="nexora-surface rounded-xl border bg-background p-4"
-      aria-label="Question navigator"
-    >
+    <section className="border-y py-4" aria-label="Question navigator">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm">
           <p className="font-medium">
@@ -74,11 +71,8 @@ export function QuestionNavigator({
         </div>
         <details className="mt-3 text-sm">
           <summary className="min-h-11 cursor-pointer py-3 text-muted-foreground">
-            Review filters and status key
+            Review filter
           </summary>{' '}
-          <p className="mt-3 text-xs text-muted-foreground">
-            Filled: current · ✓: answered · flag and outline: marked for review
-          </p>
           <label className="mt-3 flex min-h-11 items-center gap-2 text-sm">
             <input
               type="checkbox"
