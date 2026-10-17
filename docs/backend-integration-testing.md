@@ -37,3 +37,6 @@ Start the backend on that port and restart the frontend on its permitted origin.
 ## Acceptance still required
 
 The combined HTTP flows above are covered. Broader rollback/race tests, pagination beyond 25, full browser authoring/admin scheduling/official submission, real offline retry/reload and phone testing remain acceptance work. The English synthetic AI sample passed with the configured provider. The owner deferred the Amharic check after truncation and timeout; record that gap rather than claiming multilingual acceptance. No capacity claim or hosted-backend readiness follows from the current unit and scoped integration tests.
+
+Migration 019 fixes login/practice rate limiting by replacing the reserved CURRENT_TIME variable name with v_now (timestamptz). Apply with npm run migrate from nexora-backend. No additional test suite was run for this correction, following the owner's request.
+Migration 019 was applied successfully to the configured database on 17 October 2026.
