@@ -50,6 +50,12 @@ export function databasePoolConfig(
   const secureTransport = isSupabase || (sslMode !== null && sslMode !== 'disable');
   const localDevelopment =
     environment.VERCEL !== '1' && ['development', 'test'].includes(environment.NODE_ENV ?? '');
+  const verifySetting = environment.DB_SSL_REJECT_UNAUTHORIZED;
+  if (verifySetting !== undefined && !['true', 'false'].includes(verifySetting)) {
+    throw new Error('DB_SSL_REJECT_UNAUTHORIZED must be true or false.');
+  }
+  // Temporary operator-selected staging bypass; TLS encryption remains enabled.
+  const skipVerification = verifySetting === 'false';
   const inlineCa = environment.DB_SSL_CA?.trim();
   const caFile = environment.DB_SSL_CA_FILE?.trim();
   if (inlineCa && caFile) {
@@ -81,7 +87,10 @@ export function databasePoolConfig(
     // Release session-pooler slots before Vercel can suspend an idle instance.
     maxUses: vercelRuntime ? 1 : undefined,
     ssl: secureTransport
-      ? { rejectUnauthorized: !localDevelopment || ca !== undefined, ...(ca ? { ca } : {}) }
+      ? {
+          rejectUnauthorized: !skipVerification && (!localDevelopment || ca !== undefined),
+          ...(ca ? { ca } : {}),
+        }
       : undefined,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
