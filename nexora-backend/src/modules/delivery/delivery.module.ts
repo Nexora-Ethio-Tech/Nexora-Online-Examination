@@ -3,17 +3,17 @@ import { Module } from '@nestjs/common';
 import { DeliveryController } from './delivery.controller';
 import { PreparationService } from './preparation.service';
 import { DeliveryService } from './delivery.service';
-import { DbService } from '../../common/db/db.service';
+import { DatabaseModule } from '../../common/db/database.module';
 import { ClockService } from '../../common/clock/clock.service';
 import { DeviceBindingGuard } from '../../common/guards/device-binding.guard';
 
 @Module({
+  imports: [DatabaseModule],
   controllers: [DeliveryController],
   providers: [
     SupervisionService,
     PreparationService,
     DeliveryService,
-    DbService,
     ClockService,
     DeviceBindingGuard,
   ],

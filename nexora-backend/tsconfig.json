@@ -5,11 +5,11 @@
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "target": "ES2022",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
     "strict": true,
@@ -18,8 +18,8 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@common/*": ["src/common/*"],
-      "@modules/*": ["src/modules/*"]
+      "@common/*": ["./src/common/*"],
+      "@modules/*": ["./src/modules/*"]
     }
   },
   "include": ["src/**/*", "scripts/**/*", "test/**/*"]

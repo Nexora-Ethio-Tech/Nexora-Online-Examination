@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { OperationsController } from './operations.controller';
-import { DbService } from '../../common/db/db.service';
+import { DatabaseModule } from '../../common/db/database.module';
 import { ClockService } from '../../common/clock/clock.service';
 
 @Module({
+  imports: [DatabaseModule],
   controllers: [OperationsController],
-  providers: [DbService, ClockService],
-  exports: [DbService, ClockService],
+  providers: [ClockService],
+  exports: [DatabaseModule, ClockService],
 })
 export class OperationsModule {}

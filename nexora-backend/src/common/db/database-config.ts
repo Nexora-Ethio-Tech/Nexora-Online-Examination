@@ -40,7 +40,8 @@ export function databasePoolConfig(
   if (isSupabase && url.port === '6543') {
     throw new Error(`${key} must use the direct connection or Session pooler on port 5432.`);
   }
-  const max = Number(environment.DB_POOL_MAX ?? '5');
+  const vercelRuntime = mode === 'runtime' && environment.VERCEL === '1';
+  const max = Number(environment.DB_POOL_MAX ?? (vercelRuntime ? '1' : '5'));
   if (!Number.isSafeInteger(max) || max < 1) {
     throw new Error('DB_POOL_MAX must be a positive integer.');
   }
@@ -48,6 +49,8 @@ export function databasePoolConfig(
   return {
     connectionString,
     max: mode === 'migration' ? 1 : max,
+    // Release session-pooler slots before Vercel can suspend an idle instance.
+    maxUses: vercelRuntime ? 1 : undefined,
     ssl:
       isSupabase || (sslMode !== null && sslMode !== 'disable')
         ? { rejectUnauthorized: false }

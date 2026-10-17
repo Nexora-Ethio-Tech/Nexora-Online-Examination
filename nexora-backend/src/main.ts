@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import { loadBackendEnvironment } from './common/db/database-config';
 import { AppModule } from './app.module';
 import { configureCors } from './common/security/origins';

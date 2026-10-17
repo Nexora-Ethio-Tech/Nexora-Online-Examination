@@ -5,6 +5,32 @@ const supabaseUrl =
   'postgresql://postgres.example:synthetic-password@aws-0-example.pooler.supabase.com:5432/postgres';
 
 describe('Persistent database configuration', () => {
+  it('closes released Vercel runtime connections and defaults to one connection per instance', () => {
+    expect(databasePoolConfig('runtime', { DATABASE_URL: supabaseUrl, VERCEL: '1' })).toMatchObject(
+      {
+        max: 1,
+        maxUses: 1,
+      },
+    );
+  });
+
+  it('preserves explicit Vercel pool limits without retaining idle sessions', () => {
+    expect(
+      databasePoolConfig('runtime', {
+        DATABASE_URL: supabaseUrl,
+        VERCEL: '1',
+        DB_POOL_MAX: '2',
+      }),
+    ).toMatchObject({ max: 2, maxUses: 1 });
+  });
+
+  it('keeps connection reuse outside Vercel and for protected migrations', () => {
+    expect(databasePoolConfig('runtime', { DATABASE_URL: supabaseUrl }).maxUses).toBeUndefined();
+    expect(
+      databasePoolConfig('migration', { MIGRATION_DATABASE_URL: supabaseUrl, VERCEL: '1' }).maxUses,
+    ).toBeUndefined();
+  });
+
   it('loads the backend environment independently of the command working directory', () => {
     expect(backendEnvPath).toMatch(/nexora-backend[/\\]\.env$/);
   });
