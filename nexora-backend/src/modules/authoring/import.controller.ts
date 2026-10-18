@@ -82,9 +82,7 @@ export class ImportWorkerController {
       z.object({ schoolId: z.string().uuid() }).strict(),
       input,
     );
-    return {
-      ...(await this.worker.run(schoolId)),
-      packageProcessed: await this.packages.run(schoolId),
-    };
+    const packageProcessed = await this.packages.run(schoolId);
+    return { ...(await this.worker.run(schoolId)), packageProcessed };
   }
 }

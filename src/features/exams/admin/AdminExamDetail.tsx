@@ -477,17 +477,19 @@ export function AdminExamDetail() {
           {d.packageError && <p role="alert">{d.packageError}</p>}
           {d.packageState === 'pending' && (
             <p className="text-sm">
-              Preparing the approved student artifact. Scheduling opens when it is ready.
+              The student paper is not ready yet. Prepare it now to continue to scheduling.
             </p>
           )}
-          {d.packageState === 'failed' && (
+          {(d.packageState === 'failed' || d.packageState === 'pending') && (
             <Button
               disabled={pending}
               onClick={() =>
                 run(() => api.retryPackage(examId, e.revision, key('package', e.revision)))
               }
             >
-              Retry package preparation
+              {d.packageState === 'pending'
+                ? 'Prepare student paper now'
+                : 'Retry package preparation'}
             </Button>
           )}
         </section>

@@ -423,7 +423,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       ).expect(200);
       expect(approved.body).toMatchObject({
         approvedVersion: 1,
-        packageState: 'pending',
+        packageState: 'ready',
         exam: { revision: 4, status: 'approved' },
       });
       expect(
@@ -437,7 +437,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
           ).expect(200)
         ).body,
       ).toEqual(approved.body);
-      await app.get(PackageWorkerService).run(school);
+      expect(await app.get(PackageWorkerService).run(school)).toBe(false);
       expect((await read(`/admin/exams/${id}`).expect(200)).body.packageState).toBe('ready');
       const encrypted = (
         await pool.query(

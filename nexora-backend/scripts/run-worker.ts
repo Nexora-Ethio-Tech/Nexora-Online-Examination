@@ -22,8 +22,8 @@ async function main() {
     });
   try {
     do {
-      const imports = await app.get(ImportWorkerService).run(school),
-        packageProcessed = await app.get(PackageWorkerService).run(school);
+      const packageProcessed = await app.get(PackageWorkerService).run(school),
+        imports = await app.get(ImportWorkerService).run(school);
       if (imports.parsed || imports.aiProcessed || packageProcessed)
         process.stdout.write(JSON.stringify({ ...imports, packageProcessed }) + '\n');
       if (!once && !stopping) await new Promise((resolve) => setTimeout(resolve, 1000));

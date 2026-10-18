@@ -1,3 +1,4 @@
+import { PackageWorkerService } from '../authoring/package-worker.service';
 import { Injectable } from '@nestjs/common';
 import { Request } from 'express';
 import { PoolClient } from 'pg';
@@ -52,6 +53,7 @@ export class AdministrationService {
     private readonly db: DbService,
     private readonly clock: ClockService,
     private readonly authoring: AuthoringService,
+    private readonly packages: PackageWorkerService,
   ) {}
   async exam(c: PoolClient, school: string, id: string, lock = false) {
     const e = (
@@ -324,6 +326,7 @@ export class AdministrationService {
             school.id,
             version.id,
           ]);
+          await this.packages.prepareNow(c, school.id, version.id);
         }
         await c.query(
           'UPDATE exams SET state=$1,status=$2,return_comment=$3,revision=revision+1,updated_at=now() WHERE school_id=$4 AND id=$5',
@@ -357,12 +360,21 @@ export class AdministrationService {
         const v = await this.version(c, school.id, id);
         if (e.state !== 'approved' || e.revision !== body.revision || !v)
           throw DomainException.conflict('REVISION_CONFLICT', 'Refresh the approved paper');
+        // Repair a missing queue row only for an existing, authorized immutable approval.
+        await c.query(
+          'INSERT INTO package_jobs(school_id,exam_version_id) SELECT $1,$2 WHERE NOT EXISTS(SELECT 1 FROM exam_packages WHERE school_id=$1 AND exam_version_id=$2) ON CONFLICT(school_id,exam_version_id) DO NOTHING',
+          [school.id, v.id],
+        );
         const reset = await c.query(
-          "UPDATE package_jobs SET status='pending',error_message=NULL,lease_token=NULL,lease_until=NULL WHERE school_id=$1 AND exam_version_id=$2 AND status='failed' RETURNING id",
+          "UPDATE package_jobs SET status='pending',error_message=NULL,lease_token=NULL,lease_until=NULL WHERE school_id=$1 AND exam_version_id=$2 AND (status IN ('failed','pending') OR (status='processing' AND lease_until<now())) AND NOT EXISTS(SELECT 1 FROM exam_packages WHERE school_id=$1 AND exam_version_id=$2) RETURNING id",
           [school.id, v.id],
         );
         if (!reset.rowCount)
-          throw DomainException.conflict('REVISION_CONFLICT', 'Package is not failed');
+          throw DomainException.conflict(
+            'REVISION_CONFLICT',
+            'Package is already ready or another request is preparing it; refresh the paper',
+          );
+        await this.packages.prepareNow(c, school.id, v.id);
         await c.query('UPDATE exams SET revision=revision+1 WHERE school_id=$1 AND id=$2', [
           school.id,
           id,

@@ -22,12 +22,11 @@ The scoped Supabase suite includes actual DOCX upload, durable processing with a
 
 The remaining acceptance work includes broader restart/race/failure cases, full browser authoring through the deployed API, maximum-size performance, deployment scheduling, dependency-audit remediation, and the administrator approval/package/scheduling flow.
 
-
 ## Local continuous worker
 
 From `nexora-backend`, run `npm run worker -- --school <school UUID>` in a separate terminal alongside the API. This uses the same ignored environment file and restricted database role. The school UUID is available in the authenticated `/api/v1/auth/me` response. Add `--once` for one bounded pass. Stop with Ctrl+C; committed leases allow another worker to recover unfinished work. The process prints counts only, not question content or credentials. Run one process per configured school, or use an authenticated external scheduler to call the existing internal endpoint. A platform that freezes processes after HTTP responses must use that external scheduler; do not rely on background promises.
 
-The worker now processes approved package jobs as well as imports/AI. New release keys are wrapped with a derived, purpose-separated key from `MFA_ENCRYPTION_KEY`, bound to school and version. Back up that master secret privately; changing it without rewrapping stored MFA secrets and package keys makes them unreadable. Historical raw package keys remain read-compatible, but new writes never use that format.
+Approval now attempts student package preparation in its own request transaction; successful approvals no longer wait for a scheduler. Existing pending or failed papers can use the administrator prepare/retry action. Validation or key-configuration failure preserves approval and marks preparation failed. The worker still processes interrupted/older approved package jobs and runs package work before imports/AI. See [the immediate preparation guide](../../docs/package-preparation.md). New release keys are wrapped with a derived, purpose-separated key from `MFA_ENCRYPTION_KEY`, bound to school and version. Back up that master secret privately; changing it without rewrapping stored MFA secrets and package keys makes them unreadable. Historical raw package keys remain read-compatible, but new writes never use that format.
 
 ## Parsed questions are immediately editable
 

@@ -1,5 +1,9 @@
 # Backend handoff
 
+## Immediate approved package preparation — 18 October 2026
+
+Approval now prepares the student artifact in the request transaction, with savepoint-isolated failures preserving the immutable approval. Existing pending papers gain an immediate prepare action through the extended package-retry endpoint; active leases and ready artifacts remain protected. Worker entry points prioritize packages before AI. See [behavior, deployment and verification](package-preparation.md). No new migration or hosted deployment is included, and real hosted timing/queue acceptance is not claimed.
+
 ## School-controlled AI exam generation — 18 October 2026
 
 The owner requested a school-admin opt-in for teachers to generate entire draft papers alongside the existing upload workflow. Source now includes the school setting, teacher generation form, revision/idempotency and role/ownership gates, validated provider generation and durable worker processing. See [the contract and acceptance guide](backend-ai-exam-generation-task.md). Migration 020 and a configured worker are required. The source change has not been deployed, the migration has not been applied by this task, and no full-paper live-provider or hosted acceptance is claimed. Teacher review and administrator approval remain mandatory. Work stays on the current branch at the owner's explicit request.
