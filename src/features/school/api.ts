@@ -1,3 +1,7 @@
+import {
+  aiExamSettingsSchema,
+  aiExamSettingsInputSchema,
+} from '@/features/exams/authoring/generation-schemas';
 import { z } from 'zod';
 import type { ApiClient } from '@/lib/api-client';
 import {
@@ -23,6 +27,16 @@ export function schoolApi(client: ApiClient) {
     method: 'POST' | 'PATCH' = 'POST',
   ) => client.request(path, schema, { method, body, idempotencyKey: key });
   return {
+    aiSettings: (signal?: AbortSignal) =>
+      client.request('/school/ai-exam-settings', aiExamSettingsSchema, { signal }),
+    saveAiSettings: (body: import('zod').infer<typeof aiExamSettingsInputSchema>, key: string) =>
+      write(
+        '/school/ai-exam-settings',
+        aiExamSettingsSchema,
+        aiExamSettingsInputSchema.parse(body),
+        key,
+        'PATCH',
+      ),
     classes: (cursor: string | null, signal?: AbortSignal) =>
       client.request(`/classes?${page(cursor)}`, pageSchema(classSchema), { signal }),
     subjects: (cursor: string | null, signal?: AbortSignal) =>

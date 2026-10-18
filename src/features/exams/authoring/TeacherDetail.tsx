@@ -1,3 +1,4 @@
+import { ExamGeneration } from './ExamGeneration';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useBlocker, useBeforeUnload, useParams } from 'react-router';
@@ -278,12 +279,12 @@ export function TeacherDetail() {
   const selectedItem = paper.find((item) => item.itemId === selectedItemId) ?? visibleItems[0];
   const blockers = [
     ...(busy
-      ? ['Wait for file parsing to finish. If loading failed, retry loading the paper.']
+      ? ['Wait for question processing to finish. If loading failed, retry loading the paper.']
       : []),
     ...(metadataDirty ? ['Save your changes in Exam details.'] : []),
     ...(dirtyItems.size ? ['Save the question review you are currently editing.'] : []),
     ...(items.error || draft.error ? ['Retry loading the paper before submitting.'] : []),
-    ...(!paper.length ? ['Upload a question template before submitting.'] : []),
+    ...(!paper.length ? ['Upload or generate questions before submitting.'] : []),
     ...reviewProblems(paper).map(
       (item) =>
         `${item.externalId}: ${item.reviewFlags.length || item.keyConsistent === false ? 'add a resolution note for the flag, then ' : ''}check the review confirmation and click Save question review.`,
@@ -382,7 +383,7 @@ export function TeacherDetail() {
             1 · Exam details
           </TabsTrigger>
           <TabsTrigger value="import" aria-label="Import">
-            2 · Upload
+            2 · Questions
           </TabsTrigger>
           <TabsTrigger value="review" aria-label="Review questions">
             3 · Review questions
@@ -409,6 +410,14 @@ export function TeacherDetail() {
           )}
         </TabsContent>
         <TabsContent value="import" className="space-y-4">
+          {editable && (
+            <ExamGeneration
+              revision={d.revision}
+              itemCount={d.itemCount}
+              disabled={disabled || dirty}
+              onGenerate={(body) => run(() => api.generate(examId, body, key('generate', body)))}
+            />
+          )}
           <section className={panel}>
             <h2 className="text-xl font-semibold">Upload your question paper</h2>
             <p className="mt-2 text-sm text-muted-foreground">

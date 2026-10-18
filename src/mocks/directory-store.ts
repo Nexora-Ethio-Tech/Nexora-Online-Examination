@@ -29,6 +29,7 @@ export function createDirectoryStore() {
       credentialState: 'issued',
     });
   return {
+    aiExamSettings: { aiExamGenerationEnabled: false, revision: 1 },
     classes: new Map<string, SchoolClass>([
       [
         'demo-class-10a',

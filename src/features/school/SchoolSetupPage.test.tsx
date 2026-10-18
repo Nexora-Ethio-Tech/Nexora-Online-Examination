@@ -40,6 +40,21 @@ function submitRosterPreview() {
   fireEvent.submit(form);
 }
 describe('school setup UI', () => {
+  it('shows the saved AI generation policy and requires a reason for enabling it', async () => {
+    const { user, store } = setup();
+    await user.click(await screen.findByRole('tab', { name: 'AI settings' }));
+    expect(
+      await screen.findByText('AI exam generation is off for this school.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Turn on AI exam generation' })).toBeDisabled();
+    await user.type(screen.getByLabelText('Reason'), 'Enable exam drafting');
+    await user.click(screen.getByRole('button', { name: 'Turn on AI exam generation' }));
+    expect(
+      await screen.findByText('AI exam generation is on for this school.'),
+    ).toBeInTheDocument();
+    expect(store.directory.aiExamSettings).toEqual({ aiExamGenerationEnabled: true, revision: 2 });
+    expect(screen.getByRole('button', { name: 'Turn off AI exam generation' })).toBeDisabled();
+  });
   it('creates a class and subject and records who changed them', async () => {
     const { user, store } = setup();
     await user.click(await screen.findByRole('button', { name: 'Add class' }, { timeout: 5000 }));

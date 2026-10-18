@@ -1,6 +1,6 @@
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useBeforeUnload, useBlocker } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -958,6 +958,72 @@ function AuditPage() {
     </div>
   );
 }
+function AiExamSettings() {
+  const api = schoolApi(useApiClient());
+  const scope = useTeacherScope();
+  const query = useQuery({
+    queryKey: ['school', ...scope, 'ai-exam-settings'],
+    queryFn: ({ signal }) => api.aiSettings(signal),
+  });
+  const op = useSchoolOperation();
+  const [reason, setReason] = useState('');
+  return (
+    <section className={`${panel} space-y-4`}>
+      <h2 className="text-xl font-semibold">AI exam generation</h2>
+      <p>
+        Allow teachers in this school to generate entire exam drafts with AI. Uploading question
+        papers is always available. Every generated paper still requires teacher review and
+        administrator approval.
+      </p>
+      {query.isPending && <p role="status">Loading AI setting…</p>}
+      <Failure error={query.error} />
+      <Button
+        variant="outline"
+        disabled={query.isFetching || op.pending}
+        onClick={() => void query.refetch()}
+      >
+        Refresh AI setting
+      </Button>
+      {query.data && !query.error && (
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!query.data) return;
+            const body = {
+              revision: query.data.revision,
+              aiExamGenerationEnabled: !query.data.aiExamGenerationEnabled,
+              reason: reason.trim(),
+            };
+            void op.run(
+              JSON.stringify(body),
+              (key) => api.saveAiSettings(body, key),
+              () => setReason(''),
+            );
+          }}
+        >
+          <p role="status">
+            AI exam generation is {query.data.aiExamGenerationEnabled ? 'on' : 'off'} for this
+            school.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Turning this off prevents new generation and stops pending output from replacing draft
+            questions. Existing papers remain available.
+          </p>
+          <fieldset disabled={op.pending} className="space-y-4">
+            <Reason value={reason} onChange={setReason} />
+            <Button disabled={!reason.trim()}>
+              {query.data.aiExamGenerationEnabled
+                ? 'Turn off AI exam generation'
+                : 'Turn on AI exam generation'}
+            </Button>
+          </fieldset>
+        </form>
+      )}
+      {op.feedback}
+    </section>
+  );
+}
 export function SchoolSetupPage() {
   const [issue, setIssue] = useState<CredentialIssue | null>(null);
   const [tab, setTab] = useState('classes');
@@ -981,7 +1047,7 @@ export function SchoolSetupPage() {
         <CredentialPanel key={issue.issueId} issue={issue} close={() => setIssue(null)} />
       ) : (
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-4 grid w-full grid-cols-2 gap-1 group-data-horizontal/tabs:h-auto sm:grid-cols-3 xl:grid-cols-6">
+          <TabsList className="mb-4 grid w-full grid-cols-2 gap-1 group-data-horizontal/tabs:h-auto sm:grid-cols-3 xl:grid-cols-7">
             {[
               ['classes', 'Classes'],
               ['subjects', 'Subjects'],
@@ -989,6 +1055,7 @@ export function SchoolSetupPage() {
               ['assignments', 'Assignments'],
               ['roster', 'Roster import'],
               ['activity', 'Activity'],
+              ['ai', 'AI settings'],
             ].map(([value, label]) => (
               <TabsTrigger className="h-auto min-h-11" key={value} value={value ?? ''}>
                 {label}
@@ -1009,6 +1076,9 @@ export function SchoolSetupPage() {
           </TabsContent>
           <TabsContent value="roster">
             <RosterImport />
+          </TabsContent>
+          <TabsContent value="ai">
+            <AiExamSettings />
           </TabsContent>
           <TabsContent value="activity">
             <AuditPage />

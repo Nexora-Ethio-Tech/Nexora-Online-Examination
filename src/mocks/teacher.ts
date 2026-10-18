@@ -1,3 +1,4 @@
+import { generationInputSchema } from '@/features/exams/authoring/generation-schemas';
 import { z } from 'zod';
 import {
   metadataSchema,
@@ -64,7 +65,10 @@ const revisionSchema = z.object({ revision: z.number().int().positive() });
 export function createTeacherDemo(clock: () => number = Date.now, store = createAuthoringStore()) {
   const { drafts, papers } = store;
   const jobs = new Map<string, Job>();
-  const due = new Map<string, { at: number; items: Item[] }>();
+  const due = new Map<
+    string,
+    { at: number; items: Item[]; generated?: boolean; policyRevision?: number }
+  >();
   const replays = new Map<string, { fingerprint: string; body: unknown; status: number }>();
   function updateCounts(d: Draft) {
     const p = papers.get(d.examId) ?? [];
@@ -77,9 +81,19 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
       if (clock() < pending.at) continue;
       const j = jobs.get(id);
       const d = j && drafts.get(j.examId);
-      if (j && d) {
+      if (
+        j &&
+        d &&
+        pending.generated &&
+        (!store.directory.aiExamSettings.aiExamGenerationEnabled ||
+          pending.policyRevision !== store.directory.aiExamSettings.revision)
+      ) {
+        j.state = 'failed';
+        j.failure = 'AI generation disabled. Existing questions were preserved.';
+      } else if (j && d) {
         j.state = 'ready';
         j.completedCount = pending.items.length;
+        j.parsedCount = pending.items.length;
         papers.set(d.examId, pending.items);
         d.revision++;
         updateCounts(d);
@@ -177,7 +191,7 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
       papers.set(d.examId, []);
       return commit(d, 201);
     }
-    const examMatch = /^\/exams\/([^/]+)(?:\/(items|submit-for-approval))?$/.exec(path);
+    const examMatch = /^\/exams\/([^/]+)(?:\/(items|submit-for-approval|generate))?$/.exec(path);
     if (examMatch) {
       const d = drafts.get(examMatch[1] ?? '');
       if (!d || !own(d.examId)) return fail('Paper not found.', 'NOT_FOUND', 404);
@@ -191,6 +205,52 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
         return fail('This paper changed. Reload it before saving your edits.');
       if (!['draft', 'returned'].includes(d.status) || (d.importId && due.has(d.importId)))
         return fail('This paper is currently read-only.');
+      if (method === 'POST' && part === 'generate') {
+        if (!store.directory.aiExamSettings.aiExamGenerationEnabled)
+          return fail('AI exam generation is disabled for this school.', 'FORBIDDEN', 403);
+        const parsed = generationInputSchema.safeParse(body);
+        if (!parsed.success)
+          return fail('Check the generation parameters.', 'VALIDATION_ERROR', 422);
+        if (d.itemCount && !parsed.data.replaceExisting)
+          return fail('Confirm replacing existing questions.', 'VALIDATION_ERROR', 422);
+        const v = parsed.data;
+        const items = Array.from({ length: v.mcqCount + v.trueFalseCount }, (_, i) => {
+          const sample = sampleItems()[i < v.mcqCount ? 0 : 1];
+          if (!sample) throw new Error('Missing synthetic question');
+          return {
+            ...sample,
+            itemId: crypto.randomUUID(),
+            externalId: `AI-${i + 1}`,
+            stem: `[Synthetic example ${i + 1}] ${sample.stem}`,
+            marks: v.marksPerQuestion,
+            keyConsistent: null,
+            reviewFlags: [],
+            reviewed: false,
+          };
+        });
+        const id = crypto.randomUUID();
+        const j: Job = {
+          importId: id,
+          examId: d.examId,
+          state: 'queued',
+          parsedCount: 0,
+          completedCount: 0,
+          sourceName: 'AI-generated exam (synthetic demo)',
+          sourceSha256: '',
+          failure: null,
+          diagnostics: [],
+        };
+        jobs.set(id, j);
+        d.importId = id;
+        d.revision++;
+        due.set(id, {
+          at: clock() + 1200,
+          items,
+          generated: true,
+          policyRevision: store.directory.aiExamSettings.revision,
+        });
+        return commit(j, 202);
+      }
       if (method === 'PATCH' && !part) {
         const parsed = metadataSchema.safeParse(body);
         if (!parsed.success) return fail('Check your exam details.', 'VALIDATION_ERROR', 422);

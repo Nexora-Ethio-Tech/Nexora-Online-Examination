@@ -1,3 +1,4 @@
+import { generationInputSchema, type GenerationInput } from './generation-schemas';
 import type { ApiClient } from '@/lib/api-client';
 import { ApiError } from '@/lib/api-client';
 import {
@@ -56,6 +57,12 @@ export function authoringApi(client: ApiClient) {
       body.append('file', file);
       return client.request('/imports', jobSchema, { method: 'POST', body, idempotencyKey: key });
     },
+    generate: (id: string, body: GenerationInput, key: string) =>
+      client.request(`/exams/${encodeURIComponent(id)}/generate`, jobSchema, {
+        method: 'POST',
+        body: generationInputSchema.parse(body),
+        idempotencyKey: key,
+      }),
     retry: (id: string, revision: number, key: string) =>
       client.request(`/imports/${encodeURIComponent(id)}/ai-retry`, jobSchema, {
         method: 'POST',

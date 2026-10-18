@@ -299,3 +299,42 @@ test('synthetic recovery acceptance retains evidence and produces an exportable 
   await expect(page.getByRole('heading', { name: 'Practice completed' })).toBeVisible();
   await accessible(page);
 });
+
+test('school admin enables AI exam drafts and teachers retain upload and review controls', async ({
+  page,
+}) => {
+  await login(page, 'ADMIN');
+  await navigateWorkspace(page, 'School setup');
+  await page.getByRole('tab', { name: 'AI settings' }).click();
+  await expect(page.getByText('AI exam generation is off for this school.')).toBeVisible();
+  await page.getByLabel('Reason', { exact: true }).fill('Enable AI drafting for our teachers');
+  await page.getByRole('button', { name: 'Turn on AI exam generation' }).click();
+  await expect(page.getByText('AI exam generation is on for this school.')).toBeVisible();
+  await accessible(page);
+  await page.getByRole('button', { name: 'Open account menu' }).click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  await login(page, 'TEACHER');
+  await page.getByRole('button', { name: 'New exam' }).click();
+  await page.getByLabel('Exam title').fill('AI algebra draft');
+  await page.getByLabel('Class and subject').selectOption('demo-math-10a');
+  await page.getByRole('button', { name: 'Create draft' }).click();
+  await expect(page.getByRole('heading', { name: 'Generate an exam with AI' })).toBeVisible();
+  await expect(page.getByLabel('Question template')).toBeVisible();
+  await page.getByLabel('Topics and syllabus coverage').fill('Linear equations and geometry');
+  await page.getByLabel('Multiple-choice questions', { exact: true }).fill('1');
+  await page.getByLabel('True/false questions', { exact: true }).fill('1');
+  await page.getByRole('button', { name: 'Generate exam draft', exact: true }).click();
+  await expect(page.getByText('AI-generated exam (synthetic demo)', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 questions · 2 total marks · 0 reviewed · Pass 50%')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Submit for approval' })).toBeDisabled();
+  await accessible(page);
+  await page.getByRole('tab', { name: 'Review questions' }).click();
+  await expect(page.getByRole('textbox', { name: 'Question', exact: true })).toHaveValue(
+    /Synthetic example/,
+  );
+  await expect(
+    page.getByLabel(
+      'I checked the question, answer key, topic and explanation, and resolved any flags.',
+    ),
+  ).not.toBeChecked();
+});

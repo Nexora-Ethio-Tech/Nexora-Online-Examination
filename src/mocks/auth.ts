@@ -184,9 +184,13 @@ export function createDemoTransport(
     }
     if (
       /^\/(classes|subjects|teachers|students|teacher-assignments)(\/|$)/.test(apiPath) ||
-      apiPath === '/admin/directory-audit'
+      apiPath === '/admin/directory-audit' ||
+      apiPath === '/school/ai-exam-settings'
     ) {
-      if (role !== 'school_admin')
+      if (
+        role !== 'school_admin' &&
+        !(role === 'teacher' && method === 'GET' && apiPath === '/school/ai-exam-settings')
+      )
         return error(403, 'FORBIDDEN', 'Administrator access with MFA is required.');
       return schoolDemo(new URL(url, 'http://localhost'), method, body, new Headers(init.headers));
     }

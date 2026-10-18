@@ -1,3 +1,6 @@
+import { generateExam } from './exam-generator';
+import { generationInputSchema, GenerationInput } from './generation-schemas';
+import { generationEnabled, lockGenerationPolicy } from './generation.service';
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
@@ -17,6 +20,9 @@ type ParseJob = {
   id: string;
   exam_id: string;
   source_bytes: Buffer;
+  generation_request: GenerationInput | null;
+  generation_attempts: number;
+  generation_policy_revision: number;
   lease_token: string;
   owner_id: string;
   subject_name: string;
@@ -35,6 +41,12 @@ type AiJob = {
 };
 @Injectable()
 export class QuestionAiService {
+  generate(
+    context: { subject: string; grade: string; language: 'en' | 'am' },
+    input: GenerationInput,
+  ) {
+    return generateExam(context, input);
+  }
   suggest(input: AiQuestionInput) {
     return suggestQuestion(input);
   }
@@ -63,11 +75,68 @@ export class ImportWorkerService {
     const job = await this.db.withTenantTransaction(school, async (c) => {
       const row = (
         await c.query<ParseJob>(
-          `SELECT j.id,j.exam_id,j.source_bytes,e.owner_id,e.language,s.name subject_name,cl.name class_name FROM import_jobs j JOIN exams e ON e.school_id=j.school_id AND e.id=j.exam_id JOIN subjects s ON s.school_id=e.school_id AND s.id=e.subject_id JOIN classes cl ON cl.school_id=e.school_id AND cl.id=e.class_id WHERE j.school_id=$1 AND j.id=e.import_id AND (j.state='queued' OR (j.state='parsing' AND j.lease_until<now())) AND e.state IN ('draft','returned') ORDER BY j.created_at,j.id LIMIT 1 FOR UPDATE OF j SKIP LOCKED`,
+          `SELECT j.id,j.exam_id,j.source_bytes,j.generation_request,j.generation_attempts,j.generation_policy_revision,e.owner_id,e.language,s.name subject_name,cl.name class_name FROM import_jobs j JOIN exams e ON e.school_id=j.school_id AND e.id=j.exam_id JOIN subjects s ON s.school_id=e.school_id AND s.id=e.subject_id JOIN classes cl ON cl.school_id=e.school_id AND cl.id=e.class_id WHERE j.school_id=$1 AND j.id=e.import_id AND (j.state='queued' OR (j.state='parsing' AND j.lease_until<now())) AND e.state IN ('draft','returned') ORDER BY j.created_at,j.id LIMIT 1 FOR UPDATE OF j SKIP LOCKED`,
           [school],
         )
       ).rows[0];
       if (!row) return null;
+      if (row.generation_request) {
+        await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+          `${school}:ai-worker`,
+        ]);
+        const active = (
+          await c.query<{ count: string }>(
+            "SELECT ((SELECT count(*) FROM ai_jobs WHERE school_id=$1 AND status='processing' AND lease_until>now()) + (SELECT count(*) FROM import_jobs WHERE school_id=$1 AND generation_request IS NOT NULL AND state='parsing' AND lease_until>now()))::text count",
+            [school],
+          )
+        ).rows[0];
+        if (Number(active.count) >= 2) return null;
+        await lockGenerationPolicy(c, school);
+        if (
+          !(await generationEnabled(c, school, row.generation_policy_revision)) ||
+          row.generation_attempts >= 3
+        ) {
+          await c.query(
+            "UPDATE import_jobs SET state='failed',status='failed',failure='AI generation disabled or retry limit reached',lease_token=NULL,lease_until=NULL WHERE school_id=$1 AND id=$2",
+            [school, row.id],
+          );
+          return null;
+        }
+        let config: ReturnType<typeof aiConfiguration>;
+        try {
+          config = aiConfiguration({
+            ...process.env,
+            OPENAI_MAX_COMPLETION_TOKENS: process.env.AI_EXAM_MAX_COMPLETION_TOKENS ?? '16000',
+          });
+        } catch {
+          await c.query(
+            "UPDATE import_jobs SET state='failed',status='failed',failure='AI generation is not configured' WHERE school_id=$1 AND id=$2",
+            [school, row.id],
+          );
+          return null;
+        }
+        const reserve =
+          config.maxCompletionTokens +
+          Math.ceil(JSON.stringify(row.generation_request).length / 2) +
+          2000;
+        const budget = Number(process.env.AI_IMPORT_TOKEN_BUDGET ?? '1000000');
+        if (
+          !Number.isSafeInteger(budget) ||
+          budget < 1 ||
+          !(
+            await c.query(
+              'UPDATE import_jobs SET ai_reserved_tokens=ai_reserved_tokens+$1,generation_attempts=generation_attempts+1 WHERE school_id=$2 AND id=$3 AND ai_reserved_tokens+$1<=$4 RETURNING id',
+              [reserve, school, row.id, budget],
+            )
+          ).rowCount
+        ) {
+          await c.query(
+            "UPDATE import_jobs SET state='failed',status='failed',failure='AI generation budget exceeded' WHERE school_id=$1 AND id=$2",
+            [school, row.id],
+          );
+          return null;
+        }
+      }
       const token = randomUUID();
       await c.query(
         "UPDATE import_jobs SET state='parsing',status='processing',lease_token=$1,lease_until=now()+interval '2 minutes' WHERE school_id=$2 AND id=$3",
@@ -77,7 +146,13 @@ export class ImportWorkerService {
     });
     if (!job) return false;
     try {
-      const items = await parseQuestionFile(job.source_bytes);
+      const generated = job.generation_request
+        ? await this.ai.generate(
+            { subject: job.subject_name, grade: job.class_name, language: job.language },
+            generationInputSchema.parse(job.generation_request),
+          )
+        : null;
+      const items = generated?.items ?? (await parseQuestionFile(job.source_bytes));
       await this.db.withTenantTransaction(school, async (c) => {
         const exam = await this.authoring.owned(c, school, job.owner_id, job.exam_id, true);
         const lease = (
@@ -86,6 +161,11 @@ export class ImportWorkerService {
             [school, job.id, job.lease_token],
           )
         ).rows[0];
+        if (generated) {
+          await lockGenerationPolicy(c, school);
+          if (!(await generationEnabled(c, school, job.generation_policy_revision)))
+            throw new AiProviderError('AI_GENERATION_DISABLED');
+        }
         if (!lease || exam.import_id !== job.id || !['draft', 'returned'].includes(exam.state))
           return;
         await this.authoring.snapshot(
@@ -121,7 +201,7 @@ export class ImportWorkerService {
           };
           const hash = computeCanonicalDigest({ input, prompt: AI_PROMPT_VERSION });
           await c.query(
-            'INSERT INTO exam_items(school_id,exam_id,item_id,external_id,position,type,stem,options,correct_key,marks,ai_input_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+            'INSERT INTO exam_items(school_id,exam_id,item_id,external_id,position,type,stem,options,correct_key,marks,ai_input_hash,primary_topic,explanation) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
             [
               school,
               job.exam_id,
@@ -133,26 +213,44 @@ export class ImportWorkerService {
               JSON.stringify(item.options),
               item.correctOptionId,
               item.marks,
-              hash,
+              generated ? null : hash,
+              generated ? item.primaryTopic : '',
+              generated ? item.explanation : '',
             ],
           );
+          if (!generated)
+            await c.query(
+              'INSERT INTO ai_jobs(school_id,import_job_id,item_id,item_hash,input_data,prompt_version,taxonomy_revision) VALUES($1,$2,$3,$4,$5,$6,$7)',
+              [
+                school,
+                job.id,
+                item.itemId,
+                hash,
+                JSON.stringify(input),
+                AI_PROMPT_VERSION,
+                computeCanonicalDigest(topicNames),
+              ],
+            );
+        }
+        if (generated) {
           await c.query(
-            'INSERT INTO ai_jobs(school_id,import_job_id,item_id,item_hash,input_data,prompt_version,taxonomy_revision) VALUES($1,$2,$3,$4,$5,$6,$7)',
+            "UPDATE import_jobs SET state='ready',status='completed',parsed_count=$1,completed_count=$1,lease_token=NULL,lease_until=NULL,failure=NULL,generation_model=$2,generation_input_tokens=$3,generation_output_tokens=$4,generation_prompt_version=$7,generation_output=$8 WHERE school_id=$5 AND id=$6",
             [
+              items.length,
+              generated.model,
+              generated.usage.inputTokens,
+              generated.usage.outputTokens,
               school,
               job.id,
-              item.itemId,
-              hash,
-              JSON.stringify(input),
-              AI_PROMPT_VERSION,
-              computeCanonicalDigest(topicNames),
+              generated.promptVersion,
+              JSON.stringify(generated.items),
             ],
           );
-        }
-        await c.query(
-          "UPDATE import_jobs SET state='ai_queued',parsed_count=$1,completed_count=0,lease_token=NULL,lease_until=NULL,failure=NULL,diagnostics='[]' WHERE school_id=$2 AND id=$3",
-          [items.length, school, job.id],
-        );
+        } else
+          await c.query(
+            "UPDATE import_jobs SET state='ai_queued',parsed_count=$1,completed_count=0,lease_token=NULL,lease_until=NULL,failure=NULL,diagnostics='[]' WHERE school_id=$2 AND id=$3",
+            [items.length, school, job.id],
+          );
         await c.query(
           'UPDATE exams SET revision=revision+1,updated_at=now() WHERE school_id=$1 AND id=$2',
           [school, job.exam_id],
@@ -173,7 +271,9 @@ export class ImportWorkerService {
         await c.query(
           "UPDATE import_jobs SET state='failed',status='failed',failure=$1,diagnostics=$2,lease_token=NULL,lease_until=NULL WHERE school_id=$3 AND id=$4 AND lease_token=$5",
           [
-            'The file could not be imported',
+            job.generation_request
+              ? `AI generation failed${error instanceof AiProviderError ? ': ' + error.code : ''}. Existing questions were preserved. You can retry with a new generation request.`
+              : 'The file could not be imported',
             JSON.stringify(diagnostics),
             school,
             job.id,
@@ -192,7 +292,7 @@ export class ImportWorkerService {
       const running = Number(
         (
           await c.query<{ count: string }>(
-            "SELECT count(*) FROM ai_jobs WHERE school_id=$1 AND status='processing' AND lease_until>now()",
+            "SELECT ((SELECT count(*) FROM ai_jobs WHERE school_id=$1 AND status='processing' AND lease_until>now()) + (SELECT count(*) FROM import_jobs WHERE school_id=$1 AND generation_request IS NOT NULL AND state='parsing' AND lease_until>now()))::text count",
             [school],
           )
         ).rows[0].count,

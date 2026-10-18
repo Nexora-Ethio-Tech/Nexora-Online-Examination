@@ -1,5 +1,9 @@
 # Backend handoff
 
+## School-controlled AI exam generation — 18 October 2026
+
+The owner requested a school-admin opt-in for teachers to generate entire draft papers alongside the existing upload workflow. Source now includes the school setting, teacher generation form, revision/idempotency and role/ownership gates, validated provider generation and durable worker processing. See [the contract and acceptance guide](backend-ai-exam-generation-task.md). Migration 020 and a configured worker are required. The source change has not been deployed, the migration has not been applied by this task, and no full-paper live-provider or hosted acceptance is claimed. Teacher review and administrator approval remain mandatory. Work stays on the current branch at the owner's explicit request.
+
 ## Backend integration in progress — 17 October 2026
 
 The owner selected the existing frontend contracts as the implementation target, before the older handover guide's proposed essay or short-answer extensions. Work is on `feat/backend-frontend-integration`; this is not a completed backend acceptance report.

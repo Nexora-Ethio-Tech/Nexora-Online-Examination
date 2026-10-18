@@ -1,0 +1,32 @@
+import { z } from 'zod';
+
+export const aiExamSettingsSchema = z.object({
+  aiExamGenerationEnabled: z.boolean(),
+  revision: z.number().int().positive(),
+});
+export const aiExamSettingsInputSchema = aiExamSettingsSchema
+  .extend({
+    reason: z.string().trim().min(1).max(2000),
+  })
+  .strict();
+export const generationInputSchema = z
+  .object({
+    revision: z.number().int().positive(),
+    topics: z.string().trim().min(1).max(4000),
+    guidance: z.string().trim().max(4000),
+    difficulty: z.enum(['easy', 'medium', 'hard', 'mixed']),
+    mcqCount: z.number().int().min(0).max(50),
+    trueFalseCount: z.number().int().min(0).max(50),
+    marksPerQuestion: z.number().int().min(1).max(100),
+    replaceExisting: z.boolean(),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    if (v.mcqCount + v.trueFalseCount < 1 || v.mcqCount + v.trueFalseCount > 50)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['mcqCount'],
+        message: 'Choose between 1 and 50 questions in total.',
+      });
+  });
+export type GenerationInput = z.infer<typeof generationInputSchema>;

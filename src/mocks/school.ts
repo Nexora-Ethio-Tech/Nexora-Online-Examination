@@ -1,3 +1,4 @@
+import { aiExamSettingsInputSchema } from '@/features/exams/authoring/generation-schemas';
 import { z } from 'zod';
 import {
   accountEditSchema,
@@ -102,6 +103,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
   async function handle(url: URL, method: string, body: unknown, headers: Headers) {
     const path = url.pathname.replace(/^\/api\/v1/, '');
     if (method === 'GET') {
+      if (path === '/school/ai-exam-settings') return json(d.aiExamSettings);
       const limit = Number(url.searchParams.get('limit') ?? 25);
       const offset = Number(url.searchParams.get('cursor') ?? 0);
       const search = url.searchParams.get('search') ?? '';
@@ -189,6 +191,18 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         : structuredClone(response);
       d.replays.set(replayKey, { payload: fingerprint, response: recorded });
       return json(response);
+    }
+    if (path === '/school/ai-exam-settings' && method === 'PATCH') {
+      const parsed = aiExamSettingsInputSchema.safeParse(body);
+      if (!parsed.success) return fail('Check the setting and reason.', 'VALIDATION_ERROR', 422);
+      if (parsed.data.revision !== d.aiExamSettings.revision)
+        return fail('School settings changed; refresh before saving.');
+      d.aiExamSettings = {
+        aiExamGenerationEnabled: parsed.data.aiExamGenerationEnabled,
+        revision: d.aiExamSettings.revision + 1,
+      };
+      audit('ai_exam_settings', 'AI exam generation', parsed.data.reason);
+      return commit(d.aiExamSettings);
     }
     if (path === '/students/import' && method === 'POST') {
       const schoolClass = csvClass ? d.classes.get(csvClass) : undefined;

@@ -213,8 +213,8 @@ export function TeacherPage() {
         <section className={panel}>
           <h2 className="text-lg font-semibold">Your first paper starts here</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Create a draft, upload the question template, then review the explanations and answer
-            keys.
+            Create a draft, upload a question template or generate with AI when enabled, then review
+            the explanations and answer keys.
           </p>
         </section>
       )}

@@ -61,7 +61,9 @@ async function main() {
   try {
     const clock = await pool.query<{ now: Date }>('SELECT clock_timestamp() AS now');
     if (Math.abs(Date.now() - clock.rows[0].now.getTime()) > 90_000) {
-      throw new Error('Computer and database clocks differ by more than 90 seconds. Enable automatic date/time and synchronize the computer and phone before retrying.');
+      throw new Error(
+        'Computer and database clocks differ by more than 90 seconds. Enable automatic date/time and synchronize the computer and phone before retrying.',
+      );
     }
     const verified = await terminal.question(
       'Verify authorization and administrator identity through the school support contact. Type VERIFIED to continue: ',
@@ -127,7 +129,9 @@ main().catch((error: unknown) => {
   if (error instanceof Error && safeMessages.has(error.message)) {
     logger.error(error.message);
     if (error.message === 'Incorrect code; administrator remains inactive')
-      logger.error('Use the newest enrollment key and enable automatic date/time on the phone and computer.');
+      logger.error(
+        'Use the newest enrollment key and enable automatic date/time on the phone and computer.',
+      );
     process.exitCode = 1;
     return;
   }

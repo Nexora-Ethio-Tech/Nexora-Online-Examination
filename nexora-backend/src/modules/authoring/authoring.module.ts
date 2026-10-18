@@ -1,3 +1,5 @@
+import { GenerationService } from './generation.service';
+import { GenerationController } from './generation.controller';
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../../common/db/database.module';
 import { AuthoringService } from './authoring.service';
@@ -10,12 +12,18 @@ import { PackageWorkerService } from './package-worker.service';
   imports: [DatabaseModule],
   providers: [
     AuthoringService,
+    GenerationService,
     ImportService,
     ImportWorkerService,
     QuestionAiService,
     PackageWorkerService,
   ],
-  controllers: [AuthoringController, ImportController, ImportWorkerController],
+  controllers: [
+    AuthoringController,
+    ImportController,
+    ImportWorkerController,
+    GenerationController,
+  ],
   exports: [AuthoringService, PackageWorkerService],
 })
 export class AuthoringModule {}
