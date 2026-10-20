@@ -18,3 +18,5 @@ test-results
 *.tsbuildinfo
 tmp/
 .vercel/
+*.nexora-backup
+tests/load/*.private.json

@@ -6,6 +6,7 @@ import {
   Param,
   Body,
   Headers,
+  Query,
   HttpCode,
   UploadedFile,
   UseInterceptors,
@@ -13,15 +14,12 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { createHash, timingSafeEqual } from 'crypto';
-import { z } from 'zod';
 import { Roles } from '../../common/guards/roles.guard';
 import { Public } from '../../common/guards/session-auth.guard';
 import { SkipCsrf } from '../../common/guards/csrf-origin.guard';
 import { DomainException } from '../../common/errors/domain.exception';
-import { parsePreparationInput } from '../delivery/preparation-schemas';
 import { ImportService } from './import.service';
-import { ImportWorkerService } from './import-worker.service';
-import { PackageWorkerService } from './package-worker.service';
+import { WorkerSweepService } from './worker-sweep.service';
 
 @Controller()
 @Roles('teacher')
@@ -60,16 +58,9 @@ export class ImportController {
 
 @Controller()
 export class ImportWorkerController {
-  constructor(
-    private readonly worker: ImportWorkerService,
-    private readonly packages: PackageWorkerService,
-  ) {}
-  @Post('internal/import-worker')
-  @HttpCode(200)
-  @Public()
-  @SkipCsrf()
-  async run(@Headers('authorization') authorization: unknown, @Body() input: unknown) {
-    const secret = process.env.IMPORT_WORKER_SECRET;
+  constructor(private readonly sweep: WorkerSweepService) {}
+
+  private authorize(authorization: unknown, secret: string | undefined) {
     const hash = (value: string) => createHash('sha256').update(value).digest();
     if (
       !secret ||
@@ -78,11 +69,23 @@ export class ImportWorkerController {
       !timingSafeEqual(hash(authorization), hash(`Bearer ${secret}`))
     )
       throw DomainException.forbidden();
-    const { schoolId } = parsePreparationInput(
-      z.object({ schoolId: z.string().uuid() }).strict(),
-      input,
-    );
-    const packageProcessed = await this.packages.run(schoolId);
-    return { ...(await this.worker.run(schoolId)), packageProcessed };
+  }
+
+  @Get('internal/import-worker')
+  @HttpCode(200)
+  @Public()
+  @SkipCsrf()
+  async cron(@Headers('authorization') authorization: unknown, @Query() query: unknown) {
+    this.authorize(authorization, process.env.CRON_SECRET);
+    return this.sweep.run(query);
+  }
+
+  @Post('internal/import-worker')
+  @HttpCode(200)
+  @Public()
+  @SkipCsrf()
+  async run(@Headers('authorization') authorization: unknown, @Body() input: unknown) {
+    this.authorize(authorization, process.env.IMPORT_WORKER_SECRET);
+    return this.sweep.run(input);
   }
 }

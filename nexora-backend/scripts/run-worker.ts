@@ -3,8 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { z } from 'zod';
 import { AppModule } from '../src/app.module';
 import { loadBackendEnvironment } from '../src/common/db/database-config';
-import { ImportWorkerService } from '../src/modules/authoring/import-worker.service';
-import { PackageWorkerService } from '../src/modules/authoring/package-worker.service';
+import { WorkerSweepService } from '../src/modules/authoring/worker-sweep.service';
 loadBackendEnvironment();
 async function main() {
   const args = process.argv.slice(2),
@@ -12,8 +11,17 @@ async function main() {
     school = z
       .string()
       .uuid()
+      .optional()
       .parse(position >= 0 ? args[position + 1] : undefined),
     once = args.includes('--once');
+  if (position >= 0 && !school) throw new Error('Missing school UUID');
+  if (
+    args.some(
+      (arg, index) =>
+        !['--school', '--once'].includes(arg) && !(position >= 0 && index === position + 1),
+    )
+  )
+    throw new Error('Unknown worker argument');
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   let stopping = false;
   for (const signal of ['SIGINT', 'SIGTERM'])
@@ -21,13 +29,15 @@ async function main() {
       stopping = true;
     });
   try {
+    let afterSchoolId: string | undefined;
     do {
-      const packageProcessed = await app.get(PackageWorkerService).run(school),
-        imports = await app.get(ImportWorkerService).run(school);
-      if (imports.parsed || imports.aiProcessed || packageProcessed)
-        process.stdout.write(JSON.stringify({ ...imports, packageProcessed }) + '\n');
+      const result = await app.get(WorkerSweepService).run({ schoolId: school, afterSchoolId });
+      afterSchoolId = result.nextCursor ?? undefined;
+      if (result.parsed || result.aiProcessed || result.packageProcessed)
+        process.stdout.write(JSON.stringify(result) + '\n');
+      if (once && !afterSchoolId) break;
       if (!once && !stopping) await new Promise((resolve) => setTimeout(resolve, 1000));
-    } while (!once && !stopping);
+    } while (!stopping);
   } finally {
     await app.close();
   }

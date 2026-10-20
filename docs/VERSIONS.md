@@ -1,14 +1,16 @@
 # Verified development versions
 
+20 October 2026: added pinned `@fontsource/noto-sans-ethiopic` **5.3.0** for bundled regular/bold Ethiopic fonts. Node **24.14.1** is the verification runtime. Existing dependencies were not force-upgraded; frontend installation still reports seven high-severity advisory entries in the pre-existing dependency tree.
+
 17 October 2026, backend integration work:
 
-| Component | Version |
-| --- | --- |
-| Node.js | 24.14.1 |
-| npm | 11.11.0 |
-| yauzl | 3.4.0 |
-| fast-xml-parser | 5.11.2 |
-| @types/yauzl | 3.4.0 |
+| Component       | Version |
+| --------------- | ------- |
+| Node.js         | 24.14.1 |
+| npm             | 11.11.0 |
+| yauzl           | 3.4.0   |
+| fast-xml-parser | 5.11.2  |
+| @types/yauzl    | 3.4.0   |
 
 The importer uses lazy ZIP entry reads with bounded expanded size and validated XML. Dependencies are locked in `nexora-backend/package-lock.json`.
 

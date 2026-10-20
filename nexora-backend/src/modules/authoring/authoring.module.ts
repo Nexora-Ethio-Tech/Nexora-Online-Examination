@@ -8,6 +8,7 @@ import { ImportService } from './import.service';
 import { ImportWorkerService, QuestionAiService } from './import-worker.service';
 import { ImportController, ImportWorkerController } from './import.controller';
 import { PackageWorkerService } from './package-worker.service';
+import { WorkerSweepService } from './worker-sweep.service';
 @Module({
   imports: [DatabaseModule],
   providers: [
@@ -17,6 +18,7 @@ import { PackageWorkerService } from './package-worker.service';
     ImportWorkerService,
     QuestionAiService,
     PackageWorkerService,
+    WorkerSweepService,
   ],
   controllers: [
     AuthoringController,
@@ -24,6 +26,6 @@ import { PackageWorkerService } from './package-worker.service';
     ImportWorkerController,
     GenerationController,
   ],
-  exports: [AuthoringService, PackageWorkerService],
+  exports: [AuthoringService, PackageWorkerService, WorkerSweepService],
 })
 export class AuthoringModule {}

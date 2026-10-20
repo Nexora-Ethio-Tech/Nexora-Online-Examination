@@ -14,6 +14,10 @@ export default [
     ],
   },
   js.configs.recommended,
+  {
+    files: ['tests/load/*.js'],
+    languageOptions: { globals: { __ENV: 'readonly', open: 'readonly' } },
+  },
   ...tseslint.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],

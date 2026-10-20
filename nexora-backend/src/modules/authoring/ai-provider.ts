@@ -135,7 +135,13 @@ export async function suggestQuestion(
     (topic) => topic.toLocaleLowerCase() !== primaryTopic.toLocaleLowerCase(),
   );
   return {
-    suggestion: { ...result.output, primaryTopic, secondaryTopics },
+    suggestion: {
+      ...result.output,
+      primaryTopic,
+      secondaryTopics,
+      explanation: result.output.explanation.normalize('NFC'),
+      reviewFlags: result.output.reviewFlags.map((flag) => flag.normalize('NFC')),
+    },
     model: result.model,
     promptVersion: AI_PROMPT_VERSION,
     usage: result.usage,
