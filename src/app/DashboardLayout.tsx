@@ -79,6 +79,9 @@ export function DashboardLayout() {
       end: true,
     },
     { to: `${roleHome[user.role]}/results`, label: 'Official results', icon: BarChart3 },
+    ...(user.role !== 'student'
+      ? [{ to: `${roleHome[user.role]}/assistance`, label: 'Exam assistance', icon: LifeBuoy }]
+      : []),
     ...(user.role !== 'teacher'
       ? [
           {

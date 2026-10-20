@@ -9,10 +9,12 @@ import { DeliveryService } from './delivery.service';
 import { DatabaseModule } from '../../common/db/database.module';
 import { ClockService } from '../../common/clock/clock.service';
 import { DeviceBindingGuard } from '../../common/guards/device-binding.guard';
+import { AssistanceController } from './assistance.controller';
+import { AssistanceService } from './assistance.service';
 
 @Module({
   imports: [DatabaseModule],
-  controllers: [DeliveryController],
+  controllers: [DeliveryController, AssistanceController],
   providers: [
     RecoveryReviewService,
     SupervisionService,
@@ -22,6 +24,7 @@ import { DeviceBindingGuard } from '../../common/guards/device-binding.guard';
     DeliveryService,
     ClockService,
     DeviceBindingGuard,
+    AssistanceService,
   ],
   exports: [DeliveryService],
 })

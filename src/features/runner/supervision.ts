@@ -12,6 +12,7 @@ export type Interruption = z.infer<typeof interruptionSchema>;
 export const supervisionSchema = z.object({
   attemptId: z.string(),
   suspended: z.boolean(),
+  assistancePaused: z.boolean().default(false),
   revision: z.number().int().nonnegative(),
   deadlineAt: z.iso.datetime(),
   serverNow: z.iso.datetime(),

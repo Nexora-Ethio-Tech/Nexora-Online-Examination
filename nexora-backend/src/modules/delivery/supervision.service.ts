@@ -27,6 +27,7 @@ type Attempt = {
   id: string;
   student_id: string;
   suspended: boolean;
+  assistance_paused: boolean;
   supervision_revision: number;
   deadline_at: Date;
   state: string;
@@ -69,6 +70,7 @@ export class SupervisionService {
     return {
       attemptId: a.id,
       suspended: a.suspended,
+      assistancePaused: a.assistance_paused,
       revision: a.supervision_revision,
       deadlineAt: a.deadline_at.toISOString(),
       serverNow: this.clock.now().toISOString(),

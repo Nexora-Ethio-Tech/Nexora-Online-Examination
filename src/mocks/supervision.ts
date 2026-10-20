@@ -37,6 +37,7 @@ export function createSupervisionDemo(
       const d = states.get(id) ?? {
         attemptId: id,
         suspended: false,
+        assistancePaused: false,
         revision: 0,
         deadlineAt: a.deadlineAt,
         serverNow: now(),

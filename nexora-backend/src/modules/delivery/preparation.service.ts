@@ -21,6 +21,7 @@ import {
 
 type AttemptRecord = {
   suspended: boolean;
+  assistance_paused: boolean;
   id: string;
   session_id: string;
   student_id: string;
@@ -504,6 +505,11 @@ export class PreparationService {
   }
 
   private requireEditable(att: AttemptRecord) {
+    if (att.assistance_paused)
+      throw DomainException.conflict(
+        'ASSISTANCE_PENDING',
+        'Workstation assistance is awaiting approval',
+      );
     if (att.suspended)
       throw DomainException.conflict(
         'ATTEMPT_SUSPENDED',

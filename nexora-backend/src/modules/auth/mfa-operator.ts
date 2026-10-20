@@ -95,11 +95,11 @@ export async function beginMfaEnrollment(
   const context = operatorSchema.parse(input);
   return transaction(pool, async (client) => {
     const users = await client.query<{ login_id: string; mfa_enrolled_at: Date | null }>(
-      `SELECT login_id, mfa_enrolled_at FROM users WHERE id = $1 AND school_id = $2 AND role = 'school_admin' FOR UPDATE`,
+      `SELECT login_id, mfa_enrolled_at FROM users WHERE id = $1 AND school_id = $2 AND role IN ('school_admin','teacher') FOR UPDATE`,
       [context.userId, context.schoolId],
     );
     const user = users.rows[0];
-    if (!user) throw new Error('Administrator not found in this school');
+    if (!user) throw new Error('Staff account not found in this school');
     if (user.mfa_enrolled_at && !recovery)
       throw new Error('Already enrolled; verified recovery is required');
     const time = now();
@@ -153,7 +153,7 @@ export async function confirmMfaEnrollment(
       mfa_failed_attempts: number;
     }>(
       `SELECT mfa_pending_secret_enc, mfa_pending_expires_at, mfa_secret_version, mfa_failed_attempts
-        FROM users WHERE id = $1 AND school_id = $2 AND role = 'school_admin' FOR UPDATE`,
+        FROM users WHERE id = $1 AND school_id = $2 AND role IN ('school_admin','teacher') FOR UPDATE`,
       [context.userId, context.schoolId],
     );
     const user = users.rows[0];

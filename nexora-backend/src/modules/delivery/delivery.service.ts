@@ -125,6 +125,11 @@ export class DeliveryService {
       }
 
       // Check finalized states
+      if (att.assistance_paused)
+        throw DomainException.conflict(
+          'ASSISTANCE_PENDING',
+          'Workstation assistance is awaiting approval',
+        );
       if (att.suspended)
         throw DomainException.conflict(
           'ATTEMPT_SUSPENDED',

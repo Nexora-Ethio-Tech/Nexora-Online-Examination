@@ -1,4 +1,5 @@
 import { supervisionApi, type Interruption } from './supervision';
+import { assistanceApi } from '@/features/assistance/api';
 import { ApiClient, ApiError, errorMessage } from '@/lib/api-client';
 import { ensureOfflineShell } from '@/lib/offline-shell';
 import { examApi } from '@/features/exams/api';
@@ -107,6 +108,10 @@ export class RunnerEngine {
         this.attemptId,
       );
       if (control.attemptId !== this.attemptId) throw new Error('Supervision identity mismatch.');
+      if (control.assistancePaused)
+        throw new Error(
+          'Workstation assistance is awaiting staff approval. Your saved work and deadline are unchanged.',
+        );
       if (control.suspended)
         throw new Error(
           'Your administrator suspended this attempt. Ask for approval before reopening. The deadline is unchanged.',
@@ -232,6 +237,14 @@ export class RunnerEngine {
       if (this.view.status !== 'active') return;
       if (control.attemptId !== this.attemptId) throw new Error('Supervision identity mismatch.');
       authorizedRead = true;
+      if (control.assistancePaused) {
+        this.set({
+          status: 'blocked',
+          paper: null,
+          message:
+            'Workstation assistance is awaiting staff approval. Saved work and the original deadline are retained.',
+        });
+      }
       if (control.suspended) {
         this.set({
           status: 'blocked',
@@ -325,6 +338,23 @@ export class RunnerEngine {
       })
       .catch((error) => this.set({ message: `Review reminder was not saved: ${message(error)}` }))
       .finally(() => this.set({ saving: false }));
+  }
+  async requestAssistance(requestId: string) {
+    const row = this.view.row;
+    if (!row || row.final || !['active', 'blocked'].includes(this.view.status) || this.view.saving)
+      throw new Error('Wait for your answer to finish saving before requesting help.');
+    this.set({
+      status: 'blocked',
+      paper: null,
+      message: 'Requesting assistance. The exam timer continues.',
+    });
+    await this.queue;
+    this.alive();
+    return assistanceApi(this.client).request(
+      this.attemptId,
+      requestId,
+      row.attempt.deviceGeneration,
+    );
   }
   async sync() {
     if (this.controller.signal.aborted || this.view.uploading) return;

@@ -66,7 +66,7 @@ async function main() {
       );
     }
     const verified = await terminal.question(
-      'Verify authorization and administrator identity through the school support contact. Type VERIFIED to continue: ',
+      'Verify authorization and staff identity through the school support contact. Type VERIFIED to continue: ',
     );
     if (verified !== 'VERIFIED') throw new Error('Identity verification required');
     let schoolId: string;
@@ -87,7 +87,7 @@ async function main() {
       );
     } else {
       schoolId = argument('--school-id');
-      userId = argument('--admin-id');
+      userId = args.includes('--staff-id') ? argument('--staff-id') : argument('--admin-id');
     }
     const context = { schoolId, userId, operator, reason };
     if (command !== 'confirm') {
@@ -106,9 +106,9 @@ async function main() {
       'Enter the six-digit authenticator code (not a command-line argument): ',
     );
     if (!(await confirmMfaEnrollment(pool, context, code.trim(), () => new Date())))
-      throw new Error('Incorrect code; administrator remains inactive');
+      throw new Error('Incorrect code; staff account remains inactive');
     logger.log(
-      'Administrator enrollment verified and activated. Wait for a fresh code before signing in.',
+      'Staff enrollment verified and activated. Wait for a fresh code before sensitive actions.',
     );
   } finally {
     terminal.close();

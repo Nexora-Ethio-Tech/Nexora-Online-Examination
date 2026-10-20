@@ -7,6 +7,7 @@ import { useApiClient } from '@/lib/ApiProvider';
 import { eatTime } from '@/features/exams/ExamsPage';
 import { RunnerEngine } from './engine';
 import { QuestionNavigator } from './QuestionNavigator';
+import { StudentAssistance } from '@/features/assistance/StudentAssistance';
 export function RunnerPage() {
   const { attemptId = '' } = useParams();
   const { session } = useAuth();
@@ -117,6 +118,14 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
         ) : null}
       </div>
       {view.status === 'loading' ? <p>Opening your paper…</p> : null}
+      {(active || view.status === 'blocked') && view.row && !view.row.final && (
+        <StudentAssistance
+          engine={engine}
+          attemptId={view.row.attempt.attemptId}
+          paused={!active}
+          saving={view.saving}
+        />
+      )}
       {view.status === 'blocked' ? (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Editing is paused</h2>

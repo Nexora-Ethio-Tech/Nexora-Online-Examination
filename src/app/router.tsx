@@ -12,6 +12,11 @@ import { DashboardLayout } from './DashboardLayout';
 import { ErrorState } from '@/components/shared/ErrorState';
 import { errorMessage } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
+const AssistancePage = lazy(() =>
+  import('@/features/assistance/AssistancePage').then((module) => ({
+    default: module.AssistancePage,
+  })),
+);
 
 const AccommodationsPage = lazy(() =>
   import('@/features/exams/admin/AccommodationsPage').then((module) => ({
@@ -215,12 +220,14 @@ export const routes: RouteObject[] = [
                 : role === 'teacher'
                   ? [
                       { index: true, element: <TeacherPage /> },
+                      { path: 'assistance', element: <AssistancePage /> },
                       { path: 'results', element: <ResultsPage /> },
                       { path: 'results/:sessionId', element: <ResultDetail /> },
                       { path: 'exams/:examId', element: <TeacherDetail /> },
                     ]
                   : [
                       { index: true, element: <AdminExamsPage /> },
+                      { path: 'assistance', element: <AssistancePage /> },
                       { path: 'monitor', element: <MonitorPage /> },
                       { path: 'monitor/attempts/:attemptId', element: <MonitorAttemptPage /> },
                       { path: 'monitor/:sessionId', element: <MonitorSittingPage /> },

@@ -57,6 +57,41 @@ async function answer(engine: RunnerEngine, itemId = 'q1', value = 'true') {
   await vi.waitFor(() => expect(engine.snapshot().saving).toBe(false));
   expect(engine.snapshot().row?.answers.find((a) => a.itemId === itemId)?.value).toBe(value);
 }
+describe('assistance pause preserves local evidence', () => {
+  it('blocks edits immediately and retains answers/outbox when the request connection fails', async () => {
+    const { make } = await setup(async (url, init, next) => {
+      if (url.endsWith('/assistance')) throw new TypeError('Network unavailable');
+      return next(url, init);
+    });
+    const engine = make();
+    await engine.start();
+    await answer(engine);
+    const before = engine.snapshot().row;
+    const pending = engine.requestAssistance(crypto.randomUUID());
+    expect(engine.snapshot().status).toBe('blocked');
+    expect(engine.snapshot().paper).toBeNull();
+    engine.edit('q1', 'false');
+    await expect(pending).rejects.toThrow();
+    expect(engine.snapshot().row?.answers).toEqual(before?.answers);
+    expect(engine.snapshot().row?.outbox).toEqual(before?.outbox);
+    expect(engine.snapshot().row?.attempt.deadlineAt).toBe(before?.attempt.deadlineAt);
+    expect(engine.snapshot().row?.receipt).toBeFalsy();
+  });
+  it('revalidates assistance status before decrypting an existing attempt', async () => {
+    const { make } = await setup(async (url, init, next) => {
+      const response = await next(url, init);
+      if (url.endsWith('/supervision') && init.method !== 'POST') {
+        const control = await response.json();
+        return Response.json({ ...control, assistancePaused: true });
+      }
+      return response;
+    });
+    const engine = make();
+    await engine.start();
+    expect(engine.snapshot().status).toBe('blocked');
+    expect(engine.snapshot().paper).toBeNull();
+  });
+});
 describe('exam crypto and clock', () => {
   it('matches the published canonical digest exactly', async () => {
     expect(await snapshotDigest(fixture.attemptId, fixture.finalRequest)).toBe(
