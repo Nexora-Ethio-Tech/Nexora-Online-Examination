@@ -1,6 +1,7 @@
 import { practiceGate } from '../../common/db/practice-access';
 import { captureResultSnapshot } from '../../common/db/result-snapshot';
 import { Injectable } from '@nestjs/common';
+import { requireSchedulingSubscription } from '../../platform/subscription';
 import { Request } from 'express';
 import { PoolClient } from 'pg';
 import { DbService } from '../../common/db/db.service';
@@ -104,6 +105,7 @@ export class SchedulingService {
     return this.db.withTenantTransaction(school.id, async (c) => {
       const e = await this.admin.exam(c, school.id, id, true);
       return mutate(c, school.id, user.id, `exam:${id}:schedule`, key, body, async () => {
+        await requireSchedulingSubscription(c, school.id);
         const v = await this.gate(c, school.id, e);
         if (e.revision !== body.revision || v.version !== body.approvedVersion)
           throw DomainException.conflict('REVISION_CONFLICT', 'Refresh the approved paper');
@@ -163,6 +165,7 @@ export class SchedulingService {
       const e = await this.admin.exam(c, school.id, initial.exam_id, true);
       const s = await this.admin.session(c, school.id, id, true);
       return mutate(c, school.id, user.id, `session:${id}:reschedule`, key, body, async () => {
+        await requireSchedulingSubscription(c, school.id);
         await this.gate(c, school.id, e);
         if (s.schedule_revision !== body.scheduleRevision)
           throw DomainException.conflict('REVISION_CONFLICT', 'Refresh the sitting');

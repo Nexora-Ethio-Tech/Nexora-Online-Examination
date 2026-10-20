@@ -79,7 +79,7 @@ async function main() {
     if (confirmation) throw new Error('Unexpected argument');
     const archive = await postgresTool(
       'pg_dump',
-      ['--format=custom', '--schema=public', '--no-password'],
+      ['--format=custom', '--schema=public', '--schema=platform', '--no-password'],
       process.env.MIGRATION_DATABASE_URL,
     );
     await writeFile(file, encryptBackup(archive, encodedKey), { flag: 'wx', mode: 0o600 });
@@ -95,7 +95,11 @@ async function main() {
   const target = process.env.RESTORE_DATABASE_URL;
   if (!target) throw new Error('RESTORE_DATABASE_URL is required; production is never the default');
   const targetConnection = connection(target);
-  for (const source of [process.env.DATABASE_URL, process.env.MIGRATION_DATABASE_URL]) {
+  for (const source of [
+    process.env.DATABASE_URL,
+    process.env.MIGRATION_DATABASE_URL,
+    process.env.PLATFORM_DATABASE_URL,
+  ]) {
     if (!source) continue;
     const current = connection(source);
     if (
@@ -125,11 +129,11 @@ async function main() {
   try {
     const occupied = await pool.query(
       `SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-       WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','S','f')
+        WHERE n.nspname IN ('public','platform') AND c.relkind IN ('r','p','v','m','S','f')
        AND NOT EXISTS(SELECT 1 FROM pg_depend d WHERE d.objid=c.oid AND d.deptype='e')
        LIMIT 1`,
     );
-    if (occupied.rows.length) throw new Error('Restore target public schema is not empty');
+    if (occupied.rows.length) throw new Error('Restore target application schemas are not empty');
   } finally {
     await pool.end();
   }

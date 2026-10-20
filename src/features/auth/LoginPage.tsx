@@ -141,6 +141,9 @@ export function LoginPage() {
           <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
             Forgot your password? Ask your school administrator to reset it.
           </p>
+          <a href="/platform" className="mt-3 inline-flex min-h-11 items-center text-sm underline">
+            Platform owner sign-in
+          </a>
           <div className="mt-12 flex items-start gap-2 border-t pt-6 text-xs leading-relaxed text-muted-foreground">
             <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
             <p>Using a shared device? Sign out when you’re finished.</p>

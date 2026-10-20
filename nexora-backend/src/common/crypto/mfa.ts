@@ -50,25 +50,29 @@ function secretBytes(secret: string): Buffer {
   return Buffer.from(output);
 }
 
-export function encryptMfaSecret(secret: string, identity: MfaIdentity): string {
+export function encryptMfaSecret(
+  secret: string,
+  identity: MfaIdentity,
+  key = mfaEncryptionKey(),
+): string {
   secretBytes(secret);
   const nonce = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', mfaEncryptionKey(), nonce);
+  const cipher = createCipheriv('aes-256-gcm', key, nonce);
   cipher.setAAD(aad(identity));
   const encrypted = Buffer.concat([cipher.update(secret, 'utf8'), cipher.final()]);
   return `v1.${nonce.toString('base64url')}.${encrypted.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}`;
 }
 
-export function decryptMfaSecret(envelope: string, identity: MfaIdentity): string {
+export function decryptMfaSecret(
+  envelope: string,
+  identity: MfaIdentity,
+  key = mfaEncryptionKey(),
+): string {
   const [version, nonce, encrypted, tag, extra] = envelope.split('.');
   if (version !== 'v1' || !nonce || !encrypted || !tag || extra !== undefined) {
     throw new Error('Invalid encrypted MFA secret');
   }
-  const decipher = createDecipheriv(
-    'aes-256-gcm',
-    mfaEncryptionKey(),
-    Buffer.from(nonce, 'base64url'),
-  );
+  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(nonce, 'base64url'));
   decipher.setAAD(aad(identity));
   decipher.setAuthTag(Buffer.from(tag, 'base64url'));
   const secret = Buffer.concat([

@@ -17,6 +17,19 @@ const environment = readEnvironment({
   production: import.meta.env.PROD,
 });
 async function start(element: HTMLElement) {
+  if (
+    import.meta.env.VITE_APP_SURFACE === 'platform' ||
+    location.pathname === '/platform' ||
+    location.pathname.startsWith('/platform/')
+  ) {
+    const { PlatformApp } = await import('@/features/platform/PlatformApp');
+    createRoot(element).render(
+      <StrictMode>
+        <PlatformApp />
+      </StrictMode>,
+    );
+    return;
+  }
   let transport: Transport | undefined;
   if (import.meta.env.DEV && environment.useMocks) {
     const { createDemoTransport } = await import('@/mocks/auth');

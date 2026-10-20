@@ -9,7 +9,12 @@ import { configureCors } from './common/security/origins';
 loadBackendEnvironment();
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const mode = process.env.NEXORA_SERVICE ?? 'school';
+  if (!['school', 'platform'].includes(mode))
+    throw new Error('NEXORA_SERVICE must be school or platform');
+  const module =
+    mode === 'platform' ? (await import('./platform/platform.module')).PlatformModule : AppModule;
+  const app = await NestFactory.create(module);
 
   app.use(cookieParser());
 
