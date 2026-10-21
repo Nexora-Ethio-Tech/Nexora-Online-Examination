@@ -10,7 +10,7 @@ import { parsePreparationInput, resourceIdSchema } from './preparation-schemas';
 const eventSchema = z
   .object({
     id: z.string().uuid(),
-    kind: z.enum(['hidden', 'returned', 'pagehide', 'fullscreen_exit']),
+    kind: z.enum(['hidden', 'returned', 'pagehide', 'fullscreen_exit', 'focus_lost']),
     observedAt: z.string().datetime(),
     deviceGeneration: z.number().int().positive(),
   })

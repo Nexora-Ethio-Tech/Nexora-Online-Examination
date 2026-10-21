@@ -141,23 +141,26 @@ describe('supervision service authorization, replay and deadlines (database doub
     await service.decide(req, attemptId, body, key);
     expect(events).toHaveLength(1);
   });
-  it('deduplicates client telemetry without suspending or changing exam state', async () => {
-    const req = request('student', studentId);
-    const event = {
-      id: randomUUID(),
-      kind: 'hidden',
-      observedAt: now.toISOString(),
-      deviceGeneration: 1,
-    };
-    await service.report(req, attemptId, { events: [event] });
-    await service.report(req, attemptId, { events: [event] });
-    expect(events).toHaveLength(1);
-    expect(attempt.suspended).toBe(false);
-    expect(attempt.state).toBe('active');
-    await expect(
-      service.report(req, attemptId, { events: [{ ...event, kind: 'returned' }] }),
-    ).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
-  });
+  it.each(['hidden', 'focus_lost'])(
+    'deduplicates %s telemetry without suspending or changing exam state',
+    async (kind) => {
+      const req = request('student', studentId);
+      const event = {
+        id: randomUUID(),
+        kind,
+        observedAt: now.toISOString(),
+        deviceGeneration: 1,
+      };
+      await service.report(req, attemptId, { events: [event] });
+      await service.report(req, attemptId, { events: [event] });
+      expect(events).toHaveLength(1);
+      expect(attempt.suspended).toBe(false);
+      expect(attempt.state).toBe('active');
+      await expect(
+        service.report(req, attemptId, { events: [{ ...event, kind: 'returned' }] }),
+      ).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
+    },
+  );
 });
 
 it('rejects answer uploads and new final submissions while suspended', async () => {
