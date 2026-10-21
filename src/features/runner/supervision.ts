@@ -3,7 +3,7 @@ import type { ApiClient } from '@/lib/api-client';
 export const interruptionSchema = z
   .object({
     id: z.uuid(),
-    kind: z.enum(['hidden', 'returned', 'pagehide', 'fullscreen_exit']),
+    kind: z.enum(['hidden', 'returned', 'pagehide', 'fullscreen_exit', 'focus_lost']),
     observedAt: z.iso.datetime(),
     deviceGeneration: z.number().int().positive(),
   })
