@@ -1,3 +1,4 @@
+import { formatEatClock } from '@/lib/ethiopian-date';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -316,7 +317,7 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
               setRefreshMessage(
                 result.error
                   ? 'Schedule could not be updated. Check your connection and try again.'
-                  : `Schedule updated. Last checked: ${new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Addis_Ababa', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(result.data?.serverNow ?? query.data.serverNow))} EAT.`,
+                  : `Schedule updated. Last checked: ${formatEatClock(result.data?.serverNow ?? query.data.serverNow, true)}.`,
               );
             }}
           >

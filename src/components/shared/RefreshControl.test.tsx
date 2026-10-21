@@ -21,7 +21,7 @@ it('announces unchanged successful responses and failed refreshes without claimi
   expect(screen.getByRole('status')).toHaveTextContent('Updated successfully');
   await user.click(screen.getByRole('button', { name: 'Refresh results' }));
   expect(screen.getByRole('status')).toHaveTextContent('Refresh failed');
-  expect(screen.getByText(/Last successful update:/)).toHaveTextContent('11:00:00 EAT');
+  expect(screen.getByText(/Last successful update:/)).toHaveTextContent('11:00:00 AM EAT');
 });
 
 it('refreshes an embedded directory without submitting its surrounding form', async () => {

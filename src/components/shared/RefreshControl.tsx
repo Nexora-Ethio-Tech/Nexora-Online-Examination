@@ -1,3 +1,4 @@
+import { formatEatClock } from '@/lib/ethiopian-date';
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -44,14 +45,7 @@ export function RefreshControl({
       </Button>
       {updatedAt > 0 && (
         <p className="text-xs text-muted-foreground">
-          Last successful update:{' '}
-          {new Intl.DateTimeFormat('en-GB', {
-            timeZone: 'Africa/Addis_Ababa',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          }).format(updatedAt)}{' '}
-          EAT
+          Last successful update: {formatEatClock(updatedAt, true)}
         </p>
       )}
       {message && (

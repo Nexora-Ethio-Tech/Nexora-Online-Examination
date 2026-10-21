@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { useApiClient } from '@/lib/ApiProvider';
@@ -109,8 +110,9 @@ export function SupervisionPanel({ attemptId }: { attemptId: string }) {
           <ul>
             {d.events.map((e) => (
               <li key={e.id} className="py-2 text-sm">
-                {e.kind.replaceAll('_', ' ')} · browser reported {e.observedAt} · received{' '}
-                {e.receivedAt} · generation {e.deviceGeneration}
+                {e.kind.replaceAll('_', ' ')} · browser reported{' '}
+                {formatEatDateTime(e.observedAt, true)} · received{' '}
+                {formatEatDateTime(e.receivedAt, true)} · generation {e.deviceGeneration}
               </li>
             ))}
           </ul>

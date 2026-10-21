@@ -1,3 +1,4 @@
+import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { useEffect, useState } from 'react';
 
 export function ExamWatermark({ attemptId }: { attemptId: string }) {
@@ -6,7 +7,7 @@ export function ExamWatermark({ attemptId }: { attemptId: string }) {
     const timer = window.setInterval(() => setTimestamp(new Date().toISOString()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
-  const label = `Nexora · ${attemptId} · ${timestamp}`;
+  const label = `Nexora · ${attemptId} · ${formatEatDateTime(timestamp)}`;
   return (
     <div
       className="pointer-events-none select-none space-y-2 break-all text-xs text-muted-foreground"
