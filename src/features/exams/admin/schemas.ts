@@ -68,17 +68,8 @@ export const rescheduleSchema = z.object({
 export type AdminDetail = z.infer<typeof adminDetailSchema>;
 export type Sitting = z.infer<typeof sessionSchema>;
 
-// datetime-local is explicitly EAT, never the browser's timezone.
-export function parseEatInput(value: string): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
-  const ms = Date.parse(`${value}:00+03:00`);
-  if (!Number.isFinite(ms) || new Date(ms + 3 * 3600000).toISOString().slice(0, 16) !== value)
-    return null;
-  return new Date(ms).toISOString();
-}
-export function toEatInput(iso: string) {
-  return new Date(Date.parse(iso) + 3 * 3600000).toISOString().slice(0, 16);
-}
+// Kept as re-exports for existing scheduling callers.
+export { parseEatInput, toEatInput } from '@/lib/ethiopian-date';
 export function scheduleTimes(preparation: string, durationMinutes: number) {
   const startsAt = new Date(Date.parse(preparation) + 10 * 60000).toISOString();
   return {
