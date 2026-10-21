@@ -12,6 +12,7 @@ import {
   resourceIdSchema as uuid,
 } from '../delivery/preparation-schemas';
 import { parseRosterCsv } from './roster-csv';
+import { allocateStudentNumbers, studentLoginId } from './student-numbering';
 
 const previewSchema = z.object({
   importId: uuid,
@@ -205,17 +206,21 @@ export class RosterService {
           );
         const slug = (
           await c.query<{ slug: string }>('SELECT slug FROM schools WHERE id=$1', [school.id])
-        ).rows[0].slug
-          .replace(/[^A-Za-z0-9]/g, '')
-          .slice(0, 12)
-          .toUpperCase();
+        ).rows[0].slug;
         const userIds: string[] = [];
+        let studentNumber = await allocateStudentNumbers(c, school.id, preview.rows.length);
         for (const student of preview.rows) {
           const userId = randomUUID();
           userIds.push(userId);
           await c.query(
             "INSERT INTO users(id,school_id,display_name,student_ref,login_id,role,password_hash,credentials_issued) VALUES($1,$2,$3,$4,$5,'student',NULL,false)",
-            [userId, school.id, student.displayName, student.studentRef, `${slug}-S-${userId}`],
+            [
+              userId,
+              school.id,
+              student.displayName,
+              student.studentRef,
+              studentLoginId(slug, studentNumber++),
+            ],
           );
           await c.query(
             'INSERT INTO enrollments(school_id,student_id,class_id,academic_year) VALUES($1,$2,$3,$4)',
