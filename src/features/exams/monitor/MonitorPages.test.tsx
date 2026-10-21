@@ -23,6 +23,21 @@ function show(client: ApiClient, path: string) {
   return { user: userEvent.setup(), queryClient };
 }
 describe('administrator monitor screen', () => {
+  it('marks retained supervision information as stale after a failed refresh', async () => {
+    let fail = false;
+    const c = await monitorFixture(async (url, init, next) => {
+      if (fail && url.endsWith('/supervision')) throw new TypeError('Offline');
+      return next(url, init);
+    });
+    const { user } = show(c.client, `/admin/monitor/attempts/${c.attempt.attemptId}`);
+    await screen.findByText('Not suspended');
+    expect(screen.getByText(/Device-reported times can be inaccurate/)).toBeInTheDocument();
+    fail = true;
+    await user.click(screen.getByRole('button', { name: 'Refresh supervision' }));
+    await screen.findByText(/Supervision could not be refreshed/);
+    expect(screen.getByText('Not suspended')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Suspend exam attempt' })).toBeDisabled();
+  });
   it('requires a valid registered ID, reason and student confirmation, then reports the unchanged deadline and audit', async () => {
     const c = await monitorFixture();
     const { user } = show(c.client, `/admin/monitor/attempts/${c.attempt.attemptId}`);

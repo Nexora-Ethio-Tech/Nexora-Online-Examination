@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { RefreshControl } from '@/components/shared/RefreshControl';
+import { InterruptionRecord } from './InterruptionRecord';
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -45,10 +47,23 @@ export function SupervisionPanel({ attemptId }: { attemptId: string }) {
         reconnect.
       </p>
       {query.isPending && <p role="status">Loading supervision…</p>}
-      {query.error && <p role="alert">{query.error.message}</p>}
-      <Button variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>
-        Refresh supervision
-      </Button>
+      <p className="text-sm text-muted-foreground">
+        Checks for updates every 15 seconds while this page is visible. Reports may arrive late
+        after a connection interruption. Device-reported times can be inaccurate; a report does not
+        identify a screenshot or prove misconduct.
+      </p>
+      {query.error && (
+        <p role="alert">
+          Supervision could not be refreshed. Previously shown information may be out of date.{' '}
+          {query.error.message}
+        </p>
+      )}
+      <RefreshControl
+        label="Refresh supervision"
+        busy={query.isFetching}
+        updatedAt={query.dataUpdatedAt}
+        refresh={() => query.refetch()}
+      />
       {d && (
         <>
           <p role="status">
@@ -109,18 +124,15 @@ export function SupervisionPanel({ attemptId }: { attemptId: string }) {
           )}
           <ul>
             {d.events.map((e) => (
-              <li key={e.id} className="py-2 text-sm">
-                {e.kind.replaceAll('_', ' ')} · browser reported{' '}
-                {formatEatDateTime(e.observedAt, true)} · received{' '}
-                {formatEatDateTime(e.receivedAt, true)} · generation {e.deviceGeneration}
-              </li>
+              <InterruptionRecord key={e.id} event={e} />
             ))}
           </ul>
           <h3 className="font-semibold">Recent administrator decisions</h3>
           <ul>
             {d.history.map((h) => (
               <li key={h.revision} className="py-2 text-sm">
-                {h.action} · {h.reason} · {h.at} · administrator {h.actorId}
+                {h.action === 'suspend' ? 'Exam suspended' : 'Resuming approved'} · {h.reason} ·{' '}
+                {formatEatDateTime(h.at, true)} · administrator {h.actorId}
               </li>
             ))}
           </ul>
