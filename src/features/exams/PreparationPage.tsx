@@ -19,7 +19,7 @@ export function serverTime(sample: ReturnType<typeof clockSample>, now = perform
 function Countdown({
   sample,
   target,
-  label = 'common start',
+  label = 'exam starts',
 }: {
   sample: ReturnType<typeof clockSample>;
   target: string;
@@ -35,7 +35,7 @@ function Countdown({
     <p className="mt-4 rounded-xl bg-muted p-4 text-lg font-semibold tabular-nums text-foreground">
       {seconds
         ? `${Math.floor(seconds / 86400)}d ${Math.floor(seconds / 3600) % 24}h ${Math.floor(seconds / 60) % 60}m ${seconds % 60}s until ${label}`
-        : `${label === 'common start' ? 'Start' : 'Preparation'} time reached. Refresh the schedule for the latest status.`}
+        : `${label === 'exam starts' ? 'Start' : 'Preparation'} time reached. Refresh the schedule for the latest status.`}
     </p>
   );
 }
@@ -136,8 +136,8 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
           <dl className="grid gap-5 nexora-surface rounded-xl border bg-background p-6 sm:grid-cols-2">
             {[
               ['Preparation opens', exam.preparationVisibleAt],
-              ['Common start', exam.startsAt],
-              ['Common end', exam.endsAt],
+              ['Exam starts', exam.startsAt],
+              ['Scheduled end', exam.endsAt],
               ['Your deadline', exam.deadlineAt],
             ].map(([label, value]) => (
               <div key={label}>
@@ -151,11 +151,11 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
           <section className="nexora-surface rounded-xl border bg-background p-6">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <LockKeyhole className="size-5" aria-hidden="true" />
-              Prepare this browser
+              Get ready for your exam
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Preparation saves an encrypted paper on this device. Questions remain locked until the
-              server authorizes access at the common start.
+              Download the exam onto this device before it starts. You will be able to see the
+              questions at the scheduled start time. Stay connected to open the exam.
             </p>
             {exam.phase === 'scheduled' ? (
               <div>
@@ -165,8 +165,7 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
                   label="preparation"
                 />
                 <p className="mt-4 text-sm">
-                  Return at {eatTime(exam.preparationVisibleAt)}. Viewing this schedule does not
-                  create an attempt.
+                  Return at {eatTime(exam.preparationVisibleAt)} to download your exam.
                 </p>
               </div>
             ) : null}
@@ -179,19 +178,19 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
                   onClick={() => preparation.mutate()}
                 >
                   {preparation.isPending
-                    ? 'Checking device and saving paper…'
+                    ? 'Getting your exam ready…'
                     : preparation.data
-                      ? 'Verify and download again'
+                      ? 'Download again'
                       : preparation.isError
-                        ? 'Retry preparation'
-                        : 'Download encrypted paper'}
+                        ? 'Try download again'
+                        : 'Download exam'}
                 </Button>
               </>
             ) : null}
             {exam.attemptState === 'active' ? (
               <p className="mt-4 text-sm">
-                An attempt is in progress. Reopen it on the same browser to revalidate and continue.
-                Your original deadline still applies.
+                You have already started this exam. Open it in the same browser to continue. Your
+                original deadline still applies.
               </p>
             ) : null}
             {exam.phase === 'ended' && !exam.attemptState ? (
@@ -205,15 +204,15 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
             ) ? (
               <p className="mt-4 text-sm">
                 {exam.attemptState === 'submitted'
-                  ? 'The server reports a recorded submission. Open the attempt to verify its receipt against this device’s saved final answers.'
-                  : 'This attempt needs no new paper download. Contact your school about its recorded status. Retain any pending work on the original browser.'}
+                  ? 'Your submission has been recorded. Open your saved exam to check the confirmation for the answers on this device.'
+                  : 'You do not need to download this exam again. Open your saved exam for its status, or ask your school for help. Keep any unsent answers in the original browser.'}
               </p>
             ) : null}
           </section>
           {exam.attemptId ? (
             <Button asChild variant="outline" className="min-h-11">
               <Link to={`/student/attempts/${encodeURIComponent(exam.attemptId)}`}>
-                Open saved attempt
+                Open saved exam
               </Link>
             </Button>
           ) : null}
@@ -237,7 +236,7 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
                   : preparation.isError
                     ? `Stopped: ${preparationSteps.find((s) => s.id === step)?.label}`
                     : preparation.data?.shell === 'development'
-                      ? 'Paper saved. Offline app verification is unavailable in the demo.'
+                      ? 'Exam saved for this demo. Keep your connection on.'
                       : 'All preparation checks completed.'}
               </p>
               <ol className="mt-3 space-y-2 text-sm">
@@ -269,18 +268,18 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
               <p>{errorMessage(preparation.error)}</p>
               {step === 'report' && (
                 <p className="mt-2">
-                  Local preparation checks passed, but the school report is not confirmed. Retry
-                  preparation to resend it safely. This does not change your exam deadline.
+                  Your exam is saved, but we could not confirm that your school received your ready
+                  status. Try the download again. Your exam deadline stays the same.
                 </p>
               )}
               <p className="mt-2">
-                Keep this page open and retain browser storage. Resolve the issue above, then retry
-                preparation while connected. If the exam window has closed, contact your school.
+                Keep this page open and do not clear your browser data. Check your connection, then
+                try again. If the exam has ended, contact your school.
               </p>
               {deviceError ? (
                 <p className="mt-2">
-                  This browser’s device credential needs school assistance. Do not clear browser
-                  storage or attempt to take over an existing sitting.
+                  Ask your school to approve this device. Keep any saved answers in the original
+                  browser; do not clear its data.
                 </p>
               ) : null}
             </div>
@@ -292,20 +291,20 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
               <h2 className="flex items-center gap-2 font-semibold">
                 <ShieldCheck className="size-5" aria-hidden="true" />
                 {preparation.data.shell === 'ready'
-                  ? 'Ready for the common start'
-                  : 'Encrypted paper saved'}
+                  ? 'Ready for your exam'
+                  : 'Exam saved for this demo'}
               </h2>
               <p className="mt-2 text-sm">
                 {preparation.data.shell === 'ready'
-                  ? 'Paper integrity, local storage and offline app files verified and reported to your school. Keep this tab open; the exam opens at the common start after online authorization.'
-                  : 'Checksum verified and browser storage write confirmed. No verified readiness report is sent in development mode: the development server must stay running. The exam opens at the common start after online authorization.'}
+                  ? 'Your exam is saved on this device and your school has been notified. Keep this tab open and stay connected until the exam starts.'
+                  : 'Your exam is saved on this device. Offline access is not checked in this demo, and your school has not been notified that you are ready. Keep the demo running and stay connected.'}
               </p>
             </div>
           ) : null}
           <div className="rounded-xl border border-dashed p-5 text-sm leading-relaxed text-muted-foreground">
-            Keep this tab open after preparing. An internet connection is required to unlock the
-            paper and to reopen after a reload. Once unlocked, answers can be saved on this device
-            during an interruption.
+            Keep this tab open. You need an internet connection to start the exam or reopen it after
+            refreshing. Once the exam opens, your answers can still save on this device if the
+            connection drops.
           </div>
           <Button
             variant="outline"

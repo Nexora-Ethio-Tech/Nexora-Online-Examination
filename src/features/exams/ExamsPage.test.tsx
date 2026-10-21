@@ -38,9 +38,7 @@ it('shows assigned exams with EAT times and independent submission states', asyn
 it('opens scheduled detail without offering early download', async () => {
   setup('/student/exams/demo-session-5');
   await screen.findByRole('heading', { name: 'Physics · tomorrow' });
-  expect(
-    screen.queryByRole('button', { name: 'Download encrypted paper' }),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Download exam' })).not.toBeInTheDocument();
 });
 it('confirms a manual refresh even when the schedule is unchanged', async () => {
   const user = setup('/student/exams/demo-session-5');
@@ -49,10 +47,12 @@ it('confirms a manual refresh even when the schedule is unchanged', async () => 
 });
 it('downloads and verifies a paper without claiming offline readiness or submission', async () => {
   const user = setup('/student/exams/demo-session-4');
-  await user.click(await screen.findByRole('button', { name: 'Download encrypted paper' }));
-  expect(await screen.findByRole('heading', { name: 'Encrypted paper saved' })).toBeInTheDocument();
+  await user.click(await screen.findByRole('button', { name: 'Download exam' }));
   expect(
-    screen.getByText(/No verified readiness report is sent in development mode/),
+    await screen.findByRole('heading', { name: 'Exam saved for this demo' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/your school has not been notified that you are ready/),
   ).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Start exam' })).not.toBeInTheDocument();
 });
@@ -76,17 +76,21 @@ it('shows the failed integrity step, hides readiness and allows a successful ret
       ? Response.json({ ...packageSchema.parse(await response.json()), sha256: '0'.repeat(64) })
       : response;
   });
-  await user.click(await screen.findByRole('button', { name: 'Download encrypted paper' }));
-  expect(await screen.findByText('Stopped: Verify the paper checksum')).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: 'Encrypted paper saved' })).not.toBeInTheDocument();
+  await user.click(await screen.findByRole('button', { name: 'Download exam' }));
   expect(
-    screen.queryByRole('heading', { name: 'Ready for the common start' }),
+    await screen.findByText('Stopped: Check that the download is complete'),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole('heading', { name: 'Exam saved for this demo' }),
   ).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Ready for your exam' })).not.toBeInTheDocument();
   corrupt = false;
-  await user.click(screen.getByRole('button', { name: 'Retry preparation' }));
-  await screen.findByRole('heading', { name: 'Encrypted paper saved' });
+  await user.click(screen.getByRole('button', { name: 'Try download again' }));
+  await screen.findByRole('heading', { name: 'Exam saved for this demo' });
   expect(screen.getByText('Unavailable in demo')).toBeInTheDocument();
-  expect(screen.queryByText('Stopped: Verify the paper checksum')).not.toBeInTheDocument();
+  expect(
+    screen.queryByText('Stopped: Check that the download is complete'),
+  ).not.toBeInTheDocument();
 });
 it('loads the next opaque cursor without dropping the first page', async () => {
   const demo = createDemoTransport('student');

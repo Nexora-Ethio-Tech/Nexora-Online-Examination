@@ -5,12 +5,12 @@ import { retainedId, savePackage, storageKey } from './storage';
 import { shellBuild, ensureOfflineShell } from '@/lib/offline-shell';
 export const preparationSteps = [
   { id: 'eligibility', label: 'Check exam availability' },
-  { id: 'attempt', label: 'Register this browser and recover your attempt' },
-  { id: 'download', label: 'Download the encrypted paper' },
-  { id: 'integrity', label: 'Verify the paper checksum' },
+  { id: 'attempt', label: 'Set up this device for your exam' },
+  { id: 'download', label: 'Download your exam' },
+  { id: 'integrity', label: 'Check that the download is complete' },
   { id: 'storage', label: 'Save the paper on this device' },
-  { id: 'shell', label: 'Check offline app files' },
-  { id: 'report', label: 'Report verified preparation to your school' },
+  { id: 'shell', label: 'Check that you can keep working if the connection drops' },
+  { id: 'report', label: 'Let your school know you are ready' },
 ] as const;
 export type PreparationStep = (typeof preparationSteps)[number]['id'];
 export function decodeBase64url(value: string) {
@@ -101,7 +101,7 @@ export async function preparePaper(
   } catch {
     throw new ApiError(
       'PACKAGE_INTEGRITY',
-      'The paper failed its integrity check. Download it again while connected.',
+      'The exam did not download correctly. Check your connection and download it again.',
     );
   }
   signal?.throwIfAborted();
@@ -122,7 +122,7 @@ export async function preparePaper(
   } catch {
     throw new ApiError(
       'STORAGE_UNAVAILABLE',
-      'The paper could not be saved on this device. Free browser storage and try again.',
+      'The exam could not be saved on this device. Ask your school for help. Do not clear saved exam answers.',
     );
   }
   step('shell');
