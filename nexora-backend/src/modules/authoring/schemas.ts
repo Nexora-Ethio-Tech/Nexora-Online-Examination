@@ -87,7 +87,7 @@ export const draftsSchema = z.object({
 export const jobSchema = z.object({
   importId: text,
   examId: text,
-  state: z.enum(['queued', 'parsing', 'ai_queued', 'ai_running', 'ready', 'failed']),
+  state: z.enum(['queued', 'parsing', 'ai_queued', 'ai_running', 'ready', 'failed', 'cancelled']),
   parsedCount: z.number().int().nonnegative(),
   completedCount: z.number().int().nonnegative(),
   sourceName: text,

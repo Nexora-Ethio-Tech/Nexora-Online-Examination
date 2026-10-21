@@ -44,6 +44,16 @@ export class ImportController {
   read(@Req() req: Request, @Param('id') id: string) {
     return this.imports.read(req, id);
   }
+  @Post('imports/:id/cancel')
+  @HttpCode(200)
+  cancel(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: unknown,
+  ) {
+    return this.imports.cancel(req, id, body, key);
+  }
   @Post('imports/:id/ai-retry')
   @HttpCode(202)
   retry(

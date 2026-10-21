@@ -117,4 +117,46 @@ export class ImportService {
       });
     });
   }
+  async cancel(req: Request, id: string, input: unknown, key: unknown) {
+    const { school, user } = teacherIdentity(req);
+    parse(uuid, id);
+    const body = parse(
+      z.object({ revision, reason: z.string().trim().min(1).max(500) }).strict(),
+      input,
+    );
+    return this.db.withTenantTransaction(school.id, async (c) => {
+      const job = await this.job(c, school.id, id);
+      const exam = await this.authoring.owned(c, school.id, user.id, job.examId, true);
+      return mutate(c, school.id, user.id, `import:${id}:cancel`, key, body, async () => {
+        // Do not use mutable(): its busy-import guard would prevent the cancellation itself.
+        if (
+          exam.revision !== body.revision ||
+          !['draft', 'returned'].includes(exam.state) ||
+          exam.import_id !== id
+        )
+          throw DomainException.conflict('REVISION_CONFLICT', 'Refresh the current editable draft');
+        await c.query('SELECT id FROM import_jobs WHERE school_id=$1 AND id=$2 FOR UPDATE', [
+          school.id,
+          id,
+        ]);
+        await c.query(
+          "UPDATE import_jobs SET state='cancelled',status='failed',failure='Cancelled by teacher',lease_token=NULL,lease_until=NULL,source_bytes=NULL,generation_request=NULL WHERE school_id=$1 AND id=$2",
+          [school.id, id],
+        );
+        await c.query(
+          "UPDATE ai_jobs SET status='failed',error_message='IMPORT_CANCELLED',lease_token=NULL,lease_until=NULL WHERE school_id=$1 AND import_job_id=$2 AND status IN ('pending','processing')",
+          [school.id, id],
+        );
+        await c.query(
+          'UPDATE exams SET import_id=NULL,revision=revision+1,updated_at=now() WHERE school_id=$1 AND id=$2',
+          [school.id, exam.id],
+        );
+        await c.query(
+          "INSERT INTO audit_events(school_id,actor_id,action,resource_id,reason) VALUES($1,$2,'import:cancel',$3,$4)",
+          [school.id, user.id, id, body.reason],
+        );
+        return { importId: id, cancelled: true };
+      });
+    });
+  }
 }

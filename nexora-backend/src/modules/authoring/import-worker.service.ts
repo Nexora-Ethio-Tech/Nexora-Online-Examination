@@ -445,7 +445,7 @@ export class ImportWorkerService {
         const pending = Number(counts.pending) > 0,
           failed = Number(counts.failed) > 0;
         await c.query(
-          'UPDATE import_jobs SET completed_count=$1,state=$2,status=$3,failure=$4 WHERE school_id=$5 AND id=$6',
+          "UPDATE import_jobs SET completed_count=$1,state=$2,status=$3,failure=$4 WHERE school_id=$5 AND id=$6 AND state IN ('ai_queued','ai_running')",
           [
             Number(counts.completed),
             pending ? 'ai_running' : failed ? 'failed' : 'ready',
