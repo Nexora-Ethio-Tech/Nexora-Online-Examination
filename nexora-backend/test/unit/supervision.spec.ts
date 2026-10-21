@@ -141,7 +141,7 @@ describe('supervision service authorization, replay and deadlines (database doub
     await service.decide(req, attemptId, body, key);
     expect(events).toHaveLength(1);
   });
-  it.each(['hidden', 'focus_lost'])(
+  it.each(['hidden', 'focus_lost', 'pagehide', 'fullscreen_exit'])(
     'deduplicates %s telemetry without suspending or changing exam state',
     async (kind) => {
       const req = request('student', studentId);
@@ -161,6 +161,28 @@ describe('supervision service authorization, replay and deadlines (database doub
       ).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
     },
   );
+  it('keeps client observation and server receipt separate and rejects invented screenshot events', async () => {
+    const req = request('student', studentId);
+    const event = {
+      id: randomUUID(),
+      kind: 'focus_lost',
+      observedAt: '2029-12-31T23:00:00Z',
+      deviceGeneration: 1,
+    };
+    await service.report(req, attemptId, { events: [event] });
+    const result = await service.read(req, attemptId);
+    expect(result.events[0]).toMatchObject({
+      observedAt: event.observedAt,
+      receivedAt: now.toISOString(),
+    });
+    await expect(
+      service.report(req, attemptId, {
+        events: [{ ...event, id: randomUUID(), kind: 'screenshot' }],
+      }),
+    ).rejects.toBeDefined();
+    expect(events).toHaveLength(1);
+    expect(attempt.suspended).toBe(false);
+  });
 });
 
 it('rejects answer uploads and new final submissions while suspended', async () => {
