@@ -70,7 +70,7 @@ export function DevicePage() {
         <p className="text-sm text-muted-foreground">
           Registration gives school staff a browser ID. An administrator must approve moving an
           existing attempt. Your original deadline stays the same and only answers already received
-          by the server can be restored automatically. Keep the old browser’s saved work.
+          by your school can be restored automatically. Keep the old browser’s saved work.
         </p>
         <Failure error={error} />
         {!rejectedId && (
@@ -85,9 +85,9 @@ export function DevicePage() {
         {rejectedId && (
           <div className="space-y-4">
             <p className="text-sm">
-              This browser’s previous credential is missing or expired. Create a new registration,
-              then ask your administrator to approve it. This keeps saved answers and packages but
-              the old browser ID will no longer be used here.
+              This browser is no longer registered. Register it again, then ask your administrator
+              to approve it. This keeps your saved answers and exam download, but the old browser ID
+              will no longer be used here.
             </p>
             <label className="flex min-h-11 items-start gap-3 text-sm">
               <input
@@ -116,8 +116,7 @@ export function DevicePage() {
               {id}
             </p>
             <p className="text-sm">
-              After approval, return to My exams, open your sitting and prepare or reopen its saved
-              attempt. Stay connected while the paper unlocks.
+              After approval, return to My exams and open your exam. Stay connected while it opens.
             </p>
           </div>
         )}

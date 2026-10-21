@@ -114,7 +114,7 @@ function RouteFailure() {
       <p role="alert">Reconnect, then reload this page. If it still fails, contact your school.</p>
       <p className="text-sm text-muted-foreground">
         Keep this browser and its site storage. Saved exam work has not been cleared. Reopening an
-        exam requires online revalidation, and its original deadline still applies.
+        exam needs an internet connection to reopen, and its original deadline still applies.
       </p>
       <Button className="min-h-11" onClick={() => window.location.reload()}>
         Reload this page

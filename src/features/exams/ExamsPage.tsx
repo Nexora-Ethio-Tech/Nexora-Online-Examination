@@ -23,19 +23,19 @@ export const eatTime = (value: string) =>
 export function examStatus(exam: Exam) {
   const states = {
     preparing: 'Preparation started',
-    active: 'Attempt in progress',
-    awaiting_upload: 'Upload unresolved',
+    active: 'Exam started',
+    awaiting_upload: 'Submission needs attention',
     recovery_pending: 'School review pending',
     submitted: 'Submission recorded',
-    invalidated: 'Attempt invalidated',
+    invalidated: 'Exam access cancelled',
   };
   return exam.attemptState
     ? states[exam.attemptState]
     : {
         scheduled: 'Scheduled',
         preparing: 'Preparation open',
-        open: 'Exam window open',
-        ended: 'Exam window ended',
+        open: 'Exam open',
+        ended: 'Exam ended',
       }[exam.phase];
 }
 export function examGroup(exam: Pick<Exam, 'phase' | 'attemptState'>) {
@@ -156,7 +156,7 @@ export function ExamsPage() {
                       exam.phase === 'scheduled'
                         ? 'preparation'
                         : exam.phase === 'preparing'
-                          ? 'common start'
+                          ? 'exam starts'
                           : 'your deadline'
                     }
                   />
