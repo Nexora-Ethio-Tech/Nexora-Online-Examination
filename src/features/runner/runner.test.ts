@@ -57,6 +57,25 @@ async function answer(engine: RunnerEngine, itemId = 'q1', value = 'true') {
   await vi.waitFor(() => expect(engine.snapshot().saving).toBe(false));
   expect(engine.snapshot().row?.answers.find((a) => a.itemId === itemId)?.value).toBe(value);
 }
+
+describe('privacy interruption integrity', () => {
+  it('records focus loss without changing answers, deadline or active authorization', async () => {
+    const { make } = await setup();
+    const engine = make();
+    await engine.start();
+    await answer(engine);
+    const before = engine.snapshot().row;
+    if (!before) throw new Error('Missing test attempt');
+    window.dispatchEvent(new Event('blur'));
+    await vi.waitFor(async () => {
+      const stored = await store.readRecord(before.key);
+      expect(stored?.interruptions?.some((event) => event.kind === 'focus_lost')).toBe(true);
+      expect(stored?.answers).toEqual(before.answers);
+      expect(stored?.attempt.deadlineAt).toBe(before.attempt.deadlineAt);
+    });
+    expect(engine.snapshot().status).toBe('active');
+  });
+});
 describe('assistance pause preserves local evidence', () => {
   it('blocks edits immediately and retains answers/outbox when the request connection fails', async () => {
     const { make } = await setup(async (url, init, next) => {

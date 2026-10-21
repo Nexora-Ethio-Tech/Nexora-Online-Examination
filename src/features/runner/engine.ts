@@ -168,6 +168,7 @@ export class RunnerEngine {
 
       window.addEventListener('online', this.online);
       document.addEventListener('visibilitychange', this.visible);
+      window.addEventListener('blur', this.blurred);
       window.addEventListener('pagehide', this.pagehide);
       document.addEventListener('fullscreenchange', this.fullscreenChanged);
       this.supervisionTimer = setInterval(() => {
@@ -206,6 +207,7 @@ export class RunnerEngine {
     void this.checkSupervision();
     void this.sync();
   };
+  private blurred = () => this.interruption('focus_lost');
   private pagehide = () => this.interruption('pagehide');
   private fullscreenChanged = () => {
     if (!document.fullscreenElement) this.interruption('fullscreen_exit');
@@ -213,12 +215,13 @@ export class RunnerEngine {
   private interruption(kind: Interruption['kind']) {
     if (this.view.status !== 'active' || !this.view.row) return;
     const row = this.view.row;
+    const observedAt = new Date().toISOString();
     this.queue = this.queue
       .then(async () => {
         await store.recordInterruption(row.key, {
           id: crypto.randomUUID(),
           kind,
-          observedAt: new Date().toISOString(),
+          observedAt,
           deviceGeneration: row.attempt.deviceGeneration,
         });
       })
@@ -549,5 +552,6 @@ export class RunnerEngine {
     document.removeEventListener('fullscreenchange', this.fullscreenChanged);
     window.removeEventListener('online', this.online);
     document.removeEventListener('visibilitychange', this.visible);
+    window.removeEventListener('blur', this.blurred);
   }
 }
