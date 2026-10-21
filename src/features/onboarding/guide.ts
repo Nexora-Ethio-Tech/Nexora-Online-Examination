@@ -15,7 +15,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Approve and schedule exams',
-      body: 'Review submitted papers, approve them and schedule a sitting. Published versions and student evidence are preserved.',
+      body: 'Review submitted papers, approve them and choose Ethiopian calendar dates with Amharic months. Times use AM/PM in EAT. Check the exam start, end and results dates before confirming.',
       path: '/admin',
     },
     {
@@ -32,7 +32,7 @@ export const guides: Record<Role, GuideStep[]> = {
   teacher: [
     {
       title: 'Create a paper',
-      body: 'Choose your assigned class and subject, then enter exam details.',
+      body: 'Choose your assigned class and subject, then enter exam details. Portal dates use the Ethiopian calendar with Amharic months; times use AM/PM in EAT.',
       path: '/teacher',
     },
     {
@@ -59,7 +59,7 @@ export const guides: Record<Role, GuideStep[]> = {
   student: [
     {
       title: 'Prepare for your exam',
-      body: 'Open My exams, check the schedule and choose Download exam when preparation opens. Stay connected until the exam starts.',
+      body: 'Open My exams and check the Ethiopian calendar date. Times use AM/PM in EAT, even if your device uses another timezone. Choose Download exam when preparation opens and stay connected until the exam starts.',
       path: '/student',
     },
     {
