@@ -8,6 +8,69 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
+test('portal management: class cards, unused record deletion and reopenable onboarding', async ({
+  page,
+}) => {
+  await login(page, 'ADMIN');
+  await page.getByRole('button', { name: 'Portal guide', exact: true }).click();
+  await expect(page.getByRole('complementary', { name: 'Portal onboarding' })).toBeVisible();
+  await accessible(page);
+  await page.getByRole('button', { name: 'Close guide' }).click();
+  await navigateWorkspace(page, 'School setup');
+  await page.getByRole('button', { name: 'Add class', exact: true }).click();
+  await page.getByLabel('Class name', { exact: true }).fill('Temporary class');
+  await page.getByLabel('Academic year', { exact: true }).fill('2026');
+  await page.getByLabel('Reason', { exact: true }).fill('Browser removal test');
+  await page.getByRole('button', { name: 'Save class', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete / archive Temporary class', exact: true }).click();
+  const removal = page.getByRole('region', { name: 'Remove Temporary class' });
+  await removal.getByLabel('Reason', { exact: true }).fill('Unused test class');
+  await removal.getByRole('checkbox').check();
+  await removal.getByRole('button', { name: 'Confirm removal' }).click();
+  await expect(page.getByRole('heading', { name: 'Temporary class' })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Accounts', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Samira', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: /Grade 10 A/ }).click();
+  await expect(page.getByRole('heading', { name: 'Samira', exact: true })).toBeVisible();
+  await accessible(page);
+});
+
+test('portal management: cancel import, bulk review and remove a draft', async ({ page }) => {
+  await login(page, 'TEACHER');
+  await page.getByRole('button', { name: 'New exam', exact: true }).click();
+  await page.getByLabel('Exam title', { exact: true }).fill('Lifecycle paper');
+  await page.getByLabel('Class and subject').selectOption('demo-math-10a');
+  await page.getByRole('button', { name: 'Create draft' }).click();
+  await page
+    .getByLabel('Question template')
+    .setInputFiles('public/templates/nexora-questions.xlsx');
+  await page.getByRole('button', { name: 'Upload and prepare questions' }).click();
+  await page.getByRole('button', { name: 'Remove / cancel import' }).click();
+  await page.getByLabel('Cancellation reason').fill('Selected the wrong file');
+  await page.getByRole('button', { name: 'Confirm cancel import' }).click();
+  await expect(page.getByRole('button', { name: 'Remove / cancel import' })).toHaveCount(0);
+  await page
+    .getByLabel('Question template')
+    .setInputFiles('public/templates/nexora-questions.xlsx');
+  await page.getByRole('button', { name: 'Upload and prepare questions' }).click();
+  await expect(page.getByText(/ready · 2 parsed · 2 AI suggestions ready/i)).toBeVisible();
+  await page.getByRole('tab', { name: 'Review questions' }).click();
+  await page
+    .getByRole('checkbox', { name: 'I checked all eligible questions and their answer keys.' })
+    .check();
+  await page.getByRole('button', { name: 'Review all eligible questions' }).click();
+  await expect(page.getByText('1 of 2 questions reviewed and saved')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Submit for approval', exact: true }),
+  ).toBeDisabled();
+  await accessible(page);
+  await page.getByRole('button', { name: 'Delete / archive draft' }).click();
+  await page.getByLabel('Removal reason').fill('Finished synthetic test');
+  await page.getByRole('button', { name: 'Confirm draft removal' }).click();
+  await expect(page.getByRole('heading', { name: 'My exam papers', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lifecycle paper', exact: true })).toHaveCount(0);
+});
+
 test.afterEach(async ({ page }, info) => {
   if (info.status === 'passed') {
     await page.screenshot({ path: info.outputPath('final-screen.png'), fullPage: true });

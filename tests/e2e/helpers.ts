@@ -10,6 +10,9 @@ export async function login(page: Page, role: 'STUDENT' | 'TEACHER' | 'ADMIN') {
     await page.getByRole('button', { name: /Verify/i }).click();
   }
   await expect(page.getByRole('button', { name: 'Open account menu' })).toBeVisible();
+  const guide = page.getByRole('button', { name: 'Close guide' });
+  await expect(guide).toBeVisible();
+  await guide.click();
 }
 export async function accessible(page: Page) {
   await expect(page.locator('main')).toBeVisible();
