@@ -1,5 +1,6 @@
 import { generationInputSchema, type GenerationInput } from './generation-schemas';
 import type { ApiClient } from '@/lib/api-client';
+import { z } from 'zod';
 import { ApiError } from '@/lib/api-client';
 import {
   assignmentsSchema,
@@ -13,6 +14,28 @@ import {
 
 export function authoringApi(client: ApiClient) {
   return {
+    removeDraft: (id: string, revision: number, reason: string, key: string) =>
+      client.request(
+        `/exams/${encodeURIComponent(id)}/remove`,
+        z.object({ id: z.string(), outcome: z.enum(['deleted', 'archived']) }),
+        { method: 'POST', body: { revision, reason, confirmed: true }, idempotencyKey: key },
+      ),
+    reviewAll: (id: string, revision: number, key: string) =>
+      client.request(`/exams/${encodeURIComponent(id)}/review-all`, draftSchema, {
+        method: 'POST',
+        body: { revision, confirmed: true },
+        idempotencyKey: key,
+      }),
+    cancelImport: (id: string, revision: number, reason: string, key: string) =>
+      client.request(
+        `/imports/${encodeURIComponent(id)}/cancel`,
+        z.object({ importId: z.string(), cancelled: z.literal(true) }),
+        {
+          method: 'POST',
+          body: { revision, reason },
+          idempotencyKey: key,
+        },
+      ),
     assignments: (cursor: string | null, signal?: AbortSignal) =>
       client.request(
         `/me/teaching-assignments?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,

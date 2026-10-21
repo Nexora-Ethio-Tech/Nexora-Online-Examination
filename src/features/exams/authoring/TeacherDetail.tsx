@@ -1,7 +1,7 @@
 import { ExamGeneration } from './ExamGeneration';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useBlocker, useBeforeUnload, useParams } from 'react-router';
+import { Link, useBlocker, useBeforeUnload, useParams, useNavigate } from 'react-router';
 import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -171,6 +171,9 @@ function ItemReview({
 }
 
 export function TeacherDetail() {
+  const navigate = useNavigate();
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeReason, setRemoveReason] = useState('');
   const { examId = '' } = useParams();
   const api = authoringApi(useApiClient());
   const scope = useTeacherScope();
@@ -200,6 +203,12 @@ export function TeacherDetail() {
   });
   const [file, setFile] = useState<File | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [bulkConfirmed, setBulkConfirmed] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelOpen, setCancelOpen] = useState(false);
+  useEffect(() => {
+    setBulkConfirmed(false);
+  }, [draft.data?.revision]);
   const [message, setMessage] = useState('');
   const [tab, setTab] = useState('import');
   const [reviewFilter, setReviewFilter] = useState('All');
@@ -243,6 +252,8 @@ export function TeacherDetail() {
       setMetadataDirty(false);
       setMessage('Saved on the server.');
       setConfirmed(false);
+      setBulkConfirmed(false);
+      setCancelOpen(false);
     },
   });
   const jobState = job.data?.state;
@@ -322,6 +333,54 @@ export function TeacherDetail() {
         </p>
       </div>
       {d.returnComment && <p className={panel}>Administrator feedback: {d.returnComment}</p>}
+      {editable && (
+        <section className="space-y-3">
+          <Button
+            variant="destructive"
+            disabled={action.isPending || dirty}
+            onClick={() => setRemoveOpen(true)}
+          >
+            Delete / archive draft
+          </Button>
+          {removeOpen && (
+            <div className={panel}>
+              <p>
+                Remove this draft from your papers and cancel its pending work. An unused draft is
+                deleted; a draft with history is archived. Approved papers and student evidence
+                cannot be deleted here.
+              </p>
+              <label className="block py-3">
+                Removal reason
+                <Input
+                  maxLength={500}
+                  value={removeReason}
+                  onChange={(e) => setRemoveReason(e.target.value)}
+                />
+              </label>
+              <Button
+                variant="destructive"
+                disabled={action.isPending || !removeReason.trim()}
+                onClick={() =>
+                  run(async () => {
+                    await api.removeDraft(
+                      examId,
+                      d.revision,
+                      removeReason.trim(),
+                      key('remove-draft', { revision: d.revision, reason: removeReason.trim() }),
+                    );
+                    navigate('/teacher');
+                  })
+                }
+              >
+                Confirm draft removal
+              </Button>
+              <Button variant="outline" onClick={() => setRemoveOpen(false)}>
+                Keep draft
+              </Button>
+            </div>
+          )}
+        </section>
+      )}
       {!editable && (
         <p role="status" className={panel}>
           {d.status === 'in_review'
@@ -494,6 +553,61 @@ export function TeacherDetail() {
           {job.data && (
             <section className={panel}>
               <h2 className="font-semibold">{job.data.sourceName}</h2>
+              {editable && job.data.state !== 'cancelled' && (
+                <div className="my-3 space-y-3">
+                  <Button
+                    variant="destructive"
+                    disabled={action.isPending || dirty}
+                    onClick={() => setCancelOpen(true)}
+                  >
+                    Remove / cancel import
+                  </Button>
+                  {cancelOpen && (
+                    <div
+                      className="space-y-3"
+                      role="group"
+                      aria-label="Confirm import cancellation"
+                    >
+                      <p>
+                        Remove this upload from the queue and stop remaining AI work. Already parsed
+                        questions stay in your draft. Any in-flight provider request may still
+                        finish, but its result will not be applied.
+                      </p>
+                      <label className="block">
+                        Cancellation reason
+                        <Input
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                          maxLength={500}
+                        />
+                      </label>
+                      <Button
+                        variant="destructive"
+                        disabled={!cancelReason.trim() || action.isPending}
+                        onClick={() =>
+                          run(() =>
+                            api.cancelImport(
+                              job.data.importId,
+                              d.revision,
+                              cancelReason.trim(),
+                              key('cancel-import', {
+                                id: job.data.importId,
+                                revision: d.revision,
+                                reason: cancelReason.trim(),
+                              }),
+                            ),
+                          )
+                        }
+                      >
+                        Confirm cancel import
+                      </Button>
+                      <Button variant="outline" onClick={() => setCancelOpen(false)}>
+                        Keep import
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
               <p role="status" className="my-2 capitalize">
                 {job.data.state.replaceAll('_', ' ')} · {job.data.parsedCount} parsed ·{' '}
                 {job.data.completedCount} AI suggestions ready
@@ -545,6 +659,46 @@ export function TeacherDetail() {
           {paper.length > 0 && (
             <section className={panel}>
               <h2 className="text-xl font-semibold">Question review overview</h2>
+              {editable && (
+                <div className="my-4 space-y-3">
+                  <p>
+                    You can review questions individually or confirm all eligible questions
+                    together. Missing topics, explanations and unresolved flags still need
+                    attention.
+                  </p>
+                  <label className="flex gap-3">
+                    <input
+                      type="checkbox"
+                      checked={bulkConfirmed}
+                      disabled={disabled || dirty}
+                      onChange={(e) => setBulkConfirmed(e.target.checked)}
+                    />
+                    I checked all eligible questions and their answer keys.
+                  </label>
+                  <Button
+                    disabled={
+                      disabled ||
+                      dirty ||
+                      !bulkConfirmed ||
+                      !paper.some(
+                        (i) =>
+                          !i.reviewed && itemSchema.safeParse({ ...i, reviewed: true }).success,
+                      )
+                    }
+                    onClick={() =>
+                      run(() =>
+                        api.reviewAll(
+                          examId,
+                          d.revision,
+                          key('review-all', { revision: d.revision }),
+                        ),
+                      )
+                    }
+                  >
+                    Review all eligible questions
+                  </Button>
+                </div>
+              )}
               <p className="my-3">
                 {paper.length - needsReview.size} of {paper.length} questions reviewed and saved
               </p>
