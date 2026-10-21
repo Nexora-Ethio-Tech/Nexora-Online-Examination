@@ -1,4 +1,6 @@
+import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { RefreshControl } from '@/components/shared/RefreshControl';
+import { EthiopianDateTimeField } from '@/components/shared/EthiopianDateTimeField';
 import { useRef, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
@@ -22,13 +24,7 @@ const statusText = (status: ResultRow['status']) =>
     excluded: 'Excluded from this publication',
   })[status];
 const percent = (value: number | null) => (value === null ? '—' : `${value.toFixed(1)}%`);
-const boundaryTime = (iso: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Africa/Addis_Ababa',
-    dateStyle: 'medium',
-    timeStyle: 'medium',
-    hour12: true,
-  }).format(new Date(iso)) + ' EAT';
+const boundaryTime = (iso: string) => formatEatDateTime(iso, true);
 function downloadCsv(text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
@@ -259,16 +255,12 @@ function PublicationForm({ report }: { report: Report }) {
           submission windows have closed.
         </p>
       )}
-      <label className="block">
-        Results release date and time (EAT)
-        <input
-          type="datetime-local"
-          className={control}
-          value={release}
-          disabled={mutation.isPending}
-          onChange={(e) => setRelease(e.target.value)}
-        />
-      </label>
+      <EthiopianDateTimeField
+        label="Results release date and time (EAT)"
+        value={release}
+        disabled={mutation.isPending}
+        onChange={setRelease}
+      />
       {(!releaseAt || Date.parse(releaseAt) < Date.parse(report.summary.publishableAfter)) && (
         <p className="text-destructive">
           Choose a valid release time after all submission windows close.

@@ -1,6 +1,7 @@
 import { ScheduleCountdown } from '@/components/shared/ScheduleCountdown';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useRef, useState } from 'react';
+import { EthiopianDateTimeField } from '@/components/shared/EthiopianDateTimeField';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -85,19 +86,15 @@ function AccessForm({ access }: { access: PracticeAccess }) {
         />
         Enable practice
       </label>
-      <label className="block">
-        Practice release date and time (EAT)
-        <input
-          className={control}
-          type="datetime-local"
-          value={release}
-          disabled={mutation.isPending}
-          onChange={(e) => {
-            setRelease(e.target.value);
-            setConfirmed(false);
-          }}
-        />
-      </label>
+      <EthiopianDateTimeField
+        label="Practice release date and time (EAT)"
+        value={release}
+        disabled={mutation.isPending}
+        onChange={(value) => {
+          setRelease(value);
+          setConfirmed(false);
+        }}
+      />
       {enabled && !releaseAt && (
         <p className="text-destructive">Enter a valid EAT release date and time.</p>
       )}
