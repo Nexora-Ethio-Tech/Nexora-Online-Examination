@@ -8,6 +8,7 @@ import { ClockService } from '../../common/clock/clock.service';
 import { DomainException } from '../../common/errors/domain.exception';
 import { mutate } from '../../common/db/mutation';
 import { hashPassword } from '../../common/crypto/password';
+import { hasRetainedReferences } from './record-removal';
 import { identity } from '../delivery/operational.service';
 import {
   parsePreparationInput as parse,
@@ -41,6 +42,7 @@ const query = z
       .optional(),
     cursor: z.string().min(1).max(1500).optional(),
     search: z.string().max(160).optional(),
+    classId: z.union([uuid, z.literal('unassigned')]).optional(),
   })
   .strict();
 type Account = {
@@ -108,7 +110,7 @@ export class DirectoryService {
     const { school } = identity(req, 'school_admin'),
       q = parse(query, input),
       limit = q.limit ?? 25;
-    const scope = `${school.id}:${kind}:${q.search ?? ''}`;
+    const scope = `${school.id}:${kind}:${q.search ?? ''}:${q.classId ?? ''}`;
     let after = '';
     if (q.cursor) {
       try {
@@ -128,15 +130,16 @@ export class DirectoryService {
         let sql = '';
         const params: unknown[] = [school.id, after || null, limit + 1];
         if (kind === 'classes')
-          sql = `SELECT id "classId",name,code_or_year "academicYear",revision,active FROM classes WHERE school_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`;
+          sql = `SELECT id "classId",name,code_or_year "academicYear",revision,active,(SELECT count(*)::int FROM users u WHERE u.school_id=classes.school_id AND u.role='student' AND (SELECT e.class_id FROM enrollments e WHERE e.school_id=u.school_id AND e.student_id=u.id ORDER BY e.created_at DESC,e.id LIMIT 1)=classes.id) "studentCount" FROM classes WHERE school_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`;
         if (kind === 'subjects')
           sql = `SELECT id "subjectId",name,code,revision,active FROM subjects WHERE school_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`;
         if (kind === 'students' || kind === 'teachers') {
           params.push(
             kind === 'students' ? 'student' : 'teacher',
             (q.search ?? '').replace(/[\\%_]/g, '\\$&'),
+            q.classId ?? null,
           );
-          sql = `${accountSelect} WHERE u.school_id=$1 AND ($2::uuid IS NULL OR u.id>$2) AND u.role=$4 AND (u.display_name ILIKE '%'||$5||'%' OR u.login_id ILIKE '%'||$5||'%' OR COALESCE(u.student_ref,'') ILIKE '%'||$5||'%') ORDER BY u.id LIMIT $3`;
+          sql = `${accountSelect} WHERE u.school_id=$1 AND ($2::uuid IS NULL OR u.id>$2) AND u.role=$4 AND (u.display_name ILIKE '%'||$5||'%' OR u.login_id ILIKE '%'||$5||'%' OR COALESCE(u.student_ref,'') ILIKE '%'||$5||'%') AND ($6::text IS NULL OR COALESCE((SELECT e.class_id::text FROM enrollments e WHERE e.school_id=u.school_id AND e.student_id=u.id ORDER BY e.created_at DESC,e.id LIMIT 1),'unassigned')=$6) ORDER BY u.id LIMIT $3`;
         }
         if (kind === 'teacher-assignments')
           sql = `SELECT a.id "assignmentId",a.teacher_id "teacherId",a.class_id "classId",a.subject_id "subjectId",a.active,a.revision,u.display_name "teacherName",c.name "className",s.name "subjectName" FROM teacher_assignments a JOIN users u ON u.school_id=a.school_id AND u.id=a.teacher_id JOIN classes c ON c.school_id=a.school_id AND c.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE a.school_id=$1 AND ($2::uuid IS NULL OR a.id>$2) ORDER BY a.id LIMIT $3`;
@@ -254,6 +257,87 @@ export class DirectoryService {
               revision: row.revision,
             };
       });
+    });
+  }
+  async remove(req: Request, kindInput: string, id: string, input: unknown, key: unknown) {
+    const { school, user } = identity(req, 'school_admin');
+    const kind = parse(
+      z.enum(['classes', 'subjects', 'students', 'teachers', 'teacher-assignments']),
+      kindInput,
+    );
+    parse(uuid, id);
+    const body = parse(z.object({ revision, reason, confirmed: z.literal(true) }).strict(), input);
+    const table =
+      kind === 'students' || kind === 'teachers'
+        ? 'users'
+        : kind === 'teacher-assignments'
+          ? 'teacher_assignments'
+          : kind;
+    return this.db.withTenantTransaction(school.id, async (c) => {
+      await this.lock(c, school.id);
+      return mutate(
+        c,
+        school.id,
+        user.id,
+        `directory:${kind}:${id}:remove`,
+        key,
+        body,
+        async () => {
+          const role = kind === 'students' ? 'student' : 'teacher';
+          const row = (
+            await c.query<{ revision: number; name?: string; login_id?: string }>(
+              `SELECT * FROM ${table} WHERE school_id=$1 AND id=$2 ${table === 'users' ? 'AND role=$3' : ''} FOR UPDATE`,
+              table === 'users' ? [school.id, id, role] : [school.id, id],
+            )
+          ).rows[0];
+          if (!row) throw DomainException.notFound();
+          if (row.revision !== body.revision)
+            throw DomainException.conflict(
+              'REVISION_CONFLICT',
+              'Refresh before removing this record',
+            );
+          // Exams identify assignments by teacher/class/subject, not an assignment FK.
+          // Preserve the existing assignment-edit guard for this removal path too.
+          if (table === 'teacher_assignments') {
+            const used = await c.query(
+              `SELECT e.id FROM exams e JOIN teacher_assignments a
+               ON a.school_id=e.school_id AND a.teacher_id=e.owner_id
+               AND a.class_id=e.class_id AND a.subject_id=e.subject_id
+               WHERE a.school_id=$1 AND a.id=$2 LIMIT 1`,
+              [school.id, id],
+            );
+            if (used.rowCount)
+              throw DomainException.conflict(
+                'REVISION_CONFLICT',
+                'Existing exams use this assignment',
+              );
+          }
+          const retained = await hasRetainedReferences(c, table, school.id, id);
+          if (retained) {
+            await c.query(
+              `UPDATE ${table} SET ${table === 'users' ? "status='inactive'" : 'active=false'},revision=revision+1 WHERE school_id=$1 AND id=$2`,
+              [school.id, id],
+            );
+          } else {
+            await c.query(`DELETE FROM ${table} WHERE school_id=$1 AND id=$2`, [school.id, id]);
+          }
+          if (table === 'users' && retained)
+            await c.query(
+              'UPDATE auth_sessions SET revoked_at=$1 WHERE school_id=$2 AND user_id=$3 AND revoked_at IS NULL',
+              [this.clock.now(), school.id, id],
+            );
+          const outcome = retained ? 'archived' : 'deleted';
+          await this.audit(
+            c,
+            req,
+            `${kind}:${outcome}`,
+            id,
+            row.name ?? row.login_id ?? kind,
+            body.reason,
+          );
+          return { id, outcome };
+        },
+      );
     });
   }
   async editAccount(

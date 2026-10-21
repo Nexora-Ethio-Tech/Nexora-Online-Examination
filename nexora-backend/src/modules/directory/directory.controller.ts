@@ -24,6 +24,17 @@ export class DirectoryController {
     private readonly directory: DirectoryService,
     private readonly roster: RosterService,
   ) {}
+  @Post('directory/:kind/:id/remove')
+  @HttpCode(200)
+  remove(
+    @Req() req: Request,
+    @Param('kind') kind: string,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: unknown,
+  ) {
+    return this.directory.remove(req, kind, id, body, key);
+  }
   @Get('classes')
   classes(@Req() req: Request, @Query() query: unknown) {
     return this.directory.list(req, 'classes', query);
