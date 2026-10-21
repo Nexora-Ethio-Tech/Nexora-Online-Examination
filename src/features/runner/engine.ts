@@ -78,7 +78,7 @@ export class RunnerEngine {
           row,
           status: 'pending',
           message:
-            'Your device generation changed. Original work is retained. Ask your school to review it after the submission window.',
+            'Your school has changed the device allowed for this exam. Your saved answers remain here. Ask your school for help.',
         });
         this.schedule();
         return;
@@ -93,7 +93,7 @@ export class RunnerEngine {
       }
       if (!['active', 'preparing', 'awaiting_upload'].includes(attempt.state))
         throw new Error(
-          `The server reports ${attempt.state.replaceAll('_', ' ')}. Saved evidence is retained; contact your school if this is unexpected.`,
+          `This exam is no longer open for editing. Your saved answers remain here. Contact your school if this is unexpected.`,
         );
       if (this.clock.now() >= Date.parse(attempt.deadlineAt)) {
         if (local) {
@@ -110,7 +110,7 @@ export class RunnerEngine {
       if (control.attemptId !== this.attemptId) throw new Error('Supervision identity mismatch.');
       if (control.assistancePaused)
         throw new Error(
-          'Workstation assistance is awaiting staff approval. Your saved work and deadline are unchanged.',
+          'Your help request is waiting for staff approval. Your saved work and deadline are unchanged.',
         );
       if (control.suspended)
         throw new Error(
@@ -120,7 +120,7 @@ export class RunnerEngine {
         throw new Error('This attempt is awaiting upload. Contact your school before continuing.');
       if (this.clock.now() < Date.parse(attempt.startsAt))
         throw new Error(
-          'The common start has not arrived. Return to preparation and wait for the countdown.',
+          'The exam has not started yet. Return to the exam page and wait for the countdown.',
         );
       const device = await retainedId('browser-device');
       await exams.enroll(device, this.controller.signal);
@@ -136,7 +136,9 @@ export class RunnerEngine {
         binding.attemptId !== attempt.attemptId ||
         binding.deviceGeneration !== attempt.deviceGeneration
       )
-        throw new Error('Device binding changed. Reopen to reconcile before editing.');
+        throw new Error(
+          'The device allowed for this exam has changed. Try opening the exam again before continuing.',
+        );
       const packageKey = storageKey(
         this.owner.schoolId,
         this.owner.userId,
@@ -185,21 +187,21 @@ export class RunnerEngine {
           this.set({
             row: await store.freeze(this.view.row.key),
             status: 'pending',
-            message: `${message(error)} Original work is frozen and retained for receipt verification or school review.`,
+            message: `${message(error)} Your final answers are saved and cannot be changed. They still need submission confirmation or school review.`,
           });
           this.schedule();
           return;
         } catch (storageError) {
           this.set({
             status: 'blocked',
-            message: `Local finalization failed: ${message(storageError)} Keep this page open.`,
+            message: `Your final answers could not be saved: ${message(storageError)} Keep this page open.`,
           });
           return;
         }
       }
       this.set({
         status: 'blocked',
-        message: `${message(error)} Reconnect and reopen to revalidate. Local work is retained.`,
+        message: `${message(error)} Reconnect and open the exam again. Your saved answers remain on this device.`,
       });
     }
   }
@@ -245,7 +247,7 @@ export class RunnerEngine {
           status: 'blocked',
           paper: null,
           message:
-            'Workstation assistance is awaiting staff approval. Saved work and the original deadline are retained.',
+            'Your help request is waiting for staff approval. Saved work and the original deadline are retained.',
         });
       }
       if (control.suspended) {
@@ -253,7 +255,7 @@ export class RunnerEngine {
           status: 'blocked',
           paper: null,
           message:
-            'Your administrator suspended this attempt. Ask for approval, then revalidate and reopen. Saved answers and the original deadline are retained.',
+            'Your administrator suspended this attempt. Ask for approval, then try opening the exam again. Saved answers and the original deadline are retained.',
         });
       }
       if (this.view.row) {
@@ -278,7 +280,7 @@ export class RunnerEngine {
       this.set({
         status: 'blocked',
         paper: null,
-        message: `${message(error)} Revalidate before continuing. Saved work is retained.`,
+        message: `${message(error)} Try opening the exam again before continuing. Your saved answers remain on this device.`,
       });
     } finally {
       this.checkingSupervision = false;
@@ -384,10 +386,13 @@ export class RunnerEngine {
       this.clock.sync(remote.serverNow);
       if (remote.state !== 'active')
         throw new Error(
-          `Server state changed to ${remote.state}. Reopen to reconcile; local evidence is retained.`,
+          `Your exam status has changed. Try opening the exam again. Your saved answers remain on this device.`,
         );
       await store.reconcile(row.key, remote);
-      this.set({ row: (await store.readRecord(row.key)) ?? row, message: 'Server save checked.' });
+      this.set({
+        row: (await store.readRecord(row.key)) ?? row,
+        message: 'Checked the answers received by your school.',
+      });
       this.failures = 0;
       this.tick();
     } catch (error) {
@@ -406,7 +411,7 @@ export class RunnerEngine {
       } else
         this.set({
           status: 'blocked',
-          message: `${message(error)} Editing stopped. Local work is retained.`,
+          message: `${message(error)} You cannot change answers right now. Your saved answers remain on this device.`,
         });
     } finally {
       this.set({ uploading: false });
@@ -415,7 +420,7 @@ export class RunnerEngine {
   async finish() {
     if (this.finishing || !this.view.row || this.view.status === 'submitted') return;
     this.finishing = true;
-    this.set({ status: 'finalizing', message: 'Freezing your final answers…' });
+    this.set({ status: 'finalizing', message: 'Saving your final answers…' });
     try {
       await this.queue;
       this.alive();
@@ -423,7 +428,7 @@ export class RunnerEngine {
       this.set({
         row,
         status: 'pending',
-        message: 'Final answers saved on this device. Waiting for a matching receipt.',
+        message: 'Final answers saved on this device. Waiting for submission confirmation.',
       });
       await this.retrySubmission();
     } catch (error) {
@@ -455,11 +460,13 @@ export class RunnerEngine {
         try {
           const receipt = await this.api.submit(this.attemptId, frozen.body, frozen.key);
           if (receipt.snapshotDigest !== digest)
-            throw new Error('Submission receipt digest mismatch. Local evidence is retained.');
+            throw new Error(
+              'We could not confirm that the submitted answers match this device. Keep this page open and contact your school.',
+            );
           this.set({
             row: await store.recordReceipt(row.key, receipt),
             status: 'submitted',
-            message: 'Your exact final answers have a committed receipt.',
+            message: 'Your final answers have been received and your submission is confirmed.',
           });
           this.failures = 0;
           return;
@@ -476,12 +483,12 @@ export class RunnerEngine {
           ![frozen.key, row.recovery?.key].includes(remote.receipt.idempotencyKey)
         )
           throw new Error(
-            'The server receipt does not match this device’s final answers. Contact your school; all local evidence is retained.',
+            'The submission confirmation does not match the answers saved on this device. Contact your school. Your saved answers remain here.',
           );
         this.set({
           row: await store.recordReceipt(row.key, remote.receipt),
           status: 'submitted',
-          message: 'Your exact final answers have a committed receipt.',
+          message: 'Your final answers have been received and your submission is confirmed.',
         });
         return;
       }
@@ -496,18 +503,20 @@ export class RunnerEngine {
         this.set({
           status: 'blocked',
           message:
-            'The school rejected the recovery upload. Local evidence is retained. Contact your school.',
+            'Your school did not accept the answers sent for review. Your saved answers remain here. Contact your school.',
         });
         return;
       }
       if (remote.state === 'invalidated' || remote.state === 'submitted')
-        throw new Error('This attempt is closed without a matching receipt. Contact your school.');
-      throw submissionError ?? new Error('A matching receipt is not available yet.');
+        throw new Error(
+          'This exam is closed, but we cannot confirm your submission. Contact your school.',
+        );
+      throw submissionError ?? new Error('Your submission has not been confirmed yet.');
     } catch (error) {
       this.failures = Math.min(3, this.failures + 1);
       this.set({
         status: 'pending',
-        message: `${message(error)} Final answers remain on this device. Retry to check for a receipt, or send late evidence for school review.`,
+        message: `${message(error)} Final answers remain on this device. Try submission again, or send your saved answers for school review.`,
       });
     } finally {
       this.submitting = false;
@@ -531,11 +540,12 @@ export class RunnerEngine {
       this.set({
         row: await store.recordRecovery(row.key, result.receivedAt),
         status: 'recovery',
-        message: 'School review pending. Your upload is evidence, not a submitted result.',
+        message:
+          'School review pending. Your saved answers have been sent for review, but your submission has not been accepted yet.',
       });
     } catch (error) {
       this.set({
-        message: `${message(error)} The saved recovery request is retained for an identical retry.`,
+        message: `${message(error)} Your request is saved. You can safely try sending it again.`,
       });
     } finally {
       this.submitting = false;

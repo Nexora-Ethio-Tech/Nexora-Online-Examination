@@ -44,7 +44,7 @@ function RunnerSession({
   return engine ? (
     <RunnerScreen engine={engine} reopen={() => setRevision((n) => n + 1)} />
   ) : (
-    <p role="status">Restoring local work…</p>
+    <p role="status">Opening your saved answers…</p>
   );
 }
 function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => void }) {
@@ -87,7 +87,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
         <div className="min-w-0">
           <p className="text-xs text-sidebar-foreground">Official exam</p>
           <h1 className="mt-1 text-lg font-semibold sm:text-2xl">
-            {view.paper?.title ?? 'Your exam attempt'}
+            {view.paper?.title ?? 'Your exam'}
           </h1>
         </div>
         {active ? (
@@ -100,7 +100,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
         ) : null}
       </div>
       <div role="status" className="border-b py-3 text-xs leading-relaxed">
-        <p>{view.message || 'Revalidating your session, device and exam…'}</p>
+        <p>{view.message || 'Checking that you can continue this exam…'}</p>
         {!online ? (
           <p className="mt-2 font-medium">
             Offline. Keep this tab open. Saved answers will wait for a connection.
@@ -109,9 +109,9 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
         {view.row ? (
           <p className="mt-2 text-muted-foreground">
             {view.saving ? 'Saving on this device…' : `${answered} answers saved on this device`} ·{' '}
-            {view.row.receipt ? 0 : view.row.outbox.length} pending upload
+            {view.row.receipt ? 0 : view.row.outbox.length} changes waiting to send
             <br />
-            Last server save:{' '}
+            Last answers received by your school:{' '}
             {view.row.attempt.lastServerSaveAt
               ? eatTime(view.row.attempt.lastServerSaveAt)
               : 'Not confirmed yet'}
@@ -131,10 +131,10 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Editing is paused</h2>
           <p className="text-sm">
-            Saved evidence remains on this device. Reconnect before reopening.
+            Your saved answers remain on this device. Connect to the internet before reopening.
           </p>
           <Button className="min-h-11" onClick={reopen}>
-            Revalidate and reopen
+            Try opening exam again
           </Button>
           <Button asChild variant="outline" className="ml-2 min-h-11">
             <Link to="/student">My exams</Link>
@@ -311,11 +311,13 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
       {view.status === 'pending' || view.status === 'finalizing' ? (
         <section className="space-y-4 rounded-xl border-2 border-amber-500 bg-background p-5">
           <h2 className="text-xl font-semibold">
-            {view.status === 'finalizing' ? 'Finalizing answers' : 'Pending upload'}
+            {view.status === 'finalizing'
+              ? 'Saving your final answers'
+              : 'Waiting to send your answers'}
           </h2>
           <p className="text-sm">
-            Do not clear browser storage. Submission is complete only when a matching server receipt
-            is confirmed.
+            Keep this page open and do not clear your browser data. Wait until you see “Submitted
+            successfully” before you leave.
           </p>
           <Button
             className="min-h-11"
@@ -324,16 +326,16 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
               void engine.retrySubmission();
             }}
           >
-            {view.uploading ? 'Checking receipt…' : 'Retry submission'}
+            {view.uploading ? 'Checking submission…' : 'Retry submission'}
           </Button>
           {view.row?.final ? (
             <details>
               <summary className="cursor-pointer py-3 text-sm font-medium">
-                Late upload or device dispute: request school review
+                Could not submit on time? Ask your school for help
               </summary>
               <p className="mb-3 text-sm text-muted-foreground">
                 Use this after the submission window has closed. The school must decide whether to
-                accept your retained answers.
+                accept your saved answers.
               </p>
               <label className="block text-sm" htmlFor="recovery-reason">
                 Reason for school review
@@ -352,7 +354,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
                   void engine.recover(view.row?.recovery?.reason ?? reason);
                 }}
               >
-                Send retained answers for review
+                Send saved answers for review
               </Button>
             </details>
           ) : null}
@@ -362,7 +364,8 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
         <section className="space-y-4 rounded-xl border-2 border-amber-500 bg-background p-5">
           <h2 className="text-xl font-semibold">School review pending</h2>
           <p className="text-sm">
-            Your evidence is awaiting a school decision. It is not yet an accepted submission.
+            Your saved answers are waiting for your school to review them. Your submission has not
+            been accepted yet.
           </p>
           <Button
             variant="outline"
@@ -387,7 +390,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
             Your final answers were accepted. Results will appear only after your school releases
             them.
           </p>
-          <p className="break-all text-sm">Receipt: {view.row.receipt.receiptId}</p>
+          <p className="break-all text-sm">Confirmation number: {view.row.receipt.receiptId}</p>
           <p className="text-sm">Accepted: {eatTime(view.row.receipt.acceptedAt)}</p>
           <Button asChild variant="outline" className="min-h-11">
             <Link to="/student">Return to my exams</Link>
