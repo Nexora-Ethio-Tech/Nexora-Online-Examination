@@ -1,0 +1,27 @@
+.exam-private-content[hidden] {
+  display: none !important;
+}
+.exam-privacy-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: #000;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+}
+.exam-print-notice {
+  display: none;
+}
+@media print {
+  body:has(.exam-privacy-root) #root {
+    display: none !important;
+  }
+  body:has(.exam-privacy-root)::after {
+    content: 'Exam content is unavailable for printing.';
+    display: block;
+    color: #000;
+    background: #fff;
+  }
+}
