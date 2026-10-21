@@ -53,7 +53,7 @@ export function StudentAssistance({
           Assistance request: {status.data.request.status}.
           {` Reference: ${status.data.request.id}.`}
           {status.data.request.reason && ` Staff note: ${status.data.request.reason}`}
-          {!status.data.paused && ' Use Revalidate and reopen to continue.'}
+          {!status.data.paused && ' Choose Try opening exam again to continue.'}
         </p>
       )}
       {(error || (paused && status.error)) && (

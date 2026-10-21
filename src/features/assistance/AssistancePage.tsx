@@ -20,8 +20,8 @@ export function AssistancePage() {
     <main className="space-y-5">
       <h1 className="text-2xl font-semibold">Exam assistance</h1>
       <p>
-        Review help requests on your own device. Approving lets the student revalidate and resume;
-        it does not extend the deadline or lift an administrative suspension.
+        Review help requests on your own device. Approving lets the student open the exam again and
+        continue; it does not extend the deadline or lift an administrative suspension.
       </p>
       <label className="block">
         Exam sitting
@@ -100,7 +100,7 @@ function Decision({
       await assistanceApi(client).decide(request.id, { action, reason, code: submittedCode });
       setMessage(
         action === 'approve'
-          ? 'Approved. The student can revalidate and reopen.'
+          ? 'Approved. The student can open the exam again.'
           : 'Rejected. Editing remains paused.',
       );
       refresh();
