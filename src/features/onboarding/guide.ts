@@ -10,7 +10,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Import students into a class',
-      body: 'Choose a class in Roster import and preview your CSV. In Accounts, open the class card to find students and issue credentials. New IDs continue across all classes in your school.',
+      body: 'Choose a class in Roster import and preview your CSV. In Accounts, open the class card to find students and give students their login details. New IDs continue across all classes in your school.',
       path: '/admin/school',
     },
     {
@@ -37,7 +37,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Upload and manage questions',
-      body: 'Use a Word or Excel template with answer keys. A stuck import can be cancelled; parsed questions stay in the draft. Unneeded drafts can be removed.',
+      body: 'Use a Word or Excel template with answer keys. A stuck import can be cancelled; questions already read from the file stay in the draft. Unneeded drafts can be removed.',
       path: '/teacher',
     },
     {
@@ -59,12 +59,12 @@ export const guides: Record<Role, GuideStep[]> = {
   student: [
     {
       title: 'Prepare for your exam',
-      body: 'Open My exams, check the schedule and download the encrypted paper during preparation.',
+      body: 'Open My exams, check the schedule and choose Download exam when preparation opens. Stay connected until the exam starts.',
       path: '/student',
     },
     {
       title: 'Keep your answers safe',
-      body: 'Answers save on this device before upload. Keep the tab open when offline and check the last server save separately.',
+      body: 'Answers save on this device before upload. Keep the tab open when offline and check when your school last received your answers.',
       path: '/student',
     },
     {
@@ -73,8 +73,8 @@ export const guides: Record<Role, GuideStep[]> = {
       path: '/student',
     },
     {
-      title: 'Finish and check your receipt',
-      body: 'Submission is complete only after a confirmed receipt. Pending upload is not a completed submission.',
+      title: 'Finish and check your submission',
+      body: 'Wait for Submitted successfully after sending your final answers. If answers are waiting to send, keep the page open and reconnect.',
       path: '/student',
     },
     {

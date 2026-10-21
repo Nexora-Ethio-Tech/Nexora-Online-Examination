@@ -31,6 +31,8 @@ Contract v0.6 additionally issues BE-05 official results/publication. Read docs/
 
 ## Product integrity
 
+- Write portal text for students, teachers and school administrators. Describe what happened and what to do next; keep implementation terms out of routine workflows. Preserve the difference between device saves, answers received by the school, pending review and confirmed submission. Follow docs/portal-language-architecture-and-testing.md and update onboarding when visible labels change.
+
 - New backend authentication uses opaque HttpOnly cookie sessions, Origin checks and CSRF. No JWT refresh flow is assumed. Never persist credentials in browser storage.
 - Server session determines school and permissions. Teachers submit; admins approve, schedule, publish, enable practice and decide recovery. Frontend guards are usability aids only.
 - Students use generated IDs/passwords without required email. Admin MFA precedes privileged access and live school data.
