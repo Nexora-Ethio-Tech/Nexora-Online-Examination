@@ -12,6 +12,7 @@ import { schoolApi } from './api';
 import { credentialsCsv } from './csv';
 import type { Account, CredentialIssue, SchoolClass, Subject } from './schemas';
 import { RosterImport } from './RosterImport';
+import { RemoveRecord } from './RemoveRecord';
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -267,6 +268,12 @@ function StructurePage({ kind }: { kind: 'class' | 'subject' }) {
             >
               Edit {row.name}
             </Button>
+            <RemoveRecord
+              kind={kind === 'class' ? 'classes' : 'subjects'}
+              id={'classId' in row ? row.classId : row.subjectId}
+              revision={row.revision}
+              label={row.name}
+            />
           </section>
         ))}
       </div>
@@ -367,7 +374,17 @@ function StructureForm({
     </form>
   );
 }
-function AccountsPage({ showIssue }: { showIssue: (v: CredentialIssue) => void }) {
+function AccountsPage({
+  showIssue,
+  classId,
+  setClassId,
+}: {
+  showIssue: (v: CredentialIssue) => void;
+  classId: string | null;
+  setClassId: (value: string | null) => void;
+}) {
+  const api = schoolApi(useApiClient());
+  const classes = useSchoolPage(['classes'], api.classes);
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
@@ -380,6 +397,7 @@ function AccountsPage({ showIssue }: { showIssue: (v: CredentialIssue) => void }
             variant={role === value ? 'default' : 'outline'}
             onClick={() => {
               setRole(value);
+              setClassId(null);
               setFilter('');
               setSearch('');
             }}
@@ -405,7 +423,53 @@ function AccountsPage({ showIssue }: { showIssue: (v: CredentialIssue) => void }
         </Field>
         <Button>Search</Button>
       </form>
-      <AccountList key={`${role}:${filter}`} role={role} search={filter} showIssue={showIssue} />
+      {role === 'student' && !classId ? (
+        <>
+          <h2 className="text-xl font-semibold">Choose a class to manage its students</h2>
+          {classes.controls}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {classes.rows.map((c) => (
+              <button
+                key={c.classId}
+                className={`${panel} text-left hover:border-primary`}
+                onClick={() => setClassId(c.classId)}
+              >
+                <span className="block text-lg font-semibold">{c.name}</span>
+                <span className="block">
+                  {c.academicYear} · {c.active ? 'Active' : 'Archived'}
+                </span>
+                <span>
+                  {c.studentCount === undefined ? 'Open students' : `${c.studentCount} students`}
+                </span>
+              </button>
+            ))}
+            <button className={`${panel} text-left`} onClick={() => setClassId('unassigned')}>
+              Students without a class
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {role === 'student' && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" onClick={() => setClassId(null)}>
+                Back to classes
+              </Button>
+              <h2 className="text-xl font-semibold">
+                {classes.rows.find((c) => c.classId === classId)?.name ??
+                  'Students without a class'}
+              </h2>
+            </div>
+          )}
+          <AccountList
+            key={`${role}:${filter}:${classId}`}
+            role={role}
+            search={filter}
+            classId={role === 'student' ? (classId ?? undefined) : undefined}
+            showIssue={showIssue}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -413,14 +477,16 @@ function AccountList({
   role,
   search,
   showIssue,
+  classId,
 }: {
   role: 'student' | 'teacher';
   search: string;
+  classId?: string;
   showIssue: (v: CredentialIssue) => void;
 }) {
   const api = schoolApi(useApiClient());
-  const list = useSchoolPage(['accounts', role, search], (cursor, signal) =>
-    api.accounts(role, search, cursor, signal),
+  const list = useSchoolPage(['accounts', role, search, classId ?? 'all'], (cursor, signal) =>
+    api.accounts(role, search, cursor, signal, classId),
   );
   const classes = useSchoolPage(['classes'], api.classes);
   const op = useSchoolOperation();
@@ -571,6 +637,12 @@ function AccountList({
               >
                 Reset password for {a.displayName}
               </Button>
+              <RemoveRecord
+                kind={role === 'student' ? 'students' : 'teachers'}
+                id={a.userId}
+                revision={a.revision}
+                label={a.displayName}
+              />
             </div>
           </section>
         ))}
@@ -916,6 +988,12 @@ function AssignmentRow({ assignment: a }: { assignment: import('./schemas').Assi
       <Button variant="outline" onClick={() => setEditing(!editing)}>
         {a.active ? 'Deactivate assignment' : 'Reactivate assignment'}
       </Button>
+      <RemoveRecord
+        kind="teacher-assignments"
+        id={a.assignmentId}
+        revision={a.revision}
+        label={a.teacherName}
+      />
       {editing && (
         <form
           className="space-y-3"
@@ -1025,6 +1103,7 @@ function AiExamSettings() {
   );
 }
 export function SchoolSetupPage() {
+  const [accountsClass, setAccountsClass] = useState<string | null>(null);
   const [issue, setIssue] = useState<CredentialIssue | null>(null);
   const [tab, setTab] = useState('classes');
   const blocker = useBlocker(!!issue?.credentials);
@@ -1069,7 +1148,11 @@ export function SchoolSetupPage() {
             <StructurePage kind="subject" />
           </TabsContent>
           <TabsContent value="accounts">
-            <AccountsPage showIssue={setIssue} />
+            <AccountsPage
+              showIssue={setIssue}
+              classId={accountsClass}
+              setClassId={setAccountsClass}
+            />
           </TabsContent>
           <TabsContent value="assignments">
             <AssignmentsPage />

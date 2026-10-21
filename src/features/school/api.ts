@@ -27,6 +27,19 @@ export function schoolApi(client: ApiClient) {
     method: 'POST' | 'PATCH' = 'POST',
   ) => client.request(path, schema, { method, body, idempotencyKey: key });
   return {
+    remove: (
+      kind: 'classes' | 'subjects' | 'students' | 'teachers' | 'teacher-assignments',
+      id: string,
+      revision: number,
+      reason: string,
+      key: string,
+    ) =>
+      write(
+        `/directory/${kind}/${encodeURIComponent(id)}/remove`,
+        z.object({ id: z.string(), outcome: z.enum(['deleted', 'archived']) }),
+        { revision, reason, confirmed: true },
+        key,
+      ),
     aiSettings: (signal?: AbortSignal) =>
       client.request('/school/ai-exam-settings', aiExamSettingsSchema, { signal }),
     saveAiSettings: (body: import('zod').infer<typeof aiExamSettingsInputSchema>, key: string) =>
@@ -46,9 +59,10 @@ export function schoolApi(client: ApiClient) {
       search: string,
       cursor: string | null,
       signal?: AbortSignal,
+      classId?: string,
     ) =>
       client.request(
-        `/${role === 'teacher' ? 'teachers' : 'students'}?${page(cursor)}&search=${encodeURIComponent(search)}`,
+        `/${role === 'teacher' ? 'teachers' : 'students'}?${page(cursor)}&search=${encodeURIComponent(search)}${classId ? `&classId=${encodeURIComponent(classId)}` : ''}`,
         pageSchema(accountSchema),
         { signal },
       ),

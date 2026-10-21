@@ -12,7 +12,12 @@ export const subjectInputSchema = z.object({
     .trim()
     .regex(/^[A-Za-z0-9_-]{1,30}$/, 'Use letters, numbers, underscores or hyphens for the code.'),
 });
-export const classSchema = classInputSchema.extend({ classId: id, revision, active: z.boolean() });
+export const classSchema = classInputSchema.extend({
+  classId: id,
+  revision,
+  active: z.boolean(),
+  studentCount: z.number().int().nonnegative().optional(),
+});
 export const subjectSchema = subjectInputSchema.extend({
   subjectId: id,
   revision,
