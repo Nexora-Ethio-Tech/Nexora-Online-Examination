@@ -10,7 +10,7 @@ The engine remains mounted outside this boundary. Its deadline, persistence queu
 
 ## Privacy and supervision
 
-The watermark repeats an attempt reference and a UTC device timestamp, without names or login IDs. The timestamp is a deterrent label, not trusted server evidence. A determined user can alter client rendering; no overlay is an authorization boundary.
+The watermark tiles across the question area and includes a readable label with an attempt reference and a device timestamp displayed in Ethiopian calendar and standard AM/PM EAT, without names or login IDs. The timestamp is a deterrent label, not trusted server evidence. A determined user can alter client rendering; no overlay is an authorization boundary.
 
 The existing bounded durable interruption queue gains `focus_lost`. Backend validation accepts it alongside hidden, returned, pagehide and fullscreen_exit. Existing tenant, owner, device-generation, replay and count checks remain. There is no screenshot event and no automatic penalty. Observed timestamps remain client claims. No migration is required because events are stored as JSON payloads.
 

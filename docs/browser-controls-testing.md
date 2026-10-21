@@ -5,7 +5,7 @@ Scope: browser deterrence and interruption reporting, plus explicit administrato
 ## Student rehearsal
 
 1. Run `npm run dev:demo`, sign in with the existing demo student and open the current-window exam. Download the paper to start.
-2. Confirm only the exam workspace is shown and every question carries a student ID, exam title and attempt watermark. No answer keys or credentials appear.
+2. Confirm only the exam workspace is shown and every question carries a tiled attempt-reference watermark and an Ethiopian date/time in EAT, without student names, login IDs or IP addresses. No answer keys or credentials appear.
 3. Choose Enter fullscreen. If unsupported or denied, a message appears and the exam remains usable. Escape is allowed; it can produce a fullscreen-exit report.
 4. Answer a question, switch tabs and return. The answer and timer remain intact. This records an interruption without deducting marks or automatically suspending the student.
 5. Go offline after unlocking. Answer changes remain on the device. Return online and leave the exam open for at least 15 seconds; optional interruption reports retry separately from answers.

@@ -69,7 +69,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Privacy and help',
-      body: 'Leaving the window hides questions until Resume. The clock continues. Request assistance when you need staff approval; the guide never appears over an active exam.',
+      body: 'Leaving the window hides questions until Resume. The clock continues. Questions carry an attempt watermark and cannot be printed. Request assistance when you need staff approval; the guide never appears over an active exam.',
       path: '/student',
     },
     {

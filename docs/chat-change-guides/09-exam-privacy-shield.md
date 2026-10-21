@@ -6,7 +6,7 @@ Verified change history through `ed01fe2`, 21 October 2026. Commit(s): 40ae883 t
 
 - Added display-layer concealment for blur, hidden visibility, pagehide and beforeprint; a focused/visible page plus explicit Resume is required.
 - Kept the question subtree mounted while hidden. The engine, saved answers, outbox, deadline and staff authorization remain independent.
-- Replaced the student-login watermark with repeated attempt reference and UTC device timestamp.
+- Replaced the student-login watermark with repeated attempt reference and device timestamp displayed in Ethiopian calendar and standard AM/PM EAT.
 - Added exam-scoped print CSS that hides application content and prints a notice. Other routes retain their existing report printing.
 - Added durable focus_lost telemetry and backend/client enum support; events are not labelled screenshots and cause no automatic penalties.
 - Added component, integrity, backend and desktop/mobile browser tests and architecture/testing guides. Clipboard wiping, DevTools blocking and native capture exclusion were not implemented.
