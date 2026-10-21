@@ -100,15 +100,19 @@ describe('school setup UI', () => {
     await user.click(screen.getByRole('tab', { name: 'Accounts' }));
     await user.click(await screen.findByRole('button', { name: /Grade 10 A/ }));
     await user.click(
-      await screen.findByRole('checkbox', { name: 'Select Test Student for credentials' }),
+      await screen.findByRole('checkbox', { name: 'Select Test Student for login details' }),
     );
     await user.type(screen.getByLabelText('Reason'), 'Distribute privately');
-    expect(screen.getByRole('button', { name: 'Generate selected credentials' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Create login details for selected accounts' }),
+    ).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /I checked the selected students/ }));
-    await user.click(screen.getByRole('button', { name: 'Generate selected credentials' }));
-    await screen.findByRole('heading', { name: 'Save these credentials now' });
+    await user.click(
+      screen.getByRole('button', { name: 'Create login details for selected accounts' }),
+    );
+    await screen.findByRole('heading', { name: 'Save these login details now' });
     const password = screen
-      .getByRole('table', { name: 'Generated account credentials' })
+      .getByRole('table', { name: 'New account login details' })
       .querySelector('tbody tr td:last-child')?.textContent;
     if (!password) throw new Error('Missing displayed password');
     expect(
@@ -129,12 +133,12 @@ describe('school setup UI', () => {
     ).not.toContain(password);
     expect(JSON.stringify(localStorage)).not.toContain(password);
     expect(JSON.stringify(sessionStorage)).not.toContain(password);
-    expect(screen.getByRole('button', { name: 'Close credential view' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Close login details' })).toBeDisabled();
     await user.click(screen.getByRole('link', { name: 'Official results' }));
-    expect(await screen.findByText('Leave the credential list?')).toBeInTheDocument();
+    expect(await screen.findByText('Leave the login details?')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    await user.click(screen.getByRole('checkbox', { name: /I saved the credentials/ }));
-    await user.click(screen.getByRole('button', { name: 'Close credential view' }));
+    await user.click(screen.getByRole('checkbox', { name: /I saved the login details/ }));
+    await user.click(screen.getByRole('button', { name: 'Close login details' }));
     expect(screen.queryByText(password)).not.toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Test Student' })).toBeInTheDocument();
   });
@@ -148,10 +152,12 @@ describe('school setup UI', () => {
     await user.click(await screen.findByRole('button', { name: /Grade 10 A/ }));
     await user.click(await screen.findByRole('button', { name: 'Reset password for Samira' }));
     await user.type(screen.getByLabelText('Reason'), 'Student lost password');
-    expect(screen.getByRole('button', { name: 'Reset and show new credentials' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Reset password and show login details' }),
+    ).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /I verified this account/ }));
-    await user.click(screen.getByRole('button', { name: 'Reset and show new credentials' }));
-    await screen.findByRole('heading', { name: 'Save these credentials now' });
+    await user.click(screen.getByRole('button', { name: 'Reset password and show login details' }));
+    await screen.findByRole('heading', { name: 'Save these login details now' });
     expect(await studentAuth.session()).toBeNull();
     expect(store.directory.audit.some((a) => a.action === 'password_reset')).toBe(true);
   });
@@ -172,20 +178,22 @@ describe('school setup UI', () => {
     await user.click(screen.getByRole('button', { name: 'Add teacher' }));
     await user.type(screen.getByLabelText('Teacher name'), 'Teacher Example');
     await user.type(screen.getByLabelText('Reason'), 'New staff');
-    await user.click(screen.getByRole('button', { name: 'Create teacher and credentials' }));
+    await user.click(screen.getByRole('button', { name: 'Create teacher and login details' }));
     await waitFor(() => expect(keys).toHaveLength(1));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Create teacher and credentials' })).toBeEnabled(),
+      expect(
+        screen.getByRole('button', { name: 'Create teacher and login details' }),
+      ).toBeEnabled(),
     );
-    await user.click(screen.getByRole('button', { name: 'Create teacher and credentials' }));
-    await screen.findByRole('heading', { name: 'Credentials were already issued' });
+    await user.click(screen.getByRole('button', { name: 'Create teacher and login details' }));
+    await screen.findByRole('heading', { name: 'Login details were already created' });
     expect(keys[1]).toBe(keys[0]);
     expect(store.directory.accounts.size).toBe(3);
     expect(screen.getByText(/Teacher Example · DEMO-T/)).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Download credentials CSV once' }),
+      screen.queryByRole('button', { name: 'Download login details (CSV)' }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Close credential view' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Close login details' })).toBeEnabled();
   });
   it('connects teacher assignments to the teacher workspace', async () => {
     const { user, client } = setup();

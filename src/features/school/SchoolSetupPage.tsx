@@ -135,9 +135,9 @@ function CredentialPanel({ issue, close }: { issue: CredentialIssue; close: () =
   const [downloaded, setDownloaded] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
   return (
-    <section className={`${panel} space-y-4`} aria-label="One-time credentials">
+    <section className={`${panel} space-y-4`} aria-label="Private login details">
       <h2 className="text-2xl font-semibold">
-        {issue.credentials ? 'Save these credentials now' : 'Credentials were already issued'}
+        {issue.credentials ? 'Save these login details now' : 'Login details were already created'}
       </h2>
       <p>
         {issue.issuedCount} account(s) · {eatTime(issue.issuedAt)}
@@ -151,7 +151,7 @@ function CredentialPanel({ issue, close }: { issue: CredentialIssue; close: () =
           </p>
           <div className="max-h-96 overflow-auto rounded border">
             <table className="w-full text-left text-sm">
-              <caption className="sr-only">Generated account credentials</caption>
+              <caption className="sr-only">New account login details</caption>
               <thead>
                 <tr>
                   <th className="p-3">Name</th>
@@ -184,7 +184,7 @@ function CredentialPanel({ issue, close }: { issue: CredentialIssue; close: () =
               }
             }}
           >
-            {downloaded ? 'Download requested' : 'Download credentials CSV once'}
+            {downloaded ? 'Download requested' : 'Download login details (CSV)'}
           </Button>
           <label className="flex items-start gap-3">
             <input
@@ -192,14 +192,14 @@ function CredentialPanel({ issue, close }: { issue: CredentialIssue; close: () =
               checked={acknowledged}
               onChange={(e) => setAcknowledged(e.target.checked)}
             />
-            I saved the credentials, or understand that missing passwords will need a reset.
+            I saved the login details, or understand that missing passwords will need a reset.
           </label>
         </>
       ) : (
         <>
           <p>
-            The original response is no longer available. Retrying did not create new passwords. If
-            you did not save the first list, search Accounts by these user IDs and reset their
+            The passwords from the first list cannot be shown again. No new passwords were created.
+            If you did not save the first list, search Accounts by these user IDs and reset their
             passwords.
           </p>
           <ul className="list-disc space-y-1 pl-5">
@@ -217,7 +217,7 @@ function CredentialPanel({ issue, close }: { issue: CredentialIssue; close: () =
         disabled={!!issue.credentials && !acknowledged}
         onClick={close}
       >
-        Close credential view
+        Close login details
       </Button>
     </section>
   );
@@ -539,7 +539,7 @@ function AccountList({
             </Field>
             <Reason value={reason} onChange={setReason} />
             <Button className="min-h-11" disabled={!name.trim() || !reason.trim()}>
-              Create teacher and credentials
+              Create teacher and login details
             </Button>
             <Button type="button" variant="outline" onClick={() => setAddingTeacher(false)}>
               Cancel adding
@@ -550,7 +550,7 @@ function AccountList({
       {role === 'student' && (
         <p>
           Import students in the Roster import tab, then select unissued accounts below to generate
-          their credentials.
+          their login details.
         </p>
       )}
       {list.controls}
@@ -589,7 +589,9 @@ function AccountList({
             <h3 className="font-semibold">{a.displayName}</h3>
             <p>
               {a.loginId} · {a.status === 'active' ? 'Active' : 'Inactive'} ·{' '}
-              {a.credentialState === 'unissued' ? 'Credentials not issued' : 'Credentials issued'}
+              {a.credentialState === 'unissued'
+                ? 'Login details not created'
+                : 'Login details created'}
             </p>
             {a.studentRef && (
               <p>
@@ -614,7 +616,7 @@ function AccountList({
                     );
                   }}
                 />
-                Select {a.displayName} for credentials
+                Select {a.displayName} for login details
               </label>
             )}
             <div className="flex flex-wrap gap-3">
@@ -664,7 +666,9 @@ function AccountList({
             );
           }}
         >
-          <h2 className="text-xl font-semibold">Issue credentials to {checked.length} students</h2>
+          <h2 className="text-xl font-semibold">
+            Create login details for {checked.length} students
+          </h2>
           <fieldset disabled={op.pending} className="space-y-3">
             <Reason value={reason} onChange={setReason} />
             <label className="flex gap-3">
@@ -673,13 +677,13 @@ function AccountList({
                 checked={confirmed}
                 onChange={(e) => setConfirmed(e.target.checked)}
               />
-              I checked the selected students and am ready to save their credentials.
+              I checked the selected students and am ready to save their login details.
             </label>
             <Button
               className="min-h-11"
               disabled={!reason.trim() || !confirmed || checked.length > 500}
             >
-              Generate selected credentials
+              Create login details for selected accounts
             </Button>
           </fieldset>
         </form>
@@ -751,7 +755,7 @@ function PasswordReset({
         </label>
         <div className="flex gap-3">
           <Button className="min-h-11" disabled={!reason.trim() || !confirmed}>
-            Reset and show new credentials
+            Reset password and show login details
           </Button>
           <Button type="button" variant="outline" onClick={close}>
             Cancel reset
@@ -1173,7 +1177,7 @@ export function SchoolSetupPage() {
         onOpenChange={(open) => {
           if (!open && blocker.state === 'blocked') blocker.reset();
         }}
-        title="Leave the credential list?"
+        title="Leave the login details?"
         description="This clears the one-time passwords from this view. If you have not saved them, reset the affected accounts later."
         confirmLabel="Discard list and leave"
         onConfirm={() => {

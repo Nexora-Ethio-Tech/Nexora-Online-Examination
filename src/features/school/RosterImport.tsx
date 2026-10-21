@@ -154,8 +154,8 @@ export function RosterImport() {
           )}
           {created !== null ? (
             <p role="status">
-              Imported {created} students. Open Accounts → Students to generate their credentials.
-              Existing exam rosters were preserved.
+              Imported {created} students. Open Accounts, choose their class, and create their login
+              details. Existing exam rosters were preserved.
             </p>
           ) : (
             <form
