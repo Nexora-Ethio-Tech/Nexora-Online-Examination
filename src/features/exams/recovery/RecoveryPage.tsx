@@ -1,3 +1,4 @@
+import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useRef, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,13 +9,7 @@ import { control, Failure, panel, useTeacherScope } from '../authoring/TeacherPa
 import { recoveryApi } from './api';
 import type { DecisionRequest, RecoveryDetail as Detail } from './schemas';
 
-const eat = (value: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Africa/Addis_Ababa',
-    dateStyle: 'medium',
-    timeStyle: 'medium',
-    hour12: true,
-  }).format(new Date(value)) + ' EAT';
+const eat = (value: string) => formatEatDateTime(value, true);
 const label = (status: Detail['status']) =>
   ({ recovery_pending: 'Pending review', accepted: 'Accepted', rejected: 'Rejected' })[status];
 

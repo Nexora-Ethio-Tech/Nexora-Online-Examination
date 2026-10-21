@@ -1,3 +1,4 @@
+import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { SupervisionPanel } from './SupervisionPanel';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
@@ -20,13 +21,7 @@ import {
   type TransferResponse,
 } from './schemas';
 
-const eatTime = (value: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Africa/Addis_Ababa',
-    dateStyle: 'medium',
-    timeStyle: 'medium',
-    hour12: true,
-  }).format(new Date(value)) + ' EAT';
+const eatTime = (value: string) => formatEatDateTime(value, true);
 
 function useLiveRead<T extends { serverNow: string }>(
   queryKey: QueryKey,

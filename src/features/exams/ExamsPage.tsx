@@ -1,3 +1,4 @@
+import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { ScheduleCountdown } from '@/components/shared/ScheduleCountdown';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -10,16 +11,7 @@ import { useApiClient } from '@/lib/ApiProvider';
 import { errorMessage } from '@/lib/api-client';
 import { examApi } from './api';
 import type { Exam } from './schemas';
-export const eatTime = (value: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Africa/Addis_Ababa',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  }).format(new Date(value)) + ' EAT';
+export const eatTime = formatEatDateTime;
 export function examStatus(exam: Exam) {
   const states = {
     preparing: 'Preparation started',

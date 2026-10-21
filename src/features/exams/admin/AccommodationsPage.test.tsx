@@ -54,7 +54,7 @@ async function edit(user: ReturnType<typeof userEvent.setup>) {
 it('requires confirmation, previews EAT and refreshes the audited saved allowance', async () => {
   const { user, store } = setup();
   await edit(user);
-  expect(screen.getByText(/New student deadline:.*09:35 am EAT/)).toBeInTheDocument();
+  expect(screen.getByText(/New student deadline:.*9:35 AM EAT/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Save extra time' })).toBeDisabled();
   await user.click(screen.getByRole('checkbox'));
   await user.click(screen.getByRole('button', { name: 'Save extra time' }));
