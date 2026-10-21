@@ -78,4 +78,24 @@ export class AuthoringController {
   ) {
     return this.authoring.submit(req, id, body, key);
   }
+  @Post('exams/:id/review-all')
+  @HttpCode(200)
+  reviewAll(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: unknown,
+  ) {
+    return this.authoring.reviewAll(req, id, body, key);
+  }
+  @Post('exams/:id/remove')
+  @HttpCode(200)
+  remove(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: unknown,
+  ) {
+    return this.authoring.removeDraft(req, id, body, key);
+  }
 }

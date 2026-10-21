@@ -11,6 +11,7 @@ import {
   resourceIdSchema as uuid,
 } from '../delivery/preparation-schemas';
 import { draftSchema, itemSchema, metadataSchema, revision, Item } from './schemas';
+import { hasRetainedReferences } from '../directory/record-removal';
 
 export type Exam = {
   id: string;
@@ -51,7 +52,7 @@ export class AuthoringService {
   async owned(c: PoolClient, school: string, teacher: string, id: string, lock = false) {
     const row = (
       await c.query<Exam>(
-        `SELECT e.* FROM exams e JOIN teacher_assignments a ON a.school_id=e.school_id AND a.id=e.assignment_id AND a.teacher_id=e.owner_id AND a.class_id=e.class_id AND a.subject_id=e.subject_id JOIN classes cl ON cl.school_id=a.school_id AND cl.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE e.school_id=$1 AND e.owner_id=$2 AND e.id=$3 AND a.active AND cl.active AND s.active ${lock ? 'FOR UPDATE OF e FOR SHARE OF a,cl,s' : ''}`,
+        `SELECT e.* FROM exams e JOIN teacher_assignments a ON a.school_id=e.school_id AND a.id=e.assignment_id AND a.teacher_id=e.owner_id AND a.class_id=e.class_id AND a.subject_id=e.subject_id JOIN classes cl ON cl.school_id=a.school_id AND cl.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE e.school_id=$1 AND e.archived_at IS NULL AND e.owner_id=$2 AND e.id=$3 AND a.active AND cl.active AND s.active ${lock ? 'FOR UPDATE OF e FOR SHARE OF a,cl,s' : ''}`,
         [school, teacher, id],
       )
     ).rows[0];
@@ -181,7 +182,7 @@ export class AuthoringService {
       async (c) => {
         const rows = (
           await c.query<Exam>(
-            `SELECT e.* FROM exams e JOIN teacher_assignments a ON a.school_id=e.school_id AND a.id=e.assignment_id AND a.teacher_id=e.owner_id JOIN classes cl ON cl.school_id=a.school_id AND cl.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE e.school_id=$1 AND e.owner_id=$2 AND a.active AND cl.active AND s.active AND ($3::uuid IS NULL OR (e.created_at,e.id)<($4::timestamptz,$3::uuid)) ORDER BY e.created_at DESC,e.id DESC LIMIT $5`,
+            `SELECT e.* FROM exams e JOIN teacher_assignments a ON a.school_id=e.school_id AND a.id=e.assignment_id AND a.teacher_id=e.owner_id JOIN classes cl ON cl.school_id=a.school_id AND cl.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE e.school_id=$1 AND e.archived_at IS NULL AND e.owner_id=$2 AND a.active AND cl.active AND s.active AND ($3::uuid IS NULL OR (e.created_at,e.id)<($4::timestamptz,$3::uuid)) ORDER BY e.created_at DESC,e.id DESC LIMIT $5`,
             [school.id, user.id, after?.id ?? null, after?.at ?? null, limit + 1],
           )
         ).rows;
@@ -352,6 +353,96 @@ export class AuthoringService {
           )
         ).rows[0];
         return this.dto(c, school.id, updated);
+      });
+    });
+  }
+  async reviewAll(req: Request, id: string, input: unknown, key: unknown) {
+    const { school, user } = teacherIdentity(req);
+    parse(uuid, id);
+    const body = parse(z.object({ revision, confirmed: z.literal(true) }).strict(), input);
+    return this.db.withTenantTransaction(school.id, async (c) => {
+      const e = await this.owned(c, school.id, user.id, id, true);
+      return mutate(c, school.id, user.id, `exam:${id}:review-all`, key, body, async () => {
+        await this.mutable(c, school.id, e, body.revision);
+        const items = await this.items(c, school.id, id);
+        const eligible = items.filter(
+          (item) => !item.reviewed && itemSchema.safeParse({ ...item, reviewed: true }).success,
+        );
+        if (!eligible.length)
+          throw DomainException.validationError(
+            'No complete questions are eligible. Resolve missing topics, explanations and flagged content first.',
+          );
+        await this.snapshot(c, school.id, user.id, e, 'before_bulk_review', items);
+        await c.query(
+          `UPDATE exam_items SET reviewed=true,reviewed_by=$1,reviewed_at=now()
+           WHERE school_id=$2 AND exam_id=$3 AND exam_version_id IS NULL AND item_id=ANY($4::text[])`,
+          [user.id, school.id, id, eligible.map((i) => i.itemId)],
+        );
+        await c.query(
+          "INSERT INTO audit_events(school_id,actor_id,action,resource_id,reason) VALUES($1,$2,'exam:review-all',$3,$4)",
+          [
+            school.id,
+            user.id,
+            id,
+            `Teacher confirmed ${eligible.length} questions at revision ${e.revision}`,
+          ],
+        );
+        const updated = (
+          await c.query<Exam>(
+            'UPDATE exams SET revision=revision+1,updated_at=now() WHERE school_id=$1 AND id=$2 RETURNING *',
+            [school.id, id],
+          )
+        ).rows[0];
+        return this.dto(c, school.id, updated);
+      });
+    });
+  }
+  async removeDraft(req: Request, id: string, input: unknown, key: unknown) {
+    const { school, user } = teacherIdentity(req);
+    parse(uuid, id);
+    const body = parse(
+      z
+        .object({ revision, reason: z.string().trim().min(1).max(500), confirmed: z.literal(true) })
+        .strict(),
+      input,
+    );
+    return this.db.withTenantTransaction(school.id, async (c) => {
+      return mutate(c, school.id, user.id, `exam:${id}:remove`, key, body, async () => {
+        const e = await this.owned(c, school.id, user.id, id, true);
+        if (e.revision !== body.revision || !['draft', 'returned'].includes(e.state))
+          throw DomainException.conflict(
+            'REVISION_CONFLICT',
+            'Only an editable draft can be removed',
+          );
+        if (
+          (
+            await c.query(
+              'SELECT id FROM exam_versions WHERE school_id=$1 AND exam_id=$2 LIMIT 1',
+              [school.id, id],
+            )
+          ).rowCount
+        )
+          throw DomainException.conflict('REVISION_CONFLICT', 'Approved versions must be retained');
+        const retained = await hasRetainedReferences(c, 'exams', school.id, id);
+        if (retained) {
+          await c.query(
+            "UPDATE import_jobs SET state='cancelled',status='failed',lease_token=NULL,lease_until=NULL,source_bytes=NULL,generation_request=NULL WHERE school_id=$1 AND exam_id=$2",
+            [school.id, id],
+          );
+          await c.query(
+            "UPDATE ai_jobs SET status='failed',error_message='DRAFT_REMOVED',lease_token=NULL,lease_until=NULL WHERE school_id=$1 AND import_job_id IN (SELECT id FROM import_jobs WHERE school_id=$1 AND exam_id=$2) AND status IN ('pending','processing')",
+            [school.id, id],
+          );
+          await c.query(
+            'UPDATE exams SET archived_at=now(),import_id=NULL,revision=revision+1 WHERE school_id=$1 AND id=$2',
+            [school.id, id],
+          );
+        } else await c.query('DELETE FROM exams WHERE school_id=$1 AND id=$2', [school.id, id]);
+        await c.query(
+          "INSERT INTO audit_events(school_id,actor_id,action,resource_id,reason) VALUES($1,$2,'exam:remove',$3,$4)",
+          [school.id, user.id, id, body.reason],
+        );
+        return { id, outcome: retained ? 'archived' : 'deleted' };
       });
     });
   }

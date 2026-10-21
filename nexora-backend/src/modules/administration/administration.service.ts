@@ -58,7 +58,7 @@ export class AdministrationService {
   async exam(c: PoolClient, school: string, id: string, lock = false) {
     const e = (
       await c.query<AdminExam>(
-        `SELECT e.*,u.display_name teacher_name,cl.name class_name,s.name subject_name FROM exams e JOIN users u ON u.school_id=e.school_id AND u.id=e.owner_id JOIN classes cl ON cl.school_id=e.school_id AND cl.id=e.class_id JOIN subjects s ON s.school_id=e.school_id AND s.id=e.subject_id WHERE e.school_id=$1 AND e.id=$2 AND e.state<>'draft' ${lock ? 'FOR UPDATE OF e' : ''}`,
+        `SELECT e.*,u.display_name teacher_name,cl.name class_name,s.name subject_name FROM exams e JOIN users u ON u.school_id=e.school_id AND u.id=e.owner_id JOIN classes cl ON cl.school_id=e.school_id AND cl.id=e.class_id JOIN subjects s ON s.school_id=e.school_id AND s.id=e.subject_id WHERE e.school_id=$1 AND e.id=$2 AND e.state<>'draft' AND e.archived_at IS NULL ${lock ? 'FOR UPDATE OF e' : ''}`,
         [school, id],
       )
     ).rows[0];
@@ -225,7 +225,7 @@ export class AdministrationService {
       async (c) => {
         const rows = (
           await c.query<{ id: string; created_at: Date }>(
-            "SELECT id,created_at FROM exams WHERE school_id=$1 AND state<>'draft' AND ($2::uuid IS NULL OR (created_at,id)<($3::timestamptz,$2::uuid)) ORDER BY created_at DESC,id DESC LIMIT $4",
+            "SELECT id,created_at FROM exams WHERE school_id=$1 AND state<>'draft' AND archived_at IS NULL AND ($2::uuid IS NULL OR (created_at,id)<($3::timestamptz,$2::uuid)) ORDER BY created_at DESC,id DESC LIMIT $4",
             [school.id, after?.id ?? null, after?.at ?? null, limit + 1],
           )
         ).rows;
