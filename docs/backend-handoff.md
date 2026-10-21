@@ -79,3 +79,7 @@ Before staging or production changes, reconcile the target's historical 020/021 
 ## Exam Privacy Shield — 21 October 2026
 
 The supervision event enum now accepts focus_lost. Deploy compatible backend and clients together; no new database migration is required. No event establishes that a screenshot occurred, and no automatic penalty is introduced. See [architecture](exam-privacy-shield-architecture.md) and [testing](exam-privacy-shield-testing.md).
+
+## Portal management — 21 October 2026
+
+Local implementation adds guarded directory/draft removal, bulk question review, import cancellation with lease invalidation, class-filtered account browsing, school-wide student numbering and versioned onboarding. See [architecture and testing](portal-management-architecture-and-testing.md) for endpoints, manual acceptance and test limitations. Migration 024 adds student counters and archived drafts; it has not been applied. Reconcile the historical migration ledger before isolated database acceptance. No deployment or push is authorized by this handoff.
