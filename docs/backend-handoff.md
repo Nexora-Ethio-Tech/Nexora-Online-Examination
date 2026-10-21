@@ -75,3 +75,7 @@ Updated 20 October 2026. These contracts are implemented on the local developmen
 - Backups now include the platform schema. Use the updated `backup-and-restore.md` for the required role, key and ownership restore checks.
 
 Before staging or production changes, reconcile the target's historical 020/021 migration definitions with this branch. Do not run the complete migration bundle against an unverified production ledger. Record real database, cookie/Origin, concurrency and device acceptance separately from the local unit/build results.
+
+## Exam Privacy Shield — 21 October 2026
+
+The supervision event enum now accepts focus_lost. Deploy compatible backend and clients together; no new database migration is required. No event establishes that a screenshot occurred, and no automatic penalty is introduced. See [architecture](exam-privacy-shield-architecture.md) and [testing](exam-privacy-shield-testing.md).
