@@ -98,6 +98,7 @@ describe('school setup UI', () => {
     await user.click(screen.getByRole('button', { name: 'Import validated students' }));
     expect(await screen.findByText(/Imported 1 students/)).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Accounts' }));
+    await user.click(await screen.findByRole('button', { name: /Grade 10 A/ }));
     await user.click(
       await screen.findByRole('checkbox', { name: 'Select Test Student for credentials' }),
     );
@@ -144,6 +145,7 @@ describe('school setup UI', () => {
     );
     expect(await studentAuth.session()).not.toBeNull();
     await user.click(await screen.findByRole('tab', { name: 'Accounts' }));
+    await user.click(await screen.findByRole('button', { name: /Grade 10 A/ }));
     await user.click(await screen.findByRole('button', { name: 'Reset password for Samira' }));
     await user.type(screen.getByLabelText('Reason'), 'Student lost password');
     expect(screen.getByRole('button', { name: 'Reset and show new credentials' })).toBeDisabled();

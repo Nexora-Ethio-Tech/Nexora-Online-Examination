@@ -58,7 +58,10 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
   ): Account => ({
     userId: crypto.randomUUID(),
     displayName,
-    loginId: `DEMO-${role === 'student' ? 'S' : 'T'}${String(d.sequence++).padStart(6, '0')}`,
+    loginId:
+      role === 'student'
+        ? `DEMO-STU-${String(d.studentSequence++).padStart(4, '0')}`
+        : `DEMO-T${String(d.sequence++).padStart(6, '0')}`,
     role,
     classId,
     studentRef,
@@ -118,7 +121,12 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         return fail('Invalid list filter or page.', 'VALIDATION_ERROR', 422);
       const rows =
         path === '/classes'
-          ? [...d.classes.values()]
+          ? [...d.classes.values()].map((c) => ({
+              ...c,
+              studentCount: [...d.accounts.values()].filter(
+                (a) => a.role === 'student' && a.classId === c.classId,
+              ).length,
+            }))
           : path === '/subjects'
             ? [...d.subjects.values()]
             : path === '/teacher-assignments'
@@ -129,6 +137,8 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
                   ? [...d.accounts.values()].filter(
                       (a) =>
                         a.role === (path === '/students' ? 'student' : 'teacher') &&
+                        (!url.searchParams.get('classId') ||
+                          (a.classId ?? 'unassigned') === url.searchParams.get('classId')) &&
                         [a.displayName, a.loginId, a.studentRef ?? ''].some((v) =>
                           normalize(v).includes(normalize(search)),
                         ),
@@ -191,6 +201,43 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         : structuredClone(response);
       d.replays.set(replayKey, { payload: fingerprint, response: recorded });
       return json(response);
+    }
+    const removal =
+      /^\/directory\/(classes|subjects|students|teachers|teacher-assignments)\/([^/]+)\/remove$/.exec(
+        path,
+      );
+    if (removal && method === 'POST') {
+      const kind = removal[1],
+        id = removal[2] ?? '';
+      const b = edit.extend({ confirmed: z.literal(true) }).safeParse(body);
+      const row =
+        kind === 'classes'
+          ? d.classes.get(id)
+          : kind === 'subjects'
+            ? d.subjects.get(id)
+            : kind === 'teacher-assignments'
+              ? d.assignments.get(id)
+              : d.accounts.get(id);
+      if (!row) return fail('Record not found.', 'NOT_FOUND', 404);
+      if (!b.success || row.revision !== b.data.revision)
+        return fail('Refresh before removing this record.');
+      const used =
+        [...d.assignments.values()].some(
+          (a) => a.classId === id || a.subjectId === id || a.teacherId === id,
+        ) ||
+        [...d.accounts.values()].some((a) => a.classId === id) ||
+        [...store.drafts.values()].some((a) => a.assignmentId === id) ||
+        ('credentialState' in row && row.credentialState === 'issued');
+      audit(used ? 'record_archived' : 'record_deleted', id, b.data.reason);
+      if (used) {
+        if ('status' in row) row.status = 'inactive';
+        else row.active = false;
+        row.revision++;
+      } else if (kind === 'classes') d.classes.delete(id);
+      else if (kind === 'subjects') d.subjects.delete(id);
+      else if (kind === 'teacher-assignments') d.assignments.delete(id);
+      else d.accounts.delete(id);
+      return commit({ id, outcome: used ? 'archived' : 'deleted' });
     }
     if (path === '/school/ai-exam-settings' && method === 'PATCH') {
       const parsed = aiExamSettingsInputSchema.safeParse(body);

@@ -191,7 +191,8 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
       papers.set(d.examId, []);
       return commit(d, 201);
     }
-    const examMatch = /^\/exams\/([^/]+)(?:\/(items|submit-for-approval|generate))?$/.exec(path);
+    const examMatch =
+      /^\/exams\/([^/]+)(?:\/(items|submit-for-approval|generate|review-all|remove))?$/.exec(path);
     if (examMatch) {
       const d = drafts.get(examMatch[1] ?? '');
       if (!d || !own(d.examId)) return fail('Paper not found.', 'NOT_FOUND', 404);
@@ -203,8 +204,36 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
       const r = revisionSchema.safeParse(body);
       if (!r.success || r.data.revision !== d.revision)
         return fail('This paper changed. Reload it before saving your edits.');
-      if (!['draft', 'returned'].includes(d.status) || (d.importId && due.has(d.importId)))
+      if (
+        !['draft', 'returned'].includes(d.status) ||
+        (part !== 'remove' && d.importId && due.has(d.importId))
+      )
         return fail('This paper is currently read-only.');
+      if (method === 'POST' && part === 'review-all') {
+        const confirmed = z.object({ confirmed: z.literal(true) }).safeParse(body);
+        if (!confirmed.success) return fail('Confirm the bulk review.', 'VALIDATION_ERROR', 422);
+        const eligible = (papers.get(d.examId) ?? []).filter(
+          (i) => !i.reviewed && itemSchema.safeParse({ ...i, reviewed: true }).success,
+        );
+        if (!eligible.length) return fail('No eligible questions.', 'VALIDATION_ERROR', 422);
+        eligible.forEach((i) => {
+          i.reviewed = true;
+        });
+        d.revision++;
+        updateCounts(d);
+        return commit(d);
+      }
+      if (method === 'POST' && part === 'remove') {
+        if (
+          !z
+            .object({ confirmed: z.literal(true), reason: z.string().trim().min(1) })
+            .safeParse(body).success
+        )
+          return fail('Confirm removal with a reason.', 'VALIDATION_ERROR', 422);
+        if (d.importId) due.delete(d.importId);
+        drafts.delete(d.examId);
+        return commit({ id: d.examId, outcome: 'archived' });
+      }
       if (method === 'POST' && part === 'generate') {
         if (!store.directory.aiExamSettings.aiExamGenerationEnabled)
           return fail('AI exam generation is disabled for this school.', 'FORBIDDEN', 403);
@@ -353,11 +382,30 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
       if (items) due.set(id, { at: clock() + 1200, items });
       return commit(j, 202);
     }
-    const jobMatch = /^\/imports\/([^/]+)(?:\/(ai-retry))?$/.exec(path);
+    const jobMatch = /^\/imports\/([^/]+)(?:\/(ai-retry|cancel))?$/.exec(path);
     if (jobMatch) {
       const j = jobs.get(jobMatch[1] ?? '');
       if (!j || !own(j.examId)) return fail('Import not found.', 'NOT_FOUND', 404);
       if (method === 'GET') return json(j);
+      if (method === 'POST' && jobMatch[2] === 'cancel') {
+        const d = drafts.get(j.examId);
+        const b = z
+          .object({ revision: z.number().int().positive(), reason: z.string().trim().min(1) })
+          .safeParse(body);
+        if (
+          !d ||
+          !b.success ||
+          b.data.revision !== d.revision ||
+          !['draft', 'returned'].includes(d.status) ||
+          d.importId !== j.importId
+        )
+          return fail('Refresh the editable draft.');
+        due.delete(j.importId);
+        j.state = 'cancelled';
+        d.importId = null;
+        d.revision++;
+        return commit({ importId: j.importId, cancelled: true });
+      }
       return fail('Only failed AI jobs with parsed content can be retried.');
     }
     return fail('Teacher endpoint not found.', 'NOT_FOUND', 404);

@@ -14,6 +14,41 @@ import { credentialsCsv } from './csv';
 const key = () => crypto.randomUUID();
 const file = (csv: string) => new File([csv], 'students.csv', { type: 'text/csv' });
 const reason = 'School intake';
+describe('class-scoped account management', () => {
+  it('filters students by class and continues numbering across classes and removal', async () => {
+    const { api, store } = await setup();
+    const cls = await api.saveClass(
+      null,
+      { name: 'Grade 11', academicYear: '2026', reason },
+      key(),
+    );
+    await importStudents(api);
+    const preview = await api.preview(
+      file('studentRef,displayName\nB-1,Second Student\n'),
+      cls.classId,
+      key(),
+    );
+    await api.commit(preview.importId, preview.revision, reason, key());
+    const first = await api.accounts('student', '', null, undefined, 'demo-class-10a');
+    const second = await api.accounts('student', '', null, undefined, cls.classId);
+    expect(second.items).toHaveLength(1);
+    expect(second.items[0]?.loginId).toBe('DEMO-STU-0002');
+    expect(first.items.some((a) => a.loginId === 'DEMO-STU-0001')).toBe(true);
+    const created = second.items[0];
+    if (!created) throw new Error('Missing fixture');
+    await api.remove('students', created.userId, created.revision, 'Duplicate intake', key());
+    expect(store.directory.accounts.has(created.userId)).toBe(false);
+    const next = await api.preview(
+      file('studentRef,displayName\nC-1,Third Student\n'),
+      cls.classId,
+      key(),
+    );
+    await api.commit(next.importId, next.revision, reason, key());
+    expect(
+      (await api.accounts('student', '', null, undefined, cls.classId)).items[0]?.loginId,
+    ).toBe('DEMO-STU-0003');
+  });
+});
 async function setup(store = createAuthoringStore(), clock = Date.now) {
   const client = new ApiClient('/api/v1', createDemoTransport('school_admin', clock, store));
   await createAuthApi(client).session();

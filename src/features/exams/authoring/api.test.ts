@@ -37,6 +37,41 @@ async function template(extension: string) {
 }
 
 describe('teacher authoring contract and demo', () => {
+  it('bulk reviews eligible questions while leaving unresolved flags for individual attention', async () => {
+    const { api, advance } = setup();
+    const draft = await api.create(metadata, crypto.randomUUID());
+    await api.upload(draft.examId, draft.revision, await template('xlsx'), crypto.randomUUID());
+    advance();
+    const items = await api.items(draft.examId);
+    const key = crypto.randomUUID();
+    const reviewed = await api.reviewAll(draft.examId, items.revision, key);
+    expect(reviewed.reviewedCount).toBe(1);
+    expect(await api.reviewAll(draft.examId, items.revision, key)).toEqual(reviewed);
+    expect((await api.items(draft.examId)).items.find((i) => i.reviewFlags.length)?.reviewed).toBe(
+      false,
+    );
+    await expect(
+      api.submit(draft.examId, reviewed.revision, crypto.randomUUID()),
+    ).rejects.toMatchObject({ code: 'AI_REVIEW_REQUIRED' });
+  });
+  it('cancels a queued upload, permits a replacement and never applies the cancelled fixture', async () => {
+    const { api, advance } = setup();
+    const d = await api.create(metadata, crypto.randomUUID());
+    const j = await api.upload(d.examId, d.revision, await template('xlsx'), crypto.randomUUID());
+    const current = await api.get(d.examId);
+    const key = crypto.randomUUID();
+    await api.cancelImport(j.importId, current.revision, 'Wrong file', key);
+    expect(await api.cancelImport(j.importId, current.revision, 'Wrong file', key)).toMatchObject({
+      cancelled: true,
+    });
+    advance();
+    expect((await api.items(d.examId)).items).toHaveLength(0);
+    const restored = await api.get(d.examId);
+    expect(restored.importId).toBeNull();
+    await expect(
+      api.upload(d.examId, restored.revision, await template('docx'), crypto.randomUUID()),
+    ).resolves.toMatchObject({ examId: d.examId });
+  });
   it.each(['docx', 'xlsx'])(
     'imports the exact %s fixture, requires resolved reviews and locks submission',
     async (extension) => {

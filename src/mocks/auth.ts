@@ -183,7 +183,7 @@ export function createDemoTransport(
       );
     }
     if (
-      /^\/(classes|subjects|teachers|students|teacher-assignments)(\/|$)/.test(apiPath) ||
+      /^\/(classes|subjects|teachers|students|teacher-assignments|directory)(\/|$)/.test(apiPath) ||
       apiPath === '/admin/directory-audit' ||
       apiPath === '/school/ai-exam-settings'
     ) {

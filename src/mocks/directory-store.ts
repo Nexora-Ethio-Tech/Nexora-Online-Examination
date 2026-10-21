@@ -90,5 +90,6 @@ export function createDirectoryStore() {
     issues: new Map<string, Omit<CredentialIssue, 'credentials'>>(),
     queue: Promise.resolve(),
     sequence: 1,
+    studentSequence: 1,
   };
 }
