@@ -1,9 +1,9 @@
 import { RefreshControl } from '@/components/shared/RefreshControl';
-import { useEffect, useId, useRef, useState } from 'react';
+import { EthiopianDateTimeField } from '@/components/shared/EthiopianDateTimeField';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useApiClient } from '@/lib/ApiProvider';
 import { control, Failure, panel, useTeacherScope } from '../authoring/TeacherPage';
 import { eatTime } from '../ExamsPage';
@@ -30,7 +30,6 @@ export function ScheduleForm({
   onSave: (preparationVisibleAt: string, resultsReleaseAt: string, reason: string) => void;
   onRefresh: () => void;
 }) {
-  const id = useId();
   const [, tick] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => tick((n) => n + 1), 1000);
@@ -108,16 +107,14 @@ export function ScheduleForm({
         {initial ? 'Change this schedule' : 'Schedule a class sitting'}
       </h3>
       <p className="text-sm text-muted-foreground">
-        Enter all dates and times in East Africa Time (EAT, UTC+3). The full ten-minute preparation
-        period applies, including in the demo.
+        Choose an Ethiopian calendar date and an AM/PM time in East Africa Time (EAT). Students have
+        ten minutes to prepare before the exam starts.
       </p>
       <p className="text-sm">
-        Current EAT time (server estimate):{' '}
-        <strong>{eatTime(new Date(now()).toISOString())}</strong>
+        Current school time (EAT): <strong>{eatTime(new Date(now()).toISOString())}</strong>
       </p>
       <p className="text-sm text-muted-foreground">
-        Your computer clock may use another timezone. Enter EAT here. The server makes the final
-        timing check.
+        These times stay in EAT even if your device uses a different timezone.
       </p>
       {stale && <p role="alert">Server time needs refreshing. Your entered dates are kept.</p>}
       {locked && (
@@ -137,46 +134,24 @@ export function ScheduleForm({
         Refresh server time
       </Button>
       <fieldset disabled={pending} className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-2">
-          Preparation date and time (EAT)
-          <Input
-            type="datetime-local"
-            aria-label="Preparation date and time (EAT)"
-            required
-            aria-invalid={!!prepError}
-            aria-describedby={prepError ? `${id}-prep-error` : undefined}
-            value={prep}
-            onChange={(e) => {
-              setPrep(e.target.value);
-              setConfirmed(false);
-            }}
-          />
-          {prepError && (
-            <span id={`${id}-prep-error`} className="block text-sm text-destructive">
-              {prepError}
-            </span>
-          )}
-        </label>
-        <label className="space-y-2">
-          Planned results date and time (EAT)
-          <Input
-            type="datetime-local"
-            aria-label="Planned results date and time (EAT)"
-            required
-            aria-invalid={!!releaseError}
-            aria-describedby={releaseError ? `${id}-release-error` : undefined}
-            value={release}
-            onChange={(e) => {
-              setRelease(e.target.value);
-              setConfirmed(false);
-            }}
-          />
-          {releaseError && (
-            <span id={`${id}-release-error`} className="block text-sm text-destructive">
-              {releaseError}
-            </span>
-          )}
-        </label>
+        <EthiopianDateTimeField
+          label="Preparation date and time (EAT)"
+          error={prepError}
+          value={prep}
+          onChange={(value) => {
+            setPrep(value);
+            setConfirmed(false);
+          }}
+        />
+        <EthiopianDateTimeField
+          label="Planned results date and time (EAT)"
+          error={releaseError}
+          value={release}
+          onChange={(value) => {
+            setRelease(value);
+            setConfirmed(false);
+          }}
+        />
         {initial && (
           <label className="space-y-2 sm:col-span-2">
             Reason for changing the schedule

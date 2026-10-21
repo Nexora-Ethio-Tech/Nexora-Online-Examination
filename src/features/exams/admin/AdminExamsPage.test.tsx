@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { selectEatDateTime } from '@/test/date-field';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
@@ -68,13 +69,11 @@ describe('admin review and schedule screens', () => {
     await user.click(screen.getByRole('checkbox', { name: /I reviewed the questions/ }));
     await user.click(screen.getByRole('button', { name: 'Approve paper' }));
     expect(await screen.findByRole('heading', { name: 'Approved version 1' })).toBeInTheDocument();
-    const prep = screen.getByLabelText('Preparation date and time (EAT)');
-    expect(prep).toHaveValue('2026-10-17T09:02');
-    fireEvent.change(prep, { target: { value: '2026-10-17T09:30' } });
-    fireEvent.change(screen.getByLabelText('Planned results date and time (EAT)'), {
-      target: { value: '2026-10-17T11:00' },
-    });
-    expect(screen.getByText(/17 Oct 2026, 09:40 am EAT/i)).toBeInTheDocument();
+    const prep = screen.getByRole('group', { name: 'Preparation date and time (EAT)' });
+    expect(prep).toHaveTextContent('7 ጥቅምት 2019 ዓ.ም. · 9:02 AM EAT');
+    selectEatDateTime('Preparation date and time (EAT)', '2026-10-17T09:30');
+    selectEatDateTime('Planned results date and time (EAT)', '2026-10-17T11:00');
+    expect(screen.getByText(/7 ጥቅምት 2019 ዓ.ም. · 9:40 AM EAT/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirm schedule' })).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /I checked the EAT dates/ }));
     await user.click(screen.getByRole('button', { name: 'Confirm schedule' }));
@@ -89,9 +88,7 @@ describe('admin review and schedule screens', () => {
       screen.getByText('Planned results (publication approval still required)'),
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Change schedule' }));
-    fireEvent.change(screen.getByLabelText('Preparation date and time (EAT)'), {
-      target: { value: '2026-10-17T09:40' },
-    });
+    selectEatDateTime('Preparation date and time (EAT)', '2026-10-17T09:40');
     await user.type(screen.getByLabelText('Reason for changing the schedule'), 'Room change.');
     await user.click(screen.getByRole('checkbox', { name: /I checked the EAT dates/ }));
     await user.click(screen.getByRole('button', { name: 'Save schedule change' }));

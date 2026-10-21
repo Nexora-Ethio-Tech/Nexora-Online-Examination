@@ -1,3 +1,4 @@
+import { selectEatDateTime } from '@/test/date-field';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ScheduleForm } from './AdminExamDetail';
@@ -42,22 +43,18 @@ it('keeps EAT independent of the device clock and shows field-specific errors ac
   vi.spyOn(Date, 'now').mockReturnValue(0);
   const save = vi.fn();
   render(<ScheduleForm detail={detail} pending={false} onRefresh={vi.fn()} onSave={save} />);
-  const prep = screen.getByLabelText('Preparation date and time (EAT)');
-  expect(prep).toHaveValue('2026-10-16T00:01');
-  fireEvent.change(prep, { target: { value: '2026-10-15T23:58' } });
+  const prep = screen.getByRole('group', { name: 'Preparation date and time (EAT)' });
+  expect(prep).toHaveTextContent('6 ጥቅምት 2019 ዓ.ም. · 12:01 AM EAT');
+  selectEatDateTime('Preparation date and time (EAT)', '2026-10-15T23:58');
   expect(prep).toHaveAttribute('aria-invalid', 'true');
   expect(screen.getByText(/Preparation must be later/)).toBeInTheDocument();
-  fireEvent.change(prep, { target: { value: '2026-10-16T00:01' } });
-  fireEvent.change(screen.getByLabelText('Planned results date and time (EAT)'), {
-    target: { value: '2026-10-16T00:20' },
-  });
+  selectEatDateTime('Preparation date and time (EAT)', '2026-10-16T00:01');
+  selectEatDateTime('Planned results date and time (EAT)', '2026-10-16T00:20');
   expect(screen.getByText(/Planned results must be at or after/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole('checkbox'));
   fireEvent.click(screen.getByRole('button', { name: 'Confirm schedule' }));
   expect(save).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByLabelText('Planned results date and time (EAT)'), {
-    target: { value: '2026-10-16T00:31' },
-  });
+  selectEatDateTime('Planned results date and time (EAT)', '2026-10-16T00:31');
   expect(screen.getByRole('checkbox')).not.toBeChecked();
   fireEvent.click(screen.getByRole('checkbox'));
   fireEvent.click(screen.getByRole('button', { name: 'Confirm schedule' }));
@@ -90,9 +87,7 @@ it('blocks stale samples, preserves entered dates on refresh and closes reschedu
       onSave={save}
     />,
   );
-  fireEvent.change(screen.getByLabelText('Preparation date and time (EAT)'), {
-    target: { value: '2026-10-16T00:10' },
-  });
+  selectEatDateTime('Preparation date and time (EAT)', '2026-10-16T00:10');
   fireEvent.click(screen.getByRole('checkbox'));
   clock.mockReturnValue(60_001);
   view.rerender(
@@ -108,7 +103,9 @@ it('blocks stale samples, preserves entered dates on refresh and closes reschedu
   fireEvent.click(screen.getByRole('button', { name: 'Refresh server time' }));
   expect(refresh).toHaveBeenCalledOnce();
   expect(screen.getByRole('checkbox')).not.toBeChecked();
-  expect(screen.getByLabelText('Preparation date and time (EAT)')).toHaveValue('2026-10-16T00:10');
+  expect(screen.getByRole('group', { name: 'Preparation date and time (EAT)' })).toHaveTextContent(
+    '6 ጥቅምት 2019 ዓ.ም. · 12:10 AM EAT',
+  );
   view.rerender(
     <ScheduleForm
       detail={{ ...detail, serverNow: '2026-10-15T21:01:00Z', clockReceivedAt: 60_001 }}
@@ -149,10 +146,8 @@ it('includes approved extra time in rescheduling preview and planned-results val
       onSave={save}
     />,
   );
-  expect(screen.getByText(/16 Oct 2026, 12:46 am EAT/i)).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText('Planned results date and time (EAT)'), {
-    target: { value: '2026-10-16T00:40' },
-  });
+  expect(screen.getByText(/6 ጥቅምት 2019 ዓ.ም. · 12:46 AM EAT/i)).toBeInTheDocument();
+  selectEatDateTime('Planned results date and time (EAT)', '2026-10-16T00:40');
   expect(
     screen.getByText(/Planned results must be at or after the latest student deadline/),
   ).toBeInTheDocument();
