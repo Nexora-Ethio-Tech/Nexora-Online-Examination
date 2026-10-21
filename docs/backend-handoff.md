@@ -91,3 +91,7 @@ Student download, saved-answer and submission screens, teacher import states, ac
 ## Ethiopian calendar and EAT — 21 October 2026
 
 Portal date fields and displays now use Ethiopian calendar dates, Amharic months, ordinary digits and standard AM/PM time in EAT. API timestamps remain UTC; the existing Gregorian wall-time parsing boundary is retained. No backend payload or migration changes are required. See [Kewti integration and testing](kewti-calendar-architecture-and-testing.md), including the tested Kenat reverse-conversion guard and unchanged scheduling/extra-time rules.
+
+## 21 October 2026 — exam deterrents and supervision clarity
+
+Added tiled private-reference watermarks, scoped question selection/drag deterrents, readable interruption timestamps and supervision freshness warnings. Existing backend contracts are unchanged. Reviewed package/unlock/ownership/supervision boundaries and expanded unit regressions; no production backend runtime change or migration. Fixed duplicate telemetry replay in the development demo. See [architecture and testing](exam-deterrents-architecture-and-testing.md) for evidence and outstanding real-DB/device checks.
