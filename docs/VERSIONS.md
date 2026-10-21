@@ -1,5 +1,7 @@
 # Verified development versions
 
+21 October 2026: added pinned `kenat` **4.0.0**, the calendar engine used by Kewti. It adds one package with no runtime dependencies. Node remains **24.14.1**. Installation reports the same seven high-severity advisory entries previously documented in the frontend dependency tree; no force upgrades were applied. Kewti's dropdown guidance was reviewed at source commit `8bedfc0f6ece86cb9a70324337318a7fb2e2cb40` and adapted locally. A verified reverse-conversion guard handles the discovered century-boundary drift; see `kewti-calendar-architecture-and-testing.md`.
+
 20 October 2026: added pinned `@fontsource/noto-sans-ethiopic` **5.3.0** for bundled regular/bold Ethiopic fonts. Node **24.14.1** is the verification runtime. Existing dependencies were not force-upgraded; frontend installation still reports seven high-severity advisory entries in the pre-existing dependency tree.
 
 17 October 2026, backend integration work:
