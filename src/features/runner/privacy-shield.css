@@ -14,6 +14,35 @@
 .exam-print-notice {
   display: none;
 }
+/* Scope deterrents to displayed questions, preserving portal and answer-field interaction. */
+.exam-question-surface {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.exam-watermark-tiles {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.09;
+}
+.exam-question-text {
+  -webkit-user-select: none;
+  user-select: none;
+}
+.exam-question-text input,
+.exam-question-text textarea,
+.exam-question-text [contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+@media (forced-colors: active) {
+  .exam-watermark-tiles {
+    display: none;
+  }
+}
 @media print {
   body:has(.exam-privacy-root) #root {
     display: none !important;
