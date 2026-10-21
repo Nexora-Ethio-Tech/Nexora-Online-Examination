@@ -103,9 +103,9 @@ function Refresh({
   return (
     <div className={`${panel} space-y-3`}>
       <p className="text-sm">
-        {at ? `Server snapshot: ${eatTime(at)}.` : 'Waiting for a server snapshot.'}{' '}
+        {at ? `Last updated: ${eatTime(at)}.` : 'Waiting for the latest exam information.'}{' '}
         {at && !fresh
-          ? 'Snapshot is stale or connection is unavailable. Transfer controls are paused.'
+          ? 'This information may be out of date. Refresh before approving a replacement device.'
           : ''}
       </p>
       <p className="text-sm text-muted-foreground">
@@ -139,7 +139,8 @@ function SittingInfo({ sitting: s }: { sitting: MonitorSitting }) {
         ))}
       </dl>
       <p className="text-sm">
-        Frozen roster: {s.rosterCount} students · Schedule revision {s.scheduleRevision}
+        Students scheduled for this exam: {s.rosterCount} students · Schedule revision{' '}
+        {s.scheduleRevision}
       </p>
       <p className="border-b py-4 text-sm">
         Ready (last reported): <strong>{s.readyCount}</strong> of {s.counts.preparing} preparing
@@ -173,7 +174,8 @@ function StudentInfo({ student: s }: { student: MonitorRow }) {
         {a?.readiness
           ? `Verified checks reported at ${eatTime(a.readiness.receivedAt)}`
           : 'No current verified report'}
-        . A report does not prove continuing connectivity or storage availability.
+        . This was checked at that time; the student may have disconnected or cleared their browser
+        data since then.
       </p>
       <dl className="grid gap-3 sm:grid-cols-2">
         <div>
@@ -185,12 +187,14 @@ function StudentInfo({ student: s }: { student: MonitorRow }) {
           <dd>{a?.lastContactAt ? eatTime(a.lastContactAt) : 'No contact recorded'}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Last server answer save</dt>
+          <dt className="text-muted-foreground">Last answers received</dt>
           <dd>{a?.lastServerSaveAt ? eatTime(a.lastServerSaveAt) : 'No answer save recorded'}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Answered items in server saves</dt>
-          <dd>{a?.serverAnsweredCount ?? 0} · Unsynced device work is unknown</dd>
+          <dt className="text-muted-foreground">Answers received by the school</dt>
+          <dd>
+            {a?.serverAnsweredCount ?? 0} · Answers saved only on the student’s device are not shown
+          </dd>
         </div>
         {a?.receiptAcceptedAt && (
           <div>
@@ -475,11 +479,11 @@ function TransferForm({ detail: d, fresh }: { detail: MonitorAttempt; fresh: boo
       <p className="text-sm">
         Verify the student in person. On the replacement browser, the student signs in and opens
         “Register replacement browser”. Enter the registered ID below. The old browser loses write
-        access. Only server-confirmed answers carry over; retain any unsynced work on the original
-        device for recovery review.
+        access. Only answers already received by the school carry over; keep any unsent answers on
+        the original device for recovery review.
       </p>
       <p className="text-sm font-medium">
-        Current device generation: {a?.deviceGeneration ?? 'None'} · Deadline remains{' '}
+        Device approval version: {a?.deviceGeneration ?? 'None'} · Deadline remains{' '}
         {eatTime(d.student.deadlineAt)}.
       </p>
       {d.transferBlocker && (
@@ -492,9 +496,9 @@ function TransferForm({ detail: d, fresh }: { detail: MonitorAttempt; fresh: boo
       <Failure error={error} />
       {result ? (
         <p role="status" className="rounded-lg bg-primary/10 p-4 text-sm">
-          Replacement approved: generation {result.deviceGeneration}. Ask the student to return to
-          My exams and open this sitting on the registered browser. It must revalidate and unlock
-          online. The deadline remains {eatTime(result.deadlineAt)}.
+          Replacement approved. Device approval version {result.deviceGeneration}. Ask the student
+          to return to My exams and open this sitting on the registered browser. It needs to check
+          access online and unlock online. The deadline remains {eatTime(result.deadlineAt)}.
         </p>
       ) : request ? (
         <div className="space-y-3">
@@ -555,8 +559,8 @@ function TransferForm({ detail: d, fresh }: { detail: MonitorAttempt; fresh: boo
                   setConfirmed(e.target.checked ? (a?.deviceGeneration ?? null) : null)
                 }
               />
-              I verified this student, the registered browser ID and the unchanged deadline.
-              Unsynced work stays on the old device.
+              I verified this student, the registered browser ID and the unchanged deadline. Answers
+              not yet sent stay on the old device.
             </label>
           </fieldset>
           <Button className="min-h-11" disabled={!allowed || pending}>

@@ -42,7 +42,7 @@ describe('administrator monitor screen', () => {
     await user.click(screen.getByRole('checkbox', { name: /I verified this student/ }));
     expect(button).toBeEnabled();
     await user.click(button);
-    await screen.findByText(/Replacement approved: generation 2/);
+    await screen.findByText(/Replacement approved. Device approval version 2/);
     expect(await screen.findByText('Generation 1 → 2 · Hana')).toBeInTheDocument();
     expect(screen.getByText('Broken screen; student identity verified.')).toBeInTheDocument();
     expect((await c.monitor.attempt(c.attempt.attemptId, null)).student.deadlineAt).toBe(
@@ -75,7 +75,7 @@ describe('administrator monitor screen', () => {
     await user.click(screen.getByRole('button', { name: 'Refresh monitor' }));
     await screen.findByText('Generation 1 → 2 · Hana');
     await user.click(screen.getByRole('button', { name: 'Retry same transfer' }));
-    await screen.findByText(/Replacement approved: generation 2/);
+    await screen.findByText(/Replacement approved. Device approval version 2/);
     expect(sent).toHaveLength(2);
     expect(sent[1]).toEqual(sent[0]);
     expect((await c.monitor.attempt(c.attempt.attemptId, null)).history).toHaveLength(1);
@@ -90,7 +90,7 @@ describe('administrator monitor screen', () => {
     await screen.findByRole('heading', { name: 'Approve a replacement browser' });
     fail = true;
     await user.click(screen.getByRole('button', { name: 'Refresh monitor' }));
-    await screen.findByText(/Snapshot is stale/);
+    await screen.findByText(/This information may be out of date/);
     expect(screen.getByText('Samira · DEMO-STUDENT')).toBeInTheDocument();
     expect(screen.getByLabelText('Registered replacement browser ID')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Approve device replacement' })).toBeDisabled();
@@ -146,6 +146,6 @@ it('shows last-reported readiness separately from the preparing roster count', a
     '1 of 1 preparing students',
   );
   expect(await screen.findByText(/Verified checks reported at/)).toHaveTextContent(
-    'does not prove continuing connectivity',
+    'the student may have disconnected or cleared their browser data since then',
   );
 });
