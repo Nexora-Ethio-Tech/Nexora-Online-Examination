@@ -59,17 +59,23 @@ describe('immediate approved package preparation', () => {
     );
     expect(query.mock.calls.at(-1)?.[0]).toBe('RELEASE SAVEPOINT immediate_student_package');
   });
-  it('refuses private fields and records a visible failure while preserving the outer approval transaction', async () => {
-    const { client, query, worker } = setup([
-      { ...item, correct_key: 'A', explanation: 'Private' },
-    ]);
-    await worker.prepareNow(client, 'school', 'version');
-    const statements = query.mock.calls.map((call) => String(call[0]));
-    expect(statements).toContain('ROLLBACK TO SAVEPOINT immediate_student_package');
-    expect(statements.some((sql) => sql.startsWith('INSERT INTO exam_packages'))).toBe(false);
-    expect(statements.some((sql) => sql.includes("SET status='failed'"))).toBe(true);
-    expect(statements).not.toContain('ROLLBACK');
-  });
+  it.each([
+    { correct_key: 'A' },
+    { correctOptionId: 'A' },
+    { explanation: 'Private' },
+    { answerKey: 'A' },
+  ])(
+    'refuses private fields %j while preserving the outer approval transaction',
+    async (privateFields) => {
+      const { client, query, worker } = setup([{ ...item, ...privateFields }]);
+      await worker.prepareNow(client, 'school', 'version');
+      const statements = query.mock.calls.map((call) => String(call[0]));
+      expect(statements).toContain('ROLLBACK TO SAVEPOINT immediate_student_package');
+      expect(statements.some((sql) => sql.startsWith('INSERT INTO exam_packages'))).toBe(false);
+      expect(statements.some((sql) => sql.includes("SET status='failed'"))).toBe(true);
+      expect(statements).not.toContain('ROLLBACK');
+    },
+  );
   it('rolls back failed SQL before recording failure so approval can still commit', async () => {
     const { client, query, worker } = setup();
     query.mockRejectedValueOnce(new Error('synthetic database failure'));
