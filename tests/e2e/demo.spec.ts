@@ -54,11 +54,21 @@ test('student answers offline, navigates questions and receives a confirmed subm
   await expect(page.getByRole('radio').first()).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Workspace' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Open account menu' })).toHaveCount(0);
-  await expect(page.getByLabel('Exam watermark')).toContainText('DEMO-STUDENT');
+  await expect(page.getByLabel('Exam watermark')).toContainText('Nexora');
+  await expect(page.getByLabel('Exam watermark')).not.toContainText('DEMO-STUDENT');
   await context.setOffline(true);
   await page.getByRole('radio').first().click();
   await expect(page.getByRole('radio').first()).toBeChecked();
   await expect(page.getByText(/1 answers saved on this device/)).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+  await expect(page.locator('fieldset')).toBeHidden();
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.locator('fieldset')).toBeHidden();
+  await page.getByRole('button', { name: 'Resume exam' }).click();
+  await expect(page.getByRole('radio').first()).toBeChecked();
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('#root')).toBeHidden();
+  await page.emulateMedia({ media: 'screen' });
   await page.getByRole('button', { name: 'Mark for review', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Remove review mark' })).toHaveAttribute(
     'aria-pressed',
