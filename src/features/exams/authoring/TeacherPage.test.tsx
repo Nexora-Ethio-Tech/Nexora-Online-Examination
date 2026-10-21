@@ -90,7 +90,9 @@ describe('teacher workspace', () => {
     now += 5000;
     await waitFor(
       () =>
-        expect(screen.getByText(/ready · 2 parsed · 2 AI suggestions ready/i)).toBeInTheDocument(),
+        expect(
+          screen.getByText(/Ready to review · 2 questions found · 2 AI suggestions ready/i),
+        ).toBeInTheDocument(),
       { timeout: 5000 },
     );
     await user.click(screen.getByRole('tab', { name: 'Review questions' }));

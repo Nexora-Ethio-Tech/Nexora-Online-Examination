@@ -1,4 +1,5 @@
 import { ExamGeneration } from './ExamGeneration';
+import { importStatus } from './import-status';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useBlocker, useBeforeUnload, useParams, useNavigate } from 'react-router';
@@ -250,7 +251,7 @@ export function TeacherDetail() {
       ]);
       setDirtyItems(new Set());
       setMetadataDirty(false);
-      setMessage('Saved on the server.');
+      setMessage('Changes saved.');
       setConfirmed(false);
       setBulkConfirmed(false);
       setCancelOpen(false);
@@ -301,7 +302,7 @@ export function TeacherDetail() {
         `${item.externalId}: ${item.reviewFlags.length || item.keyConsistent === false ? 'add a resolution note for the flag, then ' : ''}check the review confirmation and click Save question review.`,
     ),
     ...(items.data && items.data.revision !== d.revision
-      ? ['The paper version changed. Reload the server version before submitting.']
+      ? ['The paper version changed. Load the latest saved version before submitting.']
       : []),
   ];
   const canSubmit =
@@ -402,7 +403,7 @@ export function TeacherDetail() {
             if (importId) void job.refetch();
           }}
         >
-          Discard unsaved edits and reload server version
+          Discard edits and load saved version
         </Button>
       )}
       {(draft.error || items.error || job.error) && (
@@ -497,9 +498,9 @@ export function TeacherDetail() {
             {import.meta.env.DEV &&
               (import.meta.env.MODE === 'demo' || import.meta.env.VITE_USE_MOCKS === 'true') && (
                 <p className="mb-4 rounded-md bg-muted p-3 text-sm">
-                  Demo: upload an unchanged example from the links above. Parsing and AI are
-                  simulated for these examples only; edited files require the real backend. The math
-                  demo has 20 questions worth 40 marks across four topics.
+                  Demo: upload an unchanged example from the links above. This demo shows example
+                  questions and AI suggestions only; edited files need the connected service. The
+                  math demo has 20 questions worth 40 marks across four topics.
                 </p>
               )}
             <label className="block text-sm">
@@ -609,12 +610,12 @@ export function TeacherDetail() {
                 </div>
               )}
               <p role="status" className="my-2 capitalize">
-                {job.data.state.replaceAll('_', ' ')} · {job.data.parsedCount} parsed ·{' '}
+                {importStatus[job.data.state]} · {job.data.parsedCount} questions found ·{' '}
                 {job.data.completedCount} AI suggestions ready
               </p>
               {busy && (
                 <p className="text-sm">
-                  Your draft is retained while processing. You can return to this paper later.
+                  Your draft is saved while we read your file. You can return to this paper later.
                 </p>
               )}
               {job.data.failure && <p role="alert">{job.data.failure}</p>}
@@ -654,7 +655,9 @@ export function TeacherDetail() {
             </p>
           )}
           {busy && (
-            <p role="status">File parsing is running. Review opens when parsing finishes.</p>
+            <p role="status">
+              We are reading the questions in your file. You can review them when this finishes.
+            </p>
           )}
           {paper.length > 0 && (
             <section className={panel}>
