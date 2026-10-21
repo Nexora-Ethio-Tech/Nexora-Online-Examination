@@ -43,6 +43,8 @@ Contract v0.6 additionally issues BE-05 official results/publication. Read docs/
 
 ## Verification and delivery
 
+- Keep `src/features/onboarding/guide.ts` aligned with every user-facing feature addition, removal or renamed workflow. Its content revision automatically reoffers changed guidance. Never display onboarding over the active student runner. Update the corresponding architecture/testing guide with each feature.
+
 - Mocks support development only. Acceptance uses the real API/database; production disables mocks. npm run e2e runs isolated synthetic Playwright/axe journeys and production-shell checks. It is not real API acceptance. Keep browser failures visible and do not disable accessibility rules to obtain a pass. Local data/cache cleanup remains disabled by explicit user decision; see docs/retention-policy.md.
 - Run npm run check and npm run build for implementation changes. For documentation, format changed files and run the existing check suite. Never weaken tests or edit node_modules/cache to bypass failures.
 - Add meaningful integrity, timing, persistence and recovery tests as features are implemented. Real phone/network checks remain separate evidence.

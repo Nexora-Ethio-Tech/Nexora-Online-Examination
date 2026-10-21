@@ -33,6 +33,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { roleHome, roleLabel } from '@/features/auth/role-home';
 import { errorMessage } from '@/lib/api-client';
 import { useRoleTheme } from '@/lib/use-role-theme';
+import { PortalGuide } from '@/features/onboarding/PortalGuide';
 
 export function DashboardLayout() {
   const auth = useAuth();
@@ -234,6 +235,14 @@ export function DashboardLayout() {
             </div>
           ) : null}
           <Suspense fallback={<p role="status">Opening this page…</p>}>
+            {!focused && (
+              <PortalGuide
+                key={`${school.id}:${user.id}:${user.role}`}
+                schoolId={school.id}
+                userId={user.id}
+                role={user.role}
+              />
+            )}
             <Outlet />
           </Suspense>
         </main>
