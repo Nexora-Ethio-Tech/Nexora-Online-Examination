@@ -53,7 +53,9 @@ test('portal management: cancel import, bulk review and remove a draft', async (
     .getByLabel('Question template')
     .setInputFiles('public/templates/nexora-questions.xlsx');
   await page.getByRole('button', { name: 'Upload and prepare questions' }).click();
-  await expect(page.getByText(/ready · 2 parsed · 2 AI suggestions ready/i)).toBeVisible();
+  await expect(
+    page.getByText(/Ready to review · 2 questions found · 2 AI suggestions ready/i),
+  ).toBeVisible();
   await page.getByRole('tab', { name: 'Review questions' }).click();
   await page
     .getByRole('checkbox', { name: 'I checked all eligible questions and their answer keys.' })
@@ -98,9 +100,11 @@ test('keyboard login, invalid credentials and student routes remain accessible',
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Mathematics · preparation' }) });
   await card.getByRole('link').click();
-  await page.getByRole('button', { name: 'Download encrypted paper' }).click();
-  await expect(page.getByRole('heading', { name: 'Encrypted paper saved' })).toBeVisible();
-  await expect(page.getByText(/No verified readiness report/)).toBeVisible();
+  await page.getByRole('button', { name: 'Download exam' }).click();
+  await expect(page.getByRole('heading', { name: 'Exam saved for this demo' })).toBeVisible();
+  await expect(
+    page.getByText(/your school has not been notified that you are ready/),
+  ).toBeVisible();
   await accessible(page);
 });
 
@@ -113,7 +117,7 @@ test('student answers offline, navigates questions and receives a confirmed subm
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'English · current window' }) });
   await card.getByRole('link').click();
-  await page.getByRole('button', { name: 'Download encrypted paper' }).click();
+  await page.getByRole('button', { name: 'Download exam' }).click();
   await expect(page.getByRole('radio').first()).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Workspace' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Open account menu' })).toHaveCount(0);
@@ -174,7 +178,9 @@ test('teacher import and review through admin approval, scheduling and extra tim
     .getByLabel('Question template')
     .setInputFiles('public/templates/nexora-questions.xlsx');
   await page.getByRole('button', { name: 'Upload and prepare questions' }).click();
-  await expect(page.getByText(/ready · 2 parsed · 2 AI suggestions ready/i)).toBeVisible();
+  await expect(
+    page.getByText(/Ready to review · 2 questions found · 2 AI suggestions ready/i),
+  ).toBeVisible();
   await page.getByRole('tab', { name: 'Review questions' }).click();
   for (const id of ['MATH-001', 'MATH-002']) {
     await page.getByRole('button', { name: `Review ${id}`, exact: true }).click();
@@ -283,7 +289,9 @@ test('teacher can recover from a rejected custom import without submitting an em
     .getByLabel('Question template')
     .setInputFiles('public/templates/nexora-questions.xlsx');
   await page.getByRole('button', { name: 'Upload and prepare questions' }).click();
-  await expect(page.getByText(/ready · 2 parsed · 2 AI suggestions ready/i)).toBeVisible();
+  await expect(
+    page.getByText(/Ready to review · 2 questions found · 2 AI suggestions ready/i),
+  ).toBeVisible();
 });
 
 test('administrator navigation, recovery and monitor screens are accessible', async ({ page }) => {

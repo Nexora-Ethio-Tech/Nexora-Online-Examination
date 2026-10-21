@@ -25,7 +25,9 @@ test('lost final response retains the exact submission across a production reloa
   await expect(page.getByRole('radio', { name: '4', exact: true })).toBeChecked();
   await page.getByRole('button', { name: 'Review and submit', exact: true }).click();
   await page.getByRole('button', { name: 'Confirm submission', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Pending upload', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Waiting to send your answers', exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Retry submission', exact: true })).toBeEnabled();
   await expect(
     page.getByRole('heading', { name: 'Submitted successfully', exact: true }),

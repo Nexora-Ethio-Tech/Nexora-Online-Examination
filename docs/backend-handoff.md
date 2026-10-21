@@ -83,3 +83,7 @@ The supervision event enum now accepts focus_lost. Deploy compatible backend and
 ## Portal management — 21 October 2026
 
 Local implementation adds guarded directory/draft removal, bulk question review, import cancellation with lease invalidation, class-filtered account browsing, school-wide student numbering and versioned onboarding. See [architecture and testing](portal-management-architecture-and-testing.md) for endpoints, manual acceptance and test limitations. Migration 024 adds student counters and archived drafts; it has not been applied. Reconcile the historical migration ledger before isolated database acceptance. No deployment or push is authorized by this handoff.
+
+## Plain-language portal — 21 October 2026
+
+Student download, saved-answer and submission screens, teacher import states, account login details, assistance and admin review wording now use end-user language. API states and payloads remain unchanged; readable import labels are a frontend mapping. See [architecture and testing](portal-language-architecture-and-testing.md). No additional backend migration is required, and migration 024 acceptance remains outstanding.
