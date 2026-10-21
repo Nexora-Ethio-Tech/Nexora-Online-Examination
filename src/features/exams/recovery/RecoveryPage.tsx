@@ -60,8 +60,8 @@ export function RecoveryPage() {
         </section>
       )}
       <p>
-        Review retained late uploads before deciding whether they become official submissions.
-        Receiving an upload does not mean it was accepted.
+        Review answers sent after the deadline before deciding whether they become official
+        submissions. Receiving an upload does not mean it was accepted.
       </p>
       <div className="flex flex-wrap items-end gap-3">
         <label>
@@ -177,7 +177,7 @@ function DecisionForm({ detail }: { detail: Detail }) {
         >
           <option value="">Choose a decision</option>
           <option value="accept" disabled={!detail.canAccept}>
-            Accept this snapshot
+            Accept these saved answers
           </option>
           <option value="reject">Reject this upload</option>
         </select>
@@ -255,7 +255,7 @@ export function RecoveryDetailPage() {
         Back to recovery review
       </Link>
       <div className="flex flex-wrap justify-between gap-3">
-        <h1 className="text-3xl font-semibold">Review retained answers</h1>
+        <h1 className="text-3xl font-semibold">Review saved answers</h1>
         <RefreshControl
           label="Refresh case"
           busy={query.isFetching}
@@ -277,30 +277,30 @@ export function RecoveryDetailPage() {
             <p className="font-semibold">{label(detail.status)}</p>
             <p>Student deadline: {eat(detail.deadlineAt)}</p>
             <p>Final acceptance boundary: {eat(detail.finalAcceptUntil)}</p>
-            <p>Recovery received by server: {eat(detail.receivedAt)}</p>
+            <p>Answers received for review: {eat(detail.receivedAt)}</p>
             <p>Upload reason: {detail.reason}</p>
             <p>
-              Latest timely server save:{' '}
+              Last answers received before the deadline:{' '}
               {detail.latestTimelySave.savedAt
                 ? eat(detail.latestTimelySave.savedAt)
                 : 'No timely save recorded'}
             </p>
             <p>
-              Timely save sequence: {detail.latestTimelySave.highestAcceptedSeq} · Uploaded final
-              sequence: {detail.snapshot.finalSeq}
+              Last on-time save number: {detail.latestTimelySave.highestAcceptedSeq} · Final
+              uploaded save number: {detail.snapshot.finalSeq}
             </p>
             <p>
-              Uploaded device generation: {detail.snapshot.deviceGeneration} · Generation at upload:{' '}
-              {detail.currentDeviceGeneration}
+              Device approval version used: {detail.snapshot.deviceGeneration} · Current approval
+              version: {detail.currentDeviceGeneration}
             </p>
             {detail.snapshot.deviceGeneration !== detail.currentDeviceGeneration && (
               <p className="rounded border p-3">
-                This upload came from an older device generation. Review it as disputed evidence;
-                this difference is not an automatic penalty.
+                These answers came from a previously approved device. Check them carefully; this
+                difference is not an automatic penalty.
               </p>
             )}
             <details>
-              <summary className="cursor-pointer">Snapshot identity</summary>
+              <summary className="cursor-pointer">Technical reference details</summary>
               <p>
                 Paper version {detail.snapshot.examVersion} · Schedule revision{' '}
                 {detail.snapshot.scheduleRevision}
@@ -314,7 +314,7 @@ export function RecoveryDetailPage() {
           <section className={`${panel} space-y-4`}>
             <h2 className="text-xl font-semibold">Answer comparison</h2>
             <p>
-              The uploaded snapshot is immutable. A missing timely save is different from an
+              These uploaded answers cannot be changed. A missing timely save is different from an
               unanswered final question.
             </p>
             {detail.paper.items.map((item, index) => {

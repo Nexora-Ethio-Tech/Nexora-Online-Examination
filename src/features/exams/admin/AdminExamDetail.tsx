@@ -207,8 +207,8 @@ export function ScheduleForm({
         </div>
       )}
       <p className="text-sm text-muted-foreground">
-        Scheduling snapshots eligible students in {detail.className}. Planned results stay hidden
-        until separately approved for publication. Practice stays disabled.
+        Scheduling saves the list of eligible students in {detail.className}. Planned results stay
+        hidden until separately approved for publication. Practice stays disabled.
       </p>
       <label className="flex min-h-11 items-start gap-3 text-sm">
         <input
