@@ -530,6 +530,54 @@ function requiredRow(engine: RunnerEngine) {
   return row;
 }
 describe('browser supervision controls', () => {
+  it('retries the identical interruption after the server accepted it but the response was lost', async () => {
+    const batches: unknown[] = [];
+    const { make } = await setup(async (url, init, next) => {
+      const response = await next(url, init);
+      if (url.endsWith('/interruptions')) {
+        batches.push(init.body);
+        if (batches.length === 1) throw new TypeError('Lost response');
+      }
+      return response;
+    });
+    const engine = make();
+    await engine.start();
+    await answer(engine);
+    const before = requiredRow(engine);
+    window.dispatchEvent(new Event('pagehide'));
+    await vi.waitFor(async () =>
+      expect((await store.readRecord(before.key))?.interruptions).toHaveLength(1),
+    );
+    await engine.checkSupervision();
+    expect((await store.readRecord(before.key))?.interruptions).toHaveLength(1);
+    await engine.checkSupervision();
+    expect(batches).toHaveLength(2);
+    expect(batches[1]).toEqual(batches[0]);
+    const after = await store.readRecord(before.key);
+    expect(after?.interruptions).toEqual([]);
+    expect(after?.answers).toEqual(before.answers);
+    expect(after?.attempt.deadlineAt).toBe(before.attempt.deadlineAt);
+  });
+  it('only removes acknowledged events and retains the remainder for retry', async () => {
+    const { make } = await setup();
+    const engine = make();
+    await engine.start();
+    const key = requiredRow(engine).key;
+    const event = {
+      id: crypto.randomUUID(),
+      kind: 'focus_lost' as const,
+      observedAt: new Date().toISOString(),
+      deviceGeneration: 1,
+    };
+    await store.recordInterruption(key, event);
+    const second = { ...event, id: crypto.randomUUID() };
+    await store.recordInterruption(key, second);
+    await store.recordInterruption(key, second);
+    await store.acknowledgeInterruptions(key, [event.id, crypto.randomUUID()]);
+    expect((await store.readRecord(key))?.interruptions).toEqual([second]);
+    await engine.checkSupervision();
+    expect((await store.readRecord(key))?.interruptions).toEqual([]);
+  });
   it('records interruptions without changing answers or awarding a penalty', async () => {
     const { make } = await setup();
     const engine = make();

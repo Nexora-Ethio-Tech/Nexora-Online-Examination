@@ -58,7 +58,12 @@ export function createSupervisionDemo(
         for (const e of input.data.events) {
           if (e.deviceGeneration > a.deviceGeneration) return error('Unknown generation', 422);
           const old = d.events.find((x) => x.id === e.id);
-          if (old && JSON.stringify(interruptionSchema.parse(old)) !== JSON.stringify(e))
+          if (
+            old &&
+            (old.kind !== e.kind ||
+              old.observedAt !== e.observedAt ||
+              old.deviceGeneration !== e.deviceGeneration)
+          )
             return error('Event ID reused');
           if (!old) d.events.push({ ...e, receivedAt: now() });
         }
