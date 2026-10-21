@@ -6,6 +6,8 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useApiClient } from '@/lib/ApiProvider';
 import { eatTime } from '@/features/exams/ExamsPage';
 import { RunnerEngine } from './engine';
+import { ExamPrivacyShield } from './ExamPrivacyShield';
+import { ExamWatermark } from './ExamWatermark';
 import { QuestionNavigator } from './QuestionNavigator';
 import { StudentAssistance } from '@/features/assistance/StudentAssistance';
 export function RunnerPage() {
@@ -46,7 +48,6 @@ function RunnerSession({
   );
 }
 function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => void }) {
-  const { session } = useAuth();
   const [fullscreenError, setFullscreenError] = useState('');
   const view = useSyncExternalStore(engine.subscribe, engine.snapshot);
   const [index, setIndex] = useState(0);
@@ -141,7 +142,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
         </div>
       ) : null}
       {active && view.paper && item ? (
-        <>
+        <ExamPrivacyShield>
           <details className="text-sm">
             <summary className="min-h-11 cursor-pointer py-3 font-medium">
               Instructions and browser controls
@@ -185,13 +186,11 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
             onSelect={setIndex}
             reviewItemIds={view.row?.reviewItemIds ?? []}
           />
-          <section className="nexora-surface rounded-xl border bg-background p-5 sm:p-6">
+          <section className="nexora-surface space-y-4 rounded-xl border bg-background p-5 sm:p-6">
             <p className="mb-3 text-xs text-muted-foreground">
               Question {index + 1} of {view.paper.items.length} · {item.marks} marks
             </p>
-            <p className="mb-3 break-all text-xs text-muted-foreground" aria-label="Exam watermark">
-              Nexora · {session?.user.loginId} · {view.paper.title} · {view.row?.attempt.attemptId}
-            </p>
+            <ExamWatermark attemptId={view.row?.attempt.attemptId ?? 'Unavailable'} />
             <fieldset disabled={view.saving || view.seconds === 0}>
               <legend className="mb-5 text-lg font-medium">{item.stem}</legend>
               <div className="space-y-3">
@@ -307,7 +306,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
               </div>
             </section>
           ) : null}
-        </>
+        </ExamPrivacyShield>
       ) : null}
       {view.status === 'pending' || view.status === 'finalizing' ? (
         <section className="space-y-4 rounded-xl border-2 border-amber-500 bg-background p-5">
