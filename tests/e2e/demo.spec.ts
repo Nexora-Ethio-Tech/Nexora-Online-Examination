@@ -1,3 +1,4 @@
+import { fillEatDateTime, readEatDateTime } from './helpers';
 import { test, expect } from '@playwright/test';
 import { accessible, login, navigateWorkspace } from './helpers';
 
@@ -205,19 +206,25 @@ test('teacher import and review through admin approval, scheduling and extra tim
   await page.getByLabel('Review comment or required corrections').fill('Reviewed and approved.');
   await page.getByRole('checkbox', { name: /I reviewed the questions/ }).check();
   await page.getByRole('button', { name: 'Approve paper', exact: true }).click();
-  const prep = page.getByLabel('Preparation date and time (EAT)', { exact: true });
-  const release = page.getByLabel('Planned results date and time (EAT)', { exact: true });
-  const originalPrep = await prep.inputValue();
-  const originalRelease = await release.inputValue();
-  await prep.fill('2020-01-01T10:00');
+  const prep = page.getByRole('group', { name: 'Preparation date and time (EAT)', exact: true });
+  const release = page.getByRole('group', {
+    name: 'Planned results date and time (EAT)',
+    exact: true,
+  });
+  const originalPrep = await readEatDateTime(page, 'Preparation date and time (EAT)');
+  const originalRelease = await readEatDateTime(page, 'Planned results date and time (EAT)');
+  await expect(prep).toContainText('Ethiopian calendar');
+  await expect(prep).toContainText('AM/PM');
+  await accessible(page);
+  await fillEatDateTime(page, 'Preparation date and time (EAT)', '2020-01-01T10:00');
   await expect(prep).toHaveAttribute('aria-invalid', 'true');
   await expect(
     page.getByText('Preparation must be later than the current EAT time shown above.'),
   ).toBeVisible();
-  await prep.fill(originalPrep);
-  await release.fill(originalPrep);
+  await fillEatDateTime(page, 'Preparation date and time (EAT)', originalPrep);
+  await fillEatDateTime(page, 'Planned results date and time (EAT)', originalPrep);
   await expect(release).toHaveAttribute('aria-invalid', 'true');
-  await release.fill(originalRelease);
+  await fillEatDateTime(page, 'Planned results date and time (EAT)', originalRelease);
   await page.getByRole('checkbox', { name: /I checked the EAT/ }).check();
   await page.getByRole('button', { name: 'Confirm schedule', exact: true }).click();
   await page.getByRole('link', { name: 'Manage extra time' }).click();
@@ -349,14 +356,14 @@ test('synthetic recovery acceptance retains evidence and produces an exportable 
   await expect(page.locator('header')).toBeHidden();
   await page.emulateMedia({ media: 'screen' });
   const release = new Date(Date.now() + 3 * 3600000 - 60000).toISOString().slice(0, 16);
-  await page.getByLabel('Results release date and time (EAT)').fill(release);
+  await fillEatDateTime(page, 'Results release date and time (EAT)', release);
   await page.getByLabel('Publication reason').fill('Reviewed synthetic marks and recovery.');
   await page.getByRole('checkbox', { name: /I reviewed the marks/ }).check();
   await page.getByRole('button', { name: 'Approve publication' }).click();
   await expect(page.getByRole('heading', { name: 'Publication approved' })).toBeVisible();
   await navigateWorkspace(page, 'Practice release');
   await page.getByRole('checkbox', { name: 'Enable practice', exact: true }).check();
-  await page.getByLabel('Practice release date and time (EAT)').fill(release);
+  await fillEatDateTime(page, 'Practice release date and time (EAT)', release);
   await page
     .getByLabel('Reason for practice settings')
     .fill('Release the reviewed synthetic paper.');

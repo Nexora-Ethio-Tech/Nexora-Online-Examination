@@ -87,3 +87,7 @@ Local implementation adds guarded directory/draft removal, bulk question review,
 ## Plain-language portal — 21 October 2026
 
 Student download, saved-answer and submission screens, teacher import states, account login details, assistance and admin review wording now use end-user language. API states and payloads remain unchanged; readable import labels are a frontend mapping. See [architecture and testing](portal-language-architecture-and-testing.md). No additional backend migration is required, and migration 024 acceptance remains outstanding.
+
+## Ethiopian calendar and EAT — 21 October 2026
+
+Portal date fields and displays now use Ethiopian calendar dates, Amharic months, ordinary digits and standard AM/PM time in EAT. API timestamps remain UTC; the existing Gregorian wall-time parsing boundary is retained. No backend payload or migration changes are required. See [Kewti integration and testing](kewti-calendar-architecture-and-testing.md), including the tested Kenat reverse-conversion guard and unchanged scheduling/extra-time rules.
