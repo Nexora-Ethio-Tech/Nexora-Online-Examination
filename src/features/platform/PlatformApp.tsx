@@ -1,3 +1,4 @@
+import { EthiopianDateTimeField } from '@/components/shared/EthiopianDateTimeField';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiClient, ApiError, errorMessage } from '@/lib/api-client';
@@ -464,15 +465,13 @@ function OwnerActions({
                 <option value="restricted">Restrict new scheduling</option>
               </select>
             </label>
-            <label className="block">
-              Valid through (EAT; empty means no expiry)
-              <input
-                type="date"
-                className={inputClass}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </label>
+            <EthiopianDateTimeField
+              label="Valid through (EAT; empty means no expiry)"
+              dateOnly
+              optional
+              value={date}
+              onChange={setDate}
+            />
             <p>
               Changes affect new scheduling and rescheduling. Existing exam delivery and saved work
               remain available. Payments are recorded manually; this does not charge a payment
