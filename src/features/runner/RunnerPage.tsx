@@ -7,7 +7,7 @@ import { useApiClient } from '@/lib/ApiProvider';
 import { eatTime } from '@/features/exams/ExamsPage';
 import { RunnerEngine } from './engine';
 import { ExamPrivacyShield } from './ExamPrivacyShield';
-import { ExamWatermark } from './ExamWatermark';
+import { ExamQuestionSurface } from './ExamQuestionSurface';
 import { QuestionNavigator } from './QuestionNavigator';
 import { StudentAssistance } from '@/features/assistance/StudentAssistance';
 export function RunnerPage() {
@@ -186,13 +186,12 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
             onSelect={setIndex}
             reviewItemIds={view.row?.reviewItemIds ?? []}
           />
-          <section className="nexora-surface space-y-4 rounded-xl border bg-background p-5 sm:p-6">
+          <ExamQuestionSurface attemptId={view.row?.attempt.attemptId ?? 'Unavailable'}>
             <p className="mb-3 text-xs text-muted-foreground">
               Question {index + 1} of {view.paper.items.length} · {item.marks} marks
             </p>
-            <ExamWatermark attemptId={view.row?.attempt.attemptId ?? 'Unavailable'} />
             <fieldset disabled={view.saving || view.seconds === 0}>
-              <legend className="mb-5 text-lg font-medium">{item.stem}</legend>
+              <legend className="exam-question-text mb-5 text-lg font-medium">{item.stem}</legend>
               <div className="space-y-3">
                 {item.options.map((option, optionIndex) => (
                   <label
@@ -215,7 +214,9 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
                     >
                       {String.fromCharCode(65 + optionIndex)}
                     </span>
-                    <span className="text-sm leading-relaxed">{option.text}</span>
+                    <span className="exam-question-text text-sm leading-relaxed">
+                      {option.text}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -241,7 +242,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
                 ? 'Remove review mark'
                 : 'Mark for review'}
             </Button>
-          </section>
+          </ExamQuestionSurface>
           <div className="flex flex-wrap justify-between gap-3">
             <Button
               variant="outline"

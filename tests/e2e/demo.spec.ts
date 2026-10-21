@@ -148,6 +148,17 @@ test('student answers offline, navigates questions and receives a confirmed subm
   const questionBox = await question.boundingBox();
   expect(numberBox && questionBox && numberBox.y < questionBox.y).toBeTruthy();
   await page.screenshot({ path: test.info().outputPath('active-exam.png'), fullPage: true });
+  await expect(page.locator('.exam-question-text').first()).toHaveCSS('user-select', 'none');
+  await expect(page.locator('.exam-watermark-tiles')).toHaveCSS('pointer-events', 'none');
+  const surfaceBox = await page.locator('.exam-question-surface').boundingBox();
+  const watermarkBox = await page.locator('.exam-watermark-tiles').boundingBox();
+  expect(
+    surfaceBox && watermarkBox && Math.abs(surfaceBox.height - watermarkBox.height) < 3,
+  ).toBeTruthy();
+  await page.emulateMedia({ forcedColors: 'active' });
+  await expect(page.locator('.exam-watermark-tiles')).toBeHidden();
+  await expect(page.getByLabel('Exam watermark')).toBeVisible();
+  await page.emulateMedia({ forcedColors: 'none' });
   await expect(page.getByRole('button', { name: 'Hide question numbers' })).toHaveAttribute(
     'aria-expanded',
     'true',
