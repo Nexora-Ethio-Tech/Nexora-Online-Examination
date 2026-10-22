@@ -23,8 +23,30 @@ Approved 22 October 2026. Work only in this checkout, on the existing task branc
 ## Delivery slices
 
 - Task 1: question warnings, review actions and mobile editing (8–10): implemented; automated and real integration checks passed. See question-review-usability.md. Physical-device acceptance remains separate.
-- Task 2: grades, accounts and searchable directories/exams (2–7, 11): in progress.
-- Task 3: calendar and scheduling (14–15): pending.
-- Task 4: contextual tours and owner portal (1, 12): pending.
+- Task 2: grades, accounts and searchable directories/exams (2–7, 11): implemented. See [architecture and testing](grade-directory-architecture-and-testing.md).
+- Task 3: calendar and scheduling (14–15): implemented. See [architecture and testing](calendar-scheduling-improvements.md).
+- Task 4: contextual tours and owner portal (1, 12): implemented. See [architecture and testing](resumable-guides-and-owner-portal.md).
 
 Each task targets ten meaningful local commits after relevant checks. Item 13 applies to every slice. Record actual test evidence and remaining limitations, including local database migrations and manual browser checks, rather than treating mock tests as integration evidence.
+
+## Final verification and testing order
+
+On 22 October 2026: frontend `npm run check` passed 233 tests plus 14 release/configuration checks; frontend build passed. Backend build and 170 unit tests passed. `node scripts/local-test.ts test` passed 20 real API/PostgreSQL checks, including migration 025, mixed old/new IDs, assignment grade validation/filtering, retained class deletion and exam submission filters. Nine selected Chromium journeys passed across desktop, 360px mobile and landscape, including accessibility checks. These use synthetic browser data; the separate API tests use isolated local PostgreSQL. Existing bundle-size warnings remain. Physical-phone and hosted acceptance are not claimed.
+
+Test these guides in order:
+
+1. [Grades, accounts, assignments and exam filters](grade-directory-architecture-and-testing.md).
+2. [Question flags, bulk confirmation and mobile editing](question-review-usability.md).
+3. [Dual calendars and automatic scheduling refresh](calendar-scheduling-improvements.md).
+4. [Resumable tours and platform owner](resumable-guides-and-owner-portal.md).
+
+Before manual testing, restart existing backend/owner/worker processes so they load the newly built code. Run each command in its own terminal from `exam-frontend`, stopping the corresponding old process first. The PostgreSQL instance may remain running; do not start a second copy.
+
+```powershell
+node scripts/local-test.ts backend
+node scripts/local-test.ts platform
+node scripts/local-test.ts worker
+node scripts/local-test.ts frontend
+```
+
+Use local test accounts. These launchers select the persistent local manual database; automated tests select the disposable local database. Production Supabase and Vercel were not modified. Migration 025 is already present in both local test databases and remains a deployment prerequisite for other environments. Never commit private configuration or authenticator material.
