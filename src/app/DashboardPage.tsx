@@ -72,7 +72,8 @@ export function DashboardPage() {
           <CalendarDays className="mb-3 size-5 text-primary" aria-hidden="true" />
           <h2 className="text-sm font-semibold">One shared exam schedule</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Preparation opens ten minutes before the common start. All exam schedules use EAT.
+            Preparation opens at the time set by your school, before the common start. All exam
+            schedules use EAT.
           </p>
         </div>
       </div>

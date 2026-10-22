@@ -72,8 +72,8 @@ export function ExamsPage() {
         </p>
       </div>
       <div className="text-sm leading-relaxed text-muted-foreground">
-        Preparation opens 10 minutes before the common start. Keep this browser connected to prepare
-        your paper. Joining late does not extend your deadline.
+        Preparation opens at the time set by your school, before the common start. Keep this browser
+        connected to prepare your paper. Joining late does not extend your deadline.
       </div>
       <RefreshControl
         label="Refresh exams"

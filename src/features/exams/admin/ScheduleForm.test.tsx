@@ -5,6 +5,24 @@ import { ScheduleForm } from './AdminExamDetail';
 import { adminDetailSchema, type Sitting } from './schemas';
 
 afterEach(() => vi.restoreAllMocks());
+it('requires reconfirmation after changing preparation duration and rejects invalid lengths', () => {
+  vi.spyOn(performance, 'now').mockReturnValue(0);
+  const save = vi.fn();
+  render(<ScheduleForm detail={detail} pending={false} onRefresh={vi.fn()} onSave={save} />);
+  const duration = screen.getByRole('spinbutton', { name: /Preparation duration/ });
+  expect(duration).toHaveValue(10);
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.change(duration, { target: { value: '25' } });
+  expect(screen.getByRole('checkbox')).not.toBeChecked();
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm schedule' }));
+  expect(save).toHaveBeenLastCalledWith(expect.any(String), expect.any(String), '', 25);
+  save.mockClear();
+  fireEvent.change(duration, { target: { value: '0' } });
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm schedule' }));
+  expect(save).not.toHaveBeenCalled();
+});
 const detail = {
   ...adminDetailSchema.parse({
     exam: {
@@ -58,7 +76,7 @@ it('keeps EAT independent of the device clock and shows field-specific errors ac
   expect(screen.getByRole('checkbox')).not.toBeChecked();
   fireEvent.click(screen.getByRole('checkbox'));
   fireEvent.click(screen.getByRole('button', { name: 'Confirm schedule' }));
-  expect(save).toHaveBeenCalledWith('2026-10-15T21:01:00.000Z', '2026-10-15T21:31:00.000Z', '');
+  expect(save).toHaveBeenCalledWith('2026-10-15T21:01:00.000Z', '2026-10-15T21:31:00.000Z', '', 10);
 });
 
 it('blocks stale samples, preserves entered dates on refresh and closes rescheduling at preparation', () => {

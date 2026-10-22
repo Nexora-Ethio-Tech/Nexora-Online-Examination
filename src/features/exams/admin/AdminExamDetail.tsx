@@ -27,7 +27,12 @@ export function ScheduleForm({
   detail: AdminDetail & { clockReceivedAt: number };
   initial?: Sitting;
   pending: boolean;
-  onSave: (preparationVisibleAt: string, resultsReleaseAt: string, reason: string) => void;
+  onSave: (
+    preparationVisibleAt: string,
+    resultsReleaseAt: string,
+    reason: string,
+    preparationMinutes: number,
+  ) => void;
   onRefresh: () => void;
 }) {
   const [, tick] = useState(0);
@@ -59,11 +64,21 @@ export function ScheduleForm({
         ).toISOString(),
     ),
   );
+  const [preparationMinutes, setPreparationMinutes] = useState(
+    initial
+      ? (Date.parse(initial.startsAt) - Date.parse(initial.preparationVisibleAt)) / 60000
+      : 10,
+  );
+  const validPreparation =
+    Number.isInteger(preparationMinutes) && preparationMinutes >= 1 && preparationMinutes <= 120;
   const [reason, setReason] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState('');
   const iso = parseEatInput(prep);
-  const times = iso ? scheduleTimes(iso, detail.exam.durationMinutes) : null;
+  const times =
+    iso && validPreparation
+      ? scheduleTimes(iso, detail.exam.durationMinutes, preparationMinutes)
+      : null;
   const result = parseEatInput(release);
   const extraMs = initial
     ? Math.max(0, Date.parse(initial.latestDeadlineAt) - Date.parse(initial.endsAt))
@@ -111,7 +126,7 @@ export function ScheduleForm({
           return;
         }
         setError('');
-        if (confirmed) onSave(iso, result, reason.trim());
+        if (confirmed) onSave(iso, result, reason.trim(), preparationMinutes);
       }}
     >
       <h3 className="text-lg font-semibold">
@@ -119,7 +134,7 @@ export function ScheduleForm({
       </h3>
       <p className="text-sm text-muted-foreground">
         Choose an Ethiopian calendar date and an AM/PM time in East Africa Time (EAT). Students have
-        ten minutes to prepare before the exam starts.
+        the preparation time you choose before the exam starts.
       </p>
       <p className="text-sm">
         Current school time (EAT): <strong>{eatTime(new Date(now()).toISOString())}</strong>
@@ -150,6 +165,25 @@ export function ScheduleForm({
         Refresh server time
       </Button>
       <fieldset disabled={pending} className="grid gap-4 sm:grid-cols-2">
+        <label className="space-y-2">
+          Preparation duration (minutes)
+          <input
+            className={control}
+            type="number"
+            min={1}
+            max={120}
+            step={1}
+            value={Number.isNaN(preparationMinutes) ? '' : preparationMinutes}
+            onChange={(event) => {
+              setPreparationMinutes(event.target.valueAsNumber);
+              setConfirmed(false);
+            }}
+            aria-invalid={!validPreparation}
+          />
+          {!validPreparation && (
+            <span role="alert">Choose a whole number from 1 to 120 minutes.</span>
+          )}
+        </label>
         <EthiopianDateTimeField
           label="Preparation date and time (EAT)"
           error={prepError}
@@ -550,11 +584,12 @@ export function AdminExamDetail() {
                 onRefresh={() => {
                   void query.refetch();
                 }}
-                onSave={(preparationVisibleAt, resultsReleaseAt, reason) => {
+                onSave={(preparationVisibleAt, resultsReleaseAt, reason, preparationMinutes) => {
                   const body = {
                     scheduleRevision: s.scheduleRevision,
                     preparationVisibleAt,
                     resultsReleaseAt,
+                    preparationMinutes,
                     reason,
                   };
                   run(() =>
@@ -585,13 +620,14 @@ export function AdminExamDetail() {
               onRefresh={() => {
                 void query.refetch();
               }}
-              onSave={(preparationVisibleAt, resultsReleaseAt) => {
+              onSave={(preparationVisibleAt, resultsReleaseAt, _reason, preparationMinutes) => {
                 if (d.approvedVersion !== null) {
                   const body = {
                     revision: e.revision,
                     approvedVersion: d.approvedVersion,
                     preparationVisibleAt,
                     resultsReleaseAt,
+                    preparationMinutes,
                   };
                   run(() => api.schedule(examId, body, key('schedule', body)));
                 }
