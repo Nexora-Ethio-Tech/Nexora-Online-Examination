@@ -1,6 +1,7 @@
 import { generationInputSchema } from '@/features/exams/authoring/generation-schemas';
 import { z } from 'zod';
 import {
+  eligibleForBulkReview,
   metadataSchema,
   itemSchema,
   reviewProblems,
@@ -11,7 +12,6 @@ import {
 import templateHashes from './teacher-template-hashes.json';
 import { createAuthoringStore } from './authoring-store';
 import { math20Items } from './math20';
-
 export function sampleItems(): Item[] {
   return [
     {
@@ -212,9 +212,7 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
       if (method === 'POST' && part === 'review-all') {
         const confirmed = z.object({ confirmed: z.literal(true) }).safeParse(body);
         if (!confirmed.success) return fail('Confirm the bulk review.', 'VALIDATION_ERROR', 422);
-        const eligible = (papers.get(d.examId) ?? []).filter(
-          (i) => !i.reviewed && itemSchema.safeParse({ ...i, reviewed: true }).success,
-        );
+        const eligible = (papers.get(d.examId) ?? []).filter(eligibleForBulkReview);
         if (!eligible.length) return fail('No eligible questions.', 'VALIDATION_ERROR', 422);
         eligible.forEach((i) => {
           i.reviewed = true;
