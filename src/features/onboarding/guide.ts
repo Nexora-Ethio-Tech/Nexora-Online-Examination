@@ -84,4 +84,5 @@ export const guides: Record<Role, GuideStep[]> = {
     },
   ],
 };
-export const guideRevision = (role: Role) => JSON.stringify(guides[role]);
+export const guideRevision = (role: Role) =>
+  JSON.stringify({ presentation: 'speech-bubble-v1', steps: guides[role] });
