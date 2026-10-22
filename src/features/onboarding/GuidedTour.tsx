@@ -199,46 +199,48 @@ export function GuidedTour({
               aria-label="Portal onboarding"
               aria-describedby={id}
               style={{ borderRadius: tourCornerRadius }}
-              className="pointer-events-auto fixed z-[100] max-h-[calc(100dvh-1rem)] w-[min(24rem,calc(100vw-1rem))] space-y-3 overflow-y-auto border border-primary/20 bg-background p-5 text-foreground shadow-[0_18px_60px_-16px_rgba(0,0,0,0.45)]"
+              className="pointer-events-auto fixed z-[100] max-h-[calc(100dvh-1rem)] w-[min(24rem,calc(100vw-1rem))] overflow-hidden border border-primary/20 bg-background text-foreground shadow-[0_18px_60px_-16px_rgba(0,0,0,0.45)]"
             >
-              <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                Getting started · {progress.index + 1} of {steps.length}
-              </p>
-              <h2 className="text-xl font-semibold tracking-tight">{step.title}</h2>
-              <p id={id} className="text-sm leading-relaxed">
-                {step.body}
-              </p>
-              <p className="text-sm">
-                {missingTarget
-                  ? 'This area is not visible on the current page. Return to the portal overview or continue to the next tip.'
-                  : menuTarget
-                    ? 'Open the highlighted Navigation button to find this area.'
-                    : 'Select the highlighted area when you want to explore it.'}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  disabled={progress.index === 0}
-                  onClick={() => update({ ...progress, index: progress.index - 1 })}
-                >
-                  Previous tip
-                </Button>
-                {progress.index + 1 < steps.length ? (
-                  <Button onClick={() => update({ ...progress, index: progress.index + 1 })}>
-                    Next tip
+              <div className="max-h-[inherit] space-y-3 overflow-y-auto p-6">
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+                  Getting started · {progress.index + 1} of {steps.length}
+                </p>
+                <h2 className="text-xl font-semibold tracking-tight">{step.title}</h2>
+                <p id={id} className="text-sm leading-relaxed">
+                  {step.body}
+                </p>
+                <p className="text-sm">
+                  {missingTarget
+                    ? 'This area is not visible on the current page. Return to the portal overview or continue to the next tip.'
+                    : menuTarget
+                      ? 'Open the highlighted Navigation button to find this area.'
+                      : 'Select the highlighted area when you want to explore it.'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={progress.index === 0}
+                    onClick={() => update({ ...progress, index: progress.index - 1 })}
+                  >
+                    Previous tip
                   </Button>
-                ) : (
-                  <Button onClick={() => update({ ...progress, completed: true })}>
-                    Finish guide
+                  {progress.index + 1 < steps.length ? (
+                    <Button onClick={() => update({ ...progress, index: progress.index + 1 })}>
+                      Next tip
+                    </Button>
+                  ) : (
+                    <Button onClick={() => update({ ...progress, completed: true })}>
+                      Finish guide
+                    </Button>
+                  )}
+                  <Button variant="ghost" onClick={() => update({ ...progress, paused: true })}>
+                    Close guide
                   </Button>
-                )}
-                <Button variant="ghost" onClick={() => update({ ...progress, paused: true })}>
-                  Close guide
-                </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Explore freely. Close this tip and use {label} to resume from here.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Explore freely. Close this tip and use {label} to resume from here.
-              </p>
             </aside>
             <svg
               ref={tail}
