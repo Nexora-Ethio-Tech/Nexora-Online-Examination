@@ -5,17 +5,17 @@ export const guides: Record<Role, GuideStep[]> = {
   school_admin: [
     {
       title: 'Set up your school',
-      body: 'Create classes and subjects, then assign teachers. Delete unused records or archive records with history from their cards.',
-      path: '/admin/school',
+      body: 'Create classes using Grade and Section, then create subjects for each grade and assign teachers. Find assignments by grade, class, subject or teacher. Delete class removes it from current use while previous exam results remain.',
+      path: '/admin/school?tab=classes',
     },
     {
       title: 'Import students into a class',
-      body: 'Choose a class in Roster import and preview your CSV. In Accounts, open the class card to find students and give students their login details. New IDs continue across all classes in your school.',
-      path: '/admin/school',
+      body: 'Choose a class in Roster import and preview your CSV. In Accounts, open the class card to find students and give students their login details. New IDs continue across all classes in your school and end with the year of creation. Use Edit to change student details or reset a password.',
+      path: '/admin/school?tab=roster',
     },
     {
       title: 'Approve and schedule exams',
-      body: 'Review submitted papers, approve them and choose Ethiopian calendar dates with Amharic months. Times use AM/PM in EAT. Check the exam start, end and results dates before confirming.',
+      body: 'Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Check the exam start, end and results dates before confirming.',
       path: '/admin',
     },
     {
@@ -32,7 +32,7 @@ export const guides: Record<Role, GuideStep[]> = {
   teacher: [
     {
       title: 'Create a paper',
-      body: 'Choose your assigned class and subject, then enter exam details. Portal dates use the Ethiopian calendar with Amharic months; times use AM/PM in EAT.',
+      body: 'Choose your assigned class and subject, then enter exam details. Date forms offer Ethiopian and Gregorian calendars; times use AM/PM in EAT.',
       path: '/teacher',
     },
     {
