@@ -4,9 +4,15 @@ const name = z.string().trim().min(1).max(160);
 const revision = z.number().int().positive();
 const time = z.iso.datetime();
 export const reasonSchema = z.string().trim().min(1, 'Enter a reason.').max(2000);
-export const classInputSchema = z.object({ name, academicYear: z.string().trim().min(1).max(30) });
+export const classInputSchema = z.object({
+  name,
+  grade: z.string().nullable().optional(),
+  section: z.string().nullable().optional(),
+  academicYear: z.string().trim().min(1).max(30),
+});
 export const subjectInputSchema = z.object({
   name,
+  grade: z.string().nullable().optional(),
   code: z
     .string()
     .trim()
@@ -36,6 +42,11 @@ export const accountSchema = z.object({
 });
 export const accountEditSchema = z.object({
   revision,
+  loginId: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9_-]{1,160}$/)
+    .optional(),
   displayName: name,
   classId: id.nullable(),
   status: z.enum(['active', 'inactive']),
@@ -47,6 +58,7 @@ export const assignmentSchema = assignmentInputSchema.extend({
   active: z.boolean(),
   revision,
   teacherName: name,
+  grade: z.string().nullable().optional(),
   className: name,
   subjectName: name,
 });

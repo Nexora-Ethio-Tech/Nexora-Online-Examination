@@ -66,10 +66,18 @@ export function schoolApi(client: ApiClient) {
         pageSchema(accountSchema),
         { signal },
       ),
-    assignments: (cursor: string | null, signal?: AbortSignal) =>
-      client.request(`/teacher-assignments?${page(cursor)}`, pageSchema(assignmentSchema), {
-        signal,
-      }),
+    assignments: (
+      cursor: string | null,
+      signal?: AbortSignal,
+      filters: Record<string, string> = {},
+    ) =>
+      client.request(
+        `/teacher-assignments?${page(cursor)}&${new URLSearchParams(Object.entries(filters).filter(([, v]) => !!v))}`,
+        pageSchema(assignmentSchema),
+        {
+          signal,
+        },
+      ),
     audit: (cursor: string | null, signal?: AbortSignal) =>
       client.request(`/admin/directory-audit?${page(cursor)}`, pageSchema(auditSchema), { signal }),
     saveClass: (id: string | null, body: unknown, key: string) =>
@@ -88,8 +96,12 @@ export function schoolApi(client: ApiClient) {
         key,
         id ? 'PATCH' : 'POST',
       ),
-    createTeacher: (displayName: string, reason: string, key: string) =>
-      write('/teachers', credentialIssueSchema, { displayName, reason }, key),
+    createTeacher: (
+      displayName: string,
+      reason: string,
+      key: string,
+      names?: { firstName: string; fatherName: string; grandfatherName: string },
+    ) => write('/teachers', credentialIssueSchema, { displayName, reason, ...names }, key),
     editAccount: (role: 'student' | 'teacher', id: string, body: AccountEdit, key: string) =>
       write(
         `/${role === 'student' ? 'students' : 'teachers'}/${encodeURIComponent(id)}`,
