@@ -51,11 +51,14 @@ export async function fillEatDateTime(page: Page, label: string, wall: string) {
   const eth = toEC(year, month, day);
   const [hour = 0, minute = 0] = wall.slice(11).split(':').map(Number);
   const field = page.getByRole('group', { name: label, exact: true });
+  const toggle = field.getByRole('button', { name: /Choose date|Close calendar/ });
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  await field.getByRole('button', { name: 'Day 1', exact: true }).click();
+  await field.getByRole('spinbutton', { name: 'Year' }).fill(String(eth.year));
+  await field.getByRole('spinbutton', { name: 'Year' }).blur();
+  await field.getByRole('combobox', { name: 'Month', exact: true }).selectOption(String(eth.month));
+  await field.getByRole('button', { name: 'Day ' + eth.day, exact: true }).click();
   for (const [name, value] of [
-    ['Day', 1],
-    ['Year', eth.year],
-    ['Month', eth.month],
-    ['Day', eth.day],
     ['Hour', hour % 12 || 12],
     ['Minute', minute],
     ['AM / PM', hour >= 12 ? 'PM' : 'AM'],
@@ -66,10 +69,12 @@ export async function fillEatDateTime(page: Page, label: string, wall: string) {
 export async function readEatDateTime(page: Page, label: string) {
   const field = page.getByRole('group', { name: label, exact: true });
   const value = (name: string) => field.getByRole('combobox', { name, exact: true }).inputValue();
+  const toggle = field.getByRole('button', { name: /Choose date|Close calendar/ });
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
   const gc = toGC(
-    Number(await value('Year')),
+    Number(await field.getByRole('spinbutton', { name: 'Year' }).inputValue()),
     Number(await value('Month')),
-    Number(await value('Day')),
+    Number(await field.locator('button[aria-pressed="true"][aria-label^="Day "]').textContent()),
   );
   const hour = (Number(await value('Hour')) % 12) + ((await value('AM / PM')) === 'PM' ? 12 : 0);
   const pad = (n: number | string) => String(n).padStart(2, '0');

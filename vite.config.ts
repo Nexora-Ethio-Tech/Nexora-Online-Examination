@@ -27,7 +27,17 @@ export default defineConfig(({ command, mode }) => {
     );
   }
   return {
-    server: { proxy: apiProxy },
+    server: {
+      proxy: apiProxy,
+      watch: {
+        ignored: [
+          '**/test-results/**',
+          '**/playwright-report/**',
+          '**/.portal-*',
+          '**/nexora-backend/dist/**',
+        ],
+      },
+    },
     preview: { proxy: apiProxy },
     plugins: [react(), tailwindcss(), offlineShell(buildId)],
     define: { __APP_BUILD__: JSON.stringify(buildId) },
@@ -39,7 +49,7 @@ export default defineConfig(({ command, mode }) => {
     },
     test: {
       // Bound simultaneous jsdom/transform work so lazy route imports do not starve UI checks.
-      maxWorkers: 4,
+      maxWorkers: 2,
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
