@@ -1,3 +1,4 @@
+import { readDownload, type DownloadProgress } from './download-progress';
 import { z } from 'zod';
 
 const errorSchema = z.object({
@@ -23,6 +24,7 @@ export class ApiError extends Error {
 export type Transport = (url: string, init: RequestInit) => Promise<Response>;
 type Options = {
   responseType?: 'text';
+  onDownloadProgress?: DownloadProgress;
   method?: 'GET' | 'POST' | 'PATCH';
   body?: unknown;
   signal?: AbortSignal;
@@ -105,7 +107,9 @@ export class ApiClient {
           ? undefined
           : response.ok && options.responseType === 'text'
             ? await response.text()
-            : await response.json().catch(() => undefined);
+            : response.ok && options.onDownloadProgress
+              ? await readDownload(response, options.onDownloadProgress, controller.signal)
+              : await response.json().catch(() => undefined);
       if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
       if (!response.ok) {
         const parsed = errorSchema.safeParse(body);
