@@ -15,21 +15,31 @@ test('portal management: class cards, unused record deletion and reopenable onbo
   await login(page, 'ADMIN');
   await page.getByRole('button', { name: 'Portal guide', exact: true }).click();
   await expect(page.getByRole('complementary', { name: 'Portal onboarding' })).toBeVisible();
+  await page.getByRole('button', { name: 'Next tip' }).click();
+  await page.getByRole('button', { name: 'Open this area' }).click();
+  await expect(page.getByRole('tab', { name: 'Roster import', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   await accessible(page);
   await page.getByRole('button', { name: 'Close guide' }).click();
   await navigateWorkspace(page, 'School setup');
   await page.getByRole('button', { name: 'Add class', exact: true }).click();
-  await page.getByLabel('Class name', { exact: true }).fill('Temporary class');
+  await page.getByLabel('Grade', { exact: true }).fill('8');
+  await page.getByLabel('Section', { exact: true }).fill('Z');
   await page.getByLabel('Academic year', { exact: true }).fill('2026');
   await page.getByLabel('Reason', { exact: true }).fill('Browser removal test');
   await page.getByRole('button', { name: 'Save class', exact: true }).click();
-  await page.getByRole('button', { name: 'Delete / archive Temporary class', exact: true }).click();
-  const removal = page.getByRole('region', { name: 'Remove Temporary class' });
+  await page.getByRole('button', { name: 'Delete class: Grade 8 Z', exact: true }).click();
+  const removal = page.getByRole('region', { name: 'Remove Grade 8 Z' });
   await removal.getByLabel('Reason', { exact: true }).fill('Unused test class');
   await removal.getByRole('checkbox').check();
   await removal.getByRole('button', { name: 'Confirm removal' }).click();
-  await expect(page.getByRole('heading', { name: 'Temporary class' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Grade 8 Z' })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Accounts', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Choose a class to manage its students' }),
+  ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Samira', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /Grade 10 A/ }).click();
   await expect(page.getByRole('heading', { name: 'Samira', exact: true })).toBeVisible();
@@ -59,9 +69,11 @@ test('portal management: cancel import, bulk review and remove a draft', async (
   ).toBeVisible();
   await page.getByRole('tab', { name: 'Review questions' }).click();
   await page
-    .getByRole('checkbox', { name: 'I checked all eligible questions and their answer keys.' })
+    .getByRole('checkbox', {
+      name: 'I checked the questions without warnings and their answer keys.',
+    })
     .check();
-  await page.getByRole('button', { name: 'Review all eligible questions' }).click();
+  await page.getByRole('button', { name: /Confirm all questions without warnings/ }).click();
   await expect(page.getByText('1 of 2 questions reviewed and saved')).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Submit for approval', exact: true }),
@@ -195,7 +207,7 @@ test('teacher import and review through admin approval, scheduling and extra tim
   ).toBeVisible();
   await page.getByRole('tab', { name: 'Review questions' }).click();
   for (const id of ['MATH-001', 'MATH-002']) {
-    await page.getByRole('button', { name: `Review ${id}`, exact: true }).click();
+    await page.getByRole('button', { name: new RegExp(`^(Review|Open question) ${id}$`) }).click();
     const section = page
       .locator('section')
       .filter({ has: page.getByRole('heading', { name: id, exact: true }) });

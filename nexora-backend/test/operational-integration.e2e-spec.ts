@@ -275,6 +275,66 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       deviceGeneration: 1,
       shellBuild: 'integration-build',
     });
+    it('creates grade-specific directories, filters assignments and retains deleted classes', async () => {
+      if (!pool) throw new Error('Not started');
+      const cls = await post(
+        '/classes',
+        { name: 'Grade 9 A', grade: '9', section: 'A', academicYear: '2026', reason: 'Grade test' },
+        adminCookie,
+      ).expect(200);
+      const subject9 = await post(
+        '/subjects',
+        { name: 'Physics', code: 'PHY', grade: '9', reason: 'Grade test' },
+        adminCookie,
+      ).expect(200);
+      const subject10 = await post(
+        '/subjects',
+        { name: 'Physics', code: 'PHY', grade: '10', reason: 'Grade test' },
+        adminCookie,
+      ).expect(200);
+      await post(
+        '/teacher-assignments',
+        {
+          teacherId: teacher,
+          classId: cls.body.classId,
+          subjectId: subject10.body.subjectId,
+          reason: 'Mismatch',
+        },
+        adminCookie,
+      ).expect(422);
+      const assignment9 = await post(
+        '/teacher-assignments',
+        {
+          teacherId: teacher,
+          classId: cls.body.classId,
+          subjectId: subject9.body.subjectId,
+          reason: 'Grade test',
+        },
+        adminCookie,
+      ).expect(200);
+      const found = await read(
+        `/teacher-assignments?grade=9&teacherId=${teacher}&search=Physics`,
+      ).expect(200);
+      expect(found.body.items.map((a: { assignmentId: string }) => a.assignmentId)).toEqual([
+        assignment9.body.assignmentId,
+      ]);
+      expect((await read('/teacher-assignments?grade=12').expect(200)).body.items).toHaveLength(0);
+      const removed = await post(
+        `/directory/classes/${cls.body.classId}/remove`,
+        { revision: cls.body.revision, reason: 'Remove test class', confirmed: true },
+        adminCookie,
+      ).expect(200);
+      expect(removed.body.outcome).toBe('archived');
+      expect(
+        (await read('/classes').expect(200)).body.items.some(
+          (c: { classId: string }) => c.classId === cls.body.classId,
+        ),
+      ).toBe(false);
+      expect(
+        (await pool.query('SELECT active FROM classes WHERE id=$1', [cls.body.classId])).rows[0]
+          .active,
+      ).toBe(false);
+    });
     it('authenticates passwords and requires real TOTP before admin access', async () => {
       if (!app) throw new Error('Not started');
       const server = app.getHttpServer();
@@ -386,6 +446,19 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         submitKey,
       ).expect(200);
       expect(submitted.body).toMatchObject({ revision: 3, status: 'in_review' });
+      const filtered = await read('/admin/exams?search=Synthetic%20authoring').expect(200);
+      expect(
+        filtered.body.items.map((row: { exam: { examId: string } }) => row.exam.examId),
+      ).toEqual([id]);
+      expect(filtered.body.items[0].submittedAt).not.toBeNull();
+      expect((await read('/admin/exams?grade=12').expect(200)).body.items).toHaveLength(0);
+      expect(
+        (
+          await read(
+            `/admin/exams?from=${encodeURIComponent(new Date(now.getTime() + 3600000).toISOString())}`,
+          ).expect(200)
+        ).body.items,
+      ).toHaveLength(0);
       expect(
         (
           await post(

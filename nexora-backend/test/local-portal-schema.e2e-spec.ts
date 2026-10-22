@@ -5,7 +5,7 @@ import { databasePoolConfig } from '../src/common/db/database-config';
 import { allocateStudentNumbers, studentLoginId } from '../src/modules/directory/student-numbering';
 
 describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
-  'migration 024 on isolated PostgreSQL',
+  'migrations 024 and 025 on isolated PostgreSQL',
   () => {
     let admin: Pool;
     let runtime: Pool;
@@ -62,6 +62,20 @@ describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
       expect(
         (
           await admin.query(
+            "SELECT version FROM schema_migrations WHERE version='025_grade_directory.sql'",
+          )
+        ).rowCount,
+      ).toBe(1);
+      expect(
+        (
+          await admin.query(
+            "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='classes' AND column_name IN ('grade','section')",
+          )
+        ).rowCount,
+      ).toBe(2);
+      expect(
+        (
+          await admin.query(
             "SELECT version FROM schema_migrations WHERE version='024_portal_management.sql'",
           )
         ).rowCount,
@@ -81,6 +95,22 @@ describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
         ).rows[0],
       ).toEqual({ relrowsecurity: true, relforcerowsecurity: true });
     });
+    it('continues after both legacy and year-suffixed student IDs without renaming them', async () => {
+      await transaction(async (c) => {
+        await c.query(
+          "INSERT INTO users(id,school_id,login_id,display_name,role,password_hash) VALUES($1,$3,$4,'Legacy','student','unused'),($2,$3,$5,'New','student','unused')",
+          [randomUUID(), randomUUID(), school, `${school}-STU-0010`, `${school}-STU-0021-2026`],
+        );
+        expect(await allocateStudentNumbers(c, school, 1)).toBe(22);
+        expect(
+          (
+            await c.query('SELECT login_id FROM users WHERE school_id=$1 ORDER BY login_id', [
+              school,
+            ])
+          ).rows.map((r) => r.login_id),
+        ).toEqual([`${school}-STU-0010`, `${school}-STU-0021-2026`]);
+      }, true);
+    });
     it('allocates disjoint ranges under concurrent requests', async () => {
       const starts = await Promise.all([
         transaction((c) => allocateStudentNumbers(c, school, 2)),
@@ -97,7 +127,7 @@ describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
       ]);
       expect(
         studentLoginId('local', await transaction((c) => allocateStudentNumbers(c, school, 1))),
-      ).toBe('LOCAL-STU-10000');
+      ).toMatch(/^LOCAL-STU-10000-\d{4}$/);
     });
     it('denies foreign-school counter reads and writes through the restricted role', async () => {
       await admin.query('INSERT INTO school_student_counters(school_id,last_number) VALUES($1,9)', [
