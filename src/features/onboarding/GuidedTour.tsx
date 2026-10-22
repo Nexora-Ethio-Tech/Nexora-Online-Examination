@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { tourTail } from './tour-tail';
 import { tourPosition } from './tour-position';
 import { Button } from '@/components/ui/button';
 
@@ -45,6 +46,7 @@ export function GuidedTour({
   const id = useId();
   const box = useRef<HTMLElement>(null);
   const shade = useRef<HTMLDivElement>(null);
+  const tail = useRef<SVGSVGElement>(null);
   const [host, setHost] = useState<HTMLElement>(document.body);
   const [menuTarget, setMenuTarget] = useState(false);
   const [missingTarget, setMissingTarget] = useState(false);
@@ -84,6 +86,7 @@ export function GuidedTour({
       const r = target?.getBoundingClientRect();
       if (!r) {
         if (shade.current) shade.current.style.display = 'none';
+        if (tail.current) tail.current.style.display = 'none';
         Object.assign(popup.style, {
           left: '8px',
           top: '8px',
@@ -99,6 +102,20 @@ export function GuidedTour({
         width: position.width + 'px',
         maxHeight: position.maxHeight + 'px',
       });
+      // Bring the bubble edge close to the target after measuring wrapped content.
+      const measured = popup.getBoundingClientRect();
+      if (measured.right <= r.left)
+        popup.style.left = Math.max(8, r.left - measured.width - 20) + 'px';
+      if (measured.bottom <= r.top)
+        popup.style.top = Math.max(8, r.top - measured.height - 20) + 'px';
+      if (tail.current) {
+        const shape = tourTail(r, popup.getBoundingClientRect());
+        tail.current.style.display = shape ? 'block' : 'none';
+        tail.current
+          .querySelector('[data-tail-fill]')
+          ?.setAttribute('d', shape ? shape + ' Z' : '');
+        tail.current.querySelector('[data-tail-edge]')?.setAttribute('d', shape ?? '');
+      }
       if (shade.current) {
         const left = Math.max(0, r.left - 4),
           right = Math.min(innerWidth, r.right + 4);
@@ -221,6 +238,20 @@ export function GuidedTour({
                 Explore freely. Close this tip and use {label} to resume from here.
               </p>
             </aside>
+            <svg
+              ref={tail}
+              aria-hidden="true"
+              className="pointer-events-none fixed inset-0 z-[101] h-full w-full overflow-visible"
+              data-tour-tail
+            >
+              <path data-tail-fill fill="var(--background)" />
+              <path
+                data-tail-edge
+                fill="none"
+                stroke="color-mix(in oklab, var(--primary) 20%, transparent)"
+                strokeWidth="1"
+              />
+            </svg>
           </>,
           host,
         )}
