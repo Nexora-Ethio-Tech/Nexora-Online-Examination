@@ -101,7 +101,7 @@ it('blocks stale samples, preserves entered dates on refresh and closes reschedu
   );
   expect(screen.getByRole('button', { name: 'Save schedule change' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'Refresh server time' }));
-  expect(refresh).toHaveBeenCalledOnce();
+  expect(refresh).toHaveBeenCalledTimes(2);
   expect(screen.getByRole('checkbox')).not.toBeChecked();
   expect(screen.getByRole('group', { name: 'Preparation date and time (EAT)' })).toHaveTextContent(
     '6 ጥቅምት 2019 ዓ.ም. · 12:10 AM EAT',

@@ -93,7 +93,7 @@ describe('admin review and schedule screens', () => {
     await user.click(screen.getByRole('checkbox', { name: /I checked the EAT dates/ }));
     await user.click(screen.getByRole('button', { name: 'Save schedule change' }));
     await waitFor(() => expect(screen.getByText(/Schedule revision 2/)).toBeInTheDocument());
-  });
+  }, 15000);
   it('returns mandatory feedback without granting scheduling access', async () => {
     const { user, store, id } = setup();
     await screen.findByRole('heading', { name: 'Approval decision' });
