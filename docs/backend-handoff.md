@@ -1,5 +1,11 @@
 # Backend handoff
 
+## Grade directories and portal usability — 22 October 2026
+
+Migration 025 adds explicit class grade/section, subject grade and teacher name components. Directory assignment checks enforce matching grades, list filters execute before pagination, student IDs append their creation year in EAT, and login-ID changes revoke sessions. Class removal retains its record and hides it from active lists. Existing IDs and frozen rosters remain unchanged. Migration 025 is applied only to the isolated local manual and disposable databases; production is untouched. See [architecture and acceptance](grade-directory-architecture-and-testing.md).
+
+The frontend now includes a bounded dual-calendar picker, automatic scheduling time refresh and resumable contextual guides. These preserve existing UTC API timestamps and authorization/deadline rules. See [calendar tests](calendar-scheduling-improvements.md) and [guide/owner tests](resumable-guides-and-owner-portal.md).
+
 ## Immediate approved package preparation — 18 October 2026
 
 Approval now prepares the student artifact in the request transaction, with savepoint-isolated failures preserving the immutable approval. Existing pending papers gain an immediate prepare action through the extended package-retry endpoint; active leases and ready artifacts remain protected. Worker entry points prioritize packages before AI. See [behavior, deployment and verification](package-preparation.md). No new migration or hosted deployment is included, and real hosted timing/queue acceptance is not claimed.
@@ -99,6 +105,7 @@ Added tiled private-reference watermarks, scoped question selection/drag deterre
 ## 22 October 2026 — isolated local real integration
 
 Created separate persistent manual and disposable PostgreSQL databases without modifying hosted Supabase configuration. All repository migrations through 024 applied locally; 18 real integration cases and separate admin/owner password-MFA browser checks passed. See [local integrated testing](local-integrated-testing.md) for launch commands, test isolation and remaining acceptance. Test harness now uses TypeScript metadata emission, reserves its own Vite port and removes only its own student-counter fixtures. Backend HOST optionally binds local APIs to loopback.
+
 # 22 October 2026 — queued imports and Groq/Gemini configuration
 
 Fixed worker school discovery under restricted runtime RLS by using explicit operator scope and tenant transactions. Local worker restarted with the test school configured. Added Groq primary/Gemini fallback, bounded attempts and token reservations, actual successful-model recording, and a synthetic provider diagnostic. Private credentials remain outside Git. See [architecture, setup and acceptance guide](import-worker-recovery-and-ai-testing.md).
