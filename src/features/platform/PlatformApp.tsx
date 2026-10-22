@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { readEnvironment } from '@/lib/env';
 import { eatTime } from '@/features/exams/ExamsPage';
 import { platformApi, type School, type Admin, type ActionResult } from './api';
+import { OwnerGuide } from './OwnerGuide';
+import { processingLabel } from './language';
 
 const inputClass = 'mt-1 min-h-11 w-full rounded border bg-background p-2';
 export function PlatformApp({ client: provided }: { client?: ApiClient }) {
@@ -59,7 +61,7 @@ export function PlatformApp({ client: provided }: { client?: ApiClient }) {
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm text-muted-foreground">Nexora platform owner</p>
-            <h1 className="text-2xl font-semibold">Platform management</h1>
+            <h1 className="text-2xl font-semibold">Manage your schools</h1>
           </div>
           {import.meta.env.VITE_APP_SURFACE !== 'platform' && (
             <a className="underline" href="/">
@@ -76,6 +78,7 @@ export function PlatformApp({ client: provided }: { client?: ApiClient }) {
           </div>
         ) : owner ? (
           <>
+            <OwnerGuide owner={owner} />
             <div className="flex items-center justify-between gap-3">
               <p>Signed in as {owner}. Actions are recorded under your owner identity.</p>
               <Button
@@ -184,10 +187,12 @@ function Dashboard({ client }: { client: ApiClient }) {
   });
   return (
     <div className="space-y-6">
-      <section className="space-y-3">
+      <section id="owner-schools" className="space-y-3">
         <h2 className="text-xl font-semibold">Schools</h2>
+        <p>Select a school to manage its plan, access or administrators.</p>
         <div className="flex flex-wrap gap-3">
           <Button
+            id="owner-add-school"
             onClick={() => {
               setSelected(null);
               setCreating(true);
@@ -356,7 +361,7 @@ function OwnerActions({
       >
         {school ? (
           <label className="block">
-            Owner action
+            What would you like to do?
             <select
               className={inputClass}
               value={action}
@@ -369,7 +374,7 @@ function OwnerActions({
             >
               <option value="subscription">Manage subscription</option>
               <option value="status">
-                {school.status === 'active' ? 'Emergency suspension' : 'Reactivate school'}
+                {school.status === 'active' ? 'Suspend school access' : 'Reactivate school'}
               </option>
               <option value="reset_admin">Recover school administrator</option>
               <option value="create_admin">Add school administrator</option>
@@ -419,8 +424,8 @@ function OwnerActions({
               />
             </label>
             <p className="text-sm sm:col-span-2">
-              Creates a 30-day trial. The administrator stays inactive until protected MFA
-              enrollment is confirmed.
+              Creates a 30-day trial. The administrator can sign in after completing authenticator
+              setup.
             </p>
           </div>
         )}
@@ -446,9 +451,7 @@ function OwnerActions({
                 onChange={(e) => setDisplayName(e.target.value)}
               />
             </label>
-            <p>
-              The new administrator remains inactive until protected MFA enrollment is confirmed.
-            </p>
+            <p>The new administrator can sign in after completing authenticator setup.</p>
           </div>
         )}
         {school && action === 'subscription' && (
@@ -621,8 +624,8 @@ function Health({ client }: { client: ApiClient }) {
     refetchIntervalInBackground: false,
   });
   return (
-    <section className="space-y-3 rounded-xl border p-5">
-      <h2 className="text-xl font-semibold">System health snapshot</h2>
+    <section id="owner-health" className="space-y-3 rounded-xl border p-5">
+      <h2 className="text-xl font-semibold">Processing status</h2>
       <p className="text-sm">
         Refreshes every minute while visible. Queue counts do not prove a worker is running.
       </p>
@@ -634,7 +637,7 @@ function Health({ client }: { client: ApiClient }) {
           <ul>
             {data.data.queues.map((q) => (
               <li key={`${q.queue}:${q.status}`}>
-                {q.queue} · {q.status}: {q.count}
+                {processingLabel(q.queue)} · {processingLabel(q.status)}: {q.count}
               </li>
             ))}
           </ul>
@@ -650,8 +653,8 @@ function Audit({ client }: { client: ApiClient }) {
     queryFn: ({ signal }) => platformApi(client).audit(cursor, signal),
   });
   return (
-    <section className="space-y-3 rounded-xl border p-5">
-      <h2 className="text-xl font-semibold">Platform audit trail</h2>
+    <section id="owner-activity" className="space-y-3 rounded-xl border p-5">
+      <h2 className="text-xl font-semibold">Owner activity</h2>
       <p className="text-sm">Up to 100 events per page. Exports contain this page only.</p>
       {data.error && <p role="alert">{errorMessage(data.error)}</p>}
       {data.isPending && <p role="status">Loading audit events…</p>}
