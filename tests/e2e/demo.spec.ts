@@ -16,11 +16,36 @@ test('portal management: class cards, unused record deletion and reopenable onbo
   await page.getByRole('button', { name: 'Portal guide', exact: true }).click();
   await expect(page.getByRole('complementary', { name: 'Portal onboarding' })).toBeVisible();
   await page.getByRole('button', { name: 'Next tip' }).click();
-  await page.getByRole('button', { name: 'Open this area' }).click();
-  await expect(page.getByRole('tab', { name: 'Roster import', exact: true })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  await expect(page.getByRole('button', { name: 'Open this area' })).toHaveCount(0);
+  const verifyPlacement = async () => {
+    await expect
+      .poll(async () => {
+        const target = await page.locator('.nexora-tour-target').boundingBox();
+        const popup = await page
+          .getByRole('complementary', { name: 'Portal onboarding' })
+          .boundingBox();
+        return (
+          !!target &&
+          !!popup &&
+          (popup.x >= target.x + target.width ||
+            popup.x + popup.width <= target.x ||
+            popup.y >= target.y + target.height ||
+            popup.y + popup.height <= target.y)
+        );
+      })
+      .toBe(true);
+  };
+  await verifyPlacement();
+  if (await page.getByRole('button', { name: 'Navigation', exact: true }).isVisible()) {
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click();
+    await verifyPlacement();
+  }
+  await page
+    .getByRole('link', { name: 'School setup', exact: true })
+    .filter({ visible: true })
+    .click();
+  await expect(page.getByText('Import students into a class', { exact: true })).toBeVisible();
+  await verifyPlacement();
   await accessible(page);
   await page.getByRole('button', { name: 'Close guide' }).click();
   await navigateWorkspace(page, 'School setup');
