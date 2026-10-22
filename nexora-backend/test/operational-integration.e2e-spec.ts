@@ -532,6 +532,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
           revision: 4,
           approvedVersion: 1,
           preparationVisibleAt: prep.toISOString(),
+          preparationMinutes: 25,
           resultsReleaseAt: release.toISOString(),
         },
         scheduleKey = randomUUID();
@@ -550,10 +551,29 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         ).body,
       ).toEqual(scheduled.body);
       const sitting = scheduled.body.sessions[0];
-      expect(Date.parse(sitting.startsAt) - Date.parse(sitting.preparationVisibleAt)).toBe(600000);
+      expect(Date.parse(sitting.startsAt) - Date.parse(sitting.preparationVisibleAt)).toBe(
+        25 * 60000,
+      );
       const server = app.getHttpServer();
-      const extra = {
+      const rescheduled = await request(server)
+        .patch('/api/v1/sessions/' + sitting.sessionId + '/schedule')
+        .set('Cookie', adminCookie)
+        .set('Origin', 'http://localhost:5173')
+        .set('X-CSRF-Token', csrf)
+        .set('Idempotency-Key', randomUUID())
+        .send({
           scheduleRevision: 1,
+          preparationVisibleAt: prep.toISOString(),
+          resultsReleaseAt: release.toISOString(),
+          reason: 'Preserve custom preparation duration',
+        })
+        .expect(200);
+      expect(
+        Date.parse(rescheduled.body.sessions[0].startsAt) -
+          Date.parse(rescheduled.body.sessions[0].preparationVisibleAt),
+      ).toBe(25 * 60000);
+      const extra = {
+          scheduleRevision: 2,
           studentId: student,
           extraMinutes: 5,
           reason: 'Synthetic extra-time check',
@@ -579,7 +599,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         .set('Origin', 'http://localhost:5173')
         .set('X-CSRF-Token', csrf)
         .set('Idempotency-Key', randomUUID())
-        .send({ ...extra, scheduleRevision: 2, extraMinutes: 6 })
+        .send({ ...extra, scheduleRevision: 3, extraMinutes: 6 })
         .expect(409);
       expect(locked.body.code ?? locked.body.error?.code).toBe('ACCOMMODATIONS_LOCKED');
       const delivered = await post(
@@ -588,7 +608,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         studentCookie,
       ).expect(201);
       expect(delivered.body.deadlineAt).toBe(accommodation.body.student.deadlineAt);
-      expect(delivered.body.scheduleRevision).toBe(2);
+      expect(delivered.body.scheduleRevision).toBe(3);
       clock.setMockTime(now);
     }, 120000);
     it('durably imports a real template and preserves questions on failed replacement', async () => {
