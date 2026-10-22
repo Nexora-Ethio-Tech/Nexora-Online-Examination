@@ -116,9 +116,10 @@ export class ImportWorkerService {
           return null;
         }
         const reserve =
-          config.maxCompletionTokens +
-          Math.ceil(JSON.stringify(row.generation_request).length / 2) +
-          2000;
+          config.attemptCount *
+          (config.maxCompletionTokens +
+            Math.ceil(JSON.stringify(row.generation_request).length / 2) +
+            2000);
         const budget = Number(process.env.AI_IMPORT_TOKEN_BUDGET ?? '1000000');
         if (
           !Number.isSafeInteger(budget) ||
@@ -316,7 +317,8 @@ export class ImportWorkerService {
         return null;
       }
       const reserve =
-        config.maxCompletionTokens + Math.ceil(JSON.stringify(row.input_data).length / 2) + 1000;
+        config.attemptCount *
+        (config.maxCompletionTokens + Math.ceil(JSON.stringify(row.input_data).length / 2) + 1000);
       const budget = Number(process.env.AI_IMPORT_TOKEN_BUDGET ?? '1000000');
       if (
         !Number.isSafeInteger(budget) ||
@@ -391,7 +393,7 @@ export class ImportWorkerService {
           ],
         );
         await c.query(
-          'UPDATE ai_jobs SET status=$1,output_data=$2,input_tokens=$3,output_tokens=$4,error_message=$5,lease_token=NULL,lease_until=NULL WHERE school_id=$6 AND id=$7',
+          'UPDATE ai_jobs SET status=$1,output_data=$2,input_tokens=$3,output_tokens=$4,error_message=$5,lease_token=NULL,lease_until=NULL,provider_model=$8 WHERE school_id=$6 AND id=$7',
           [
             applied.rowCount ? 'completed' : 'failed',
             JSON.stringify(result),
@@ -400,6 +402,7 @@ export class ImportWorkerService {
             applied.rowCount ? null : 'AI_STALE_INPUT',
             school,
             job.id,
+            result.model,
           ],
         );
         if (applied.rowCount)
