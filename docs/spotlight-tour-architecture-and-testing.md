@@ -20,3 +20,9 @@ The shared placement helper chooses non-overlapping viewport space. Scroll, resi
 ## Automated evidence
 
 Geometry tests check non-overlap and viewport bounds at desktop, phone and landscape sizes. Browser tests check actual popup/target rectangles, mobile menu navigation, manual link selection, retained tips and accessibility. Component tests cover account isolation, dismissal, reopening, content updates and blocked local storage.
+
+## Speech-bubble appearance
+
+The guide uses a 24-pixel corner radius, softer shadow and a curved speech-bubble pointer. The pointer faces the nearest edge of the highlighted control and stops four pixels outside it. A 20-pixel layout gap gives the tail room without covering the target. The SVG is decorative and ignores pointer events; it sits outside the scrolling text box so the tail stays visible. Missing targets hide the pointer. The same presentation is used for school and owner guides, with updated presentation revisions.
+
+Check the tail after Next tip, scrolling, resizing and opening mobile Navigation. It must face the highlighted control, never cover it, and remain visible when the text box scrolls. Desktop, 360-pixel phone and landscape browser journeys verify the bubble remains separate from its target; screenshots support visual review.
