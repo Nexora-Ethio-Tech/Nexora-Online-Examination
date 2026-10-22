@@ -7,16 +7,21 @@ export function selectEatDateTime(label: string, wall: string) {
   const eth = toEC(year, month, day);
   const [hour = 0, minute = 0] = wall.slice(11).split(':').map(Number);
   const field = within(screen.getByRole('group', { name: label }));
+  const toggle = field.getByRole('button', { name: /Choose date|Close calendar/ });
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle);
+  fireEvent.click(field.getByRole('button', { name: 'Day 1' }));
+  fireEvent.change(field.getByRole('spinbutton', { name: 'Year' }), {
+    target: { value: String(eth.year) },
+  });
+  fireEvent.blur(field.getByRole('spinbutton', { name: 'Year' }));
+  fireEvent.change(field.getByRole('combobox', { name: 'Month' }), {
+    target: { value: String(eth.month) },
+  });
+  fireEvent.click(field.getByRole('button', { name: 'Day ' + eth.day }));
   for (const [name, value] of [
-    ['Day', 1],
-    ['Year', eth.year],
-    ['Month', eth.month],
-    ['Day', eth.day],
     ['Hour', hour % 12 || 12],
     ['Minute', minute],
     ['AM / PM', hour >= 12 ? 'PM' : 'AM'],
   ] as const)
-    fireEvent.change(field.getByRole('combobox', { name }), {
-      target: { value: String(value) },
-    });
+    fireEvent.change(field.getByRole('combobox', { name }), { target: { value: String(value) } });
 }
