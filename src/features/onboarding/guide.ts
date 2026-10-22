@@ -15,7 +15,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Approve and schedule exams',
-      body: 'Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Check the exam start, end and results dates before confirming.',
+      body: 'Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Choose 1–120 preparation minutes (10 by default). Check the exam start, end and results dates before confirming.',
       path: '/admin',
     },
     {
@@ -59,7 +59,7 @@ export const guides: Record<Role, GuideStep[]> = {
   student: [
     {
       title: 'Prepare for your exam',
-      body: 'Open My exams and check the Ethiopian calendar date. Times use AM/PM in EAT, even if your device uses another timezone. Choose Download exam when preparation opens and stay connected until the exam starts.',
+      body: 'Open My exams and check the Ethiopian calendar date. Times use AM/PM in EAT, even if your device uses another timezone. Choose Download exam when preparation opens. Follow the download progress, keep this page open and stay connected until the exam starts.',
       path: '/student',
     },
     {

@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router';
 import type { Role } from '@/features/auth/schemas';
 import { guides, guideRevision } from './guide';
 import { GuidedTour } from './GuidedTour';
@@ -11,7 +10,6 @@ export function PortalGuide({
   userId: string;
   role: Role;
 }) {
-  const navigate = useNavigate();
   return (
     <GuidedTour
       storageKey={'nexora:guide:' + schoolId + ':' + userId + ':' + role}
@@ -19,7 +17,6 @@ export function PortalGuide({
       steps={guides[role].map((step) => ({
         ...step,
         target: 'nav a[href="' + step.path.split('?')[0] + '"]',
-        open: () => navigate(step.path),
       }))}
     />
   );

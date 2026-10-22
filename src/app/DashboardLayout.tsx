@@ -143,12 +143,14 @@ export function DashboardLayout() {
             <div className="flex min-w-0 items-center gap-3">
               <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="outline" className="min-h-11 lg:hidden">
+                  <Button data-tour-navigation variant="outline" className="min-h-11 lg:hidden">
                     <Menu aria-hidden="true" />
                     <span className="sr-only">Navigation</span>
                   </Button>
                 </SheetTrigger>
                 <SheetContent
+                  data-tour-menu
+                  style={{ transform: 'none', translate: 'none', animation: 'none' }}
                   side="left"
                   className="overflow-y-auto border-sidebar-border bg-sidebar p-4 text-sidebar-foreground"
                 >

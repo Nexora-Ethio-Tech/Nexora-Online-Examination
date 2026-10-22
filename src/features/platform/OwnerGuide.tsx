@@ -3,7 +3,7 @@ export const ownerSteps = [
   {
     title: 'Your schools',
     body: 'Choose a school card to manage its subscription, access and administrators. Use Next page to see more schools.',
-    target: '#owner-schools',
+    target: '#owner-schools h2',
   },
   {
     title: 'Add a school',
@@ -13,17 +13,17 @@ export const ownerSteps = [
   {
     title: 'Manage school access',
     body: 'Open a school card. Manage subscription changes its plan; Suspend school stops school access. Recover school administrator resets access after you verify their identity. Each change needs your authenticator code and a reason.',
-    target: '#owner-schools',
+    target: '#owner-schools h2',
   },
   {
     title: 'Check processing',
     body: 'Processing status shows waiting and completed work. A waiting count alone does not mean a worker is running. Check this area if exam files stay waiting.',
-    target: '#owner-health',
+    target: '#owner-health h2',
   },
   {
     title: 'Review activity',
     body: 'Owner activity records administrative changes and their reasons. Export this page saves only the currently displayed events.',
-    target: '#owner-activity',
+    target: '#owner-activity h2',
   },
 ];
 export function OwnerGuide({ owner }: { owner: string }) {
@@ -32,13 +32,7 @@ export function OwnerGuide({ owner }: { owner: string }) {
       storageKey={`nexora:owner-guide:${owner}`}
       revision={JSON.stringify(ownerSteps)}
       label="Owner guide"
-      steps={ownerSteps.map((step) => ({
-        ...step,
-        open: () =>
-          document
-            .querySelector(step.target)
-            ?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
-      }))}
+      steps={ownerSteps}
     />
   );
 }

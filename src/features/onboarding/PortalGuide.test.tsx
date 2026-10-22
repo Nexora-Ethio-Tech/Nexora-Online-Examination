@@ -54,7 +54,7 @@ it('works when browser preference storage is blocked', () => {
 it('keeps the current tip open when navigating and remembers completion', () => {
   const view = render(guide());
   fireEvent.click(screen.getByRole('button', { name: 'Next tip' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Open this area' }));
+  expect(screen.queryByRole('button', { name: 'Open this area' })).not.toBeInTheDocument();
   expect(screen.getByText('Upload and manage questions')).toBeVisible();
   while (screen.queryByRole('button', { name: 'Next tip' }))
     fireEvent.click(screen.getByRole('button', { name: 'Next tip' }));
