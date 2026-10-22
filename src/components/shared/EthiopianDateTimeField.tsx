@@ -1,4 +1,5 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
+import { GregorianCalendar } from '@/kewti/ui/GregorianCalendar';
 import { KewtiDatePickerDropdown } from '@/kewti/ui/KewtiDatePickerDropdown';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +30,7 @@ export function EthiopianDateTimeField({
   optional?: boolean;
 }) {
   const id = useId();
+  const [calendar, setCalendar] = useState<'ethiopian' | 'gregorian'>('ethiopian');
   const fallback = toEatInput(new Date().toISOString());
   const current = value || (dateOnly ? fallback.slice(0, 10) : fallback);
   const date = ethiopianFromGregorianDate(current);
@@ -53,7 +55,8 @@ export function EthiopianDateTimeField({
     >
       <legend className="px-1 text-sm font-medium">{label}</legend>
       <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-        Ethiopian calendar · {dateOnly ? 'EAT' : 'East Africa Time (EAT) · AM/PM'}
+        {calendar === 'ethiopian' ? 'Ethiopian' : 'Gregorian'} calendar ·{' '}
+        {dateOnly ? 'EAT' : 'East Africa Time (EAT) · AM/PM'}
       </p>
       {!value && optional ? (
         <Button type="button" variant="outline" onClick={() => onChange(current)}>
@@ -61,14 +64,39 @@ export function EthiopianDateTimeField({
         </Button>
       ) : (
         <>
-          <KewtiDatePickerDropdown
-            value={date}
-            onChange={(next) =>
-              onChange(
-                `${gregorianDateFromEthiopian(next)}${dateOnly ? '' : `T${current.slice(11)}`}`,
-              )
-            }
-          />
+          <div className="flex flex-wrap gap-2" aria-label="Calendar system">
+            <Button
+              type="button"
+              variant="outline"
+              aria-pressed={calendar === 'ethiopian'}
+              onClick={() => setCalendar('ethiopian')}
+            >
+              Ethiopian
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              aria-pressed={calendar === 'gregorian'}
+              onClick={() => setCalendar('gregorian')}
+            >
+              Gregorian
+            </Button>
+          </div>
+          {calendar === 'gregorian' ? (
+            <GregorianCalendar
+              value={current}
+              onChange={(next) => onChange(`${next}${dateOnly ? '' : `T${current.slice(11)}`}`)}
+            />
+          ) : (
+            <KewtiDatePickerDropdown
+              value={date}
+              onChange={(next) =>
+                onChange(
+                  `${gregorianDateFromEthiopian(next)}${dateOnly ? '' : `T${current.slice(11)}`}`,
+                )
+              }
+            />
+          )}
           {!dateOnly && (
             <div className="grid grid-cols-3 gap-2">
               <label className="text-xs">
