@@ -182,11 +182,11 @@ export function GuidedTour({
               aria-describedby={id}
               className="pointer-events-auto fixed z-[100] max-h-[calc(100dvh-1rem)] w-[min(24rem,calc(100vw-1rem))] space-y-3 overflow-y-auto rounded-[24px] border border-primary/20 bg-background p-5 text-foreground shadow-[0_18px_60px_-16px_rgba(0,0,0,0.45)]"
             >
-              <p className="text-xs">
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary">
                 Getting started · {progress.index + 1} of {steps.length}
               </p>
-              <h2 className="text-lg font-semibold">{step.title}</h2>
-              <p id={id} className="text-sm">
+              <h2 className="text-xl font-semibold tracking-tight">{step.title}</h2>
+              <p id={id} className="text-sm leading-relaxed">
                 {step.body}
               </p>
               <p className="text-sm">
