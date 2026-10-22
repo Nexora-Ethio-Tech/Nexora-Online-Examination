@@ -98,6 +98,14 @@ export const jobSchema = z.object({
 export type Metadata = z.infer<typeof metadataSchema>;
 export type Draft = z.infer<typeof draftSchema>;
 export type Item = z.infer<typeof itemSchema>;
+export function eligibleForBulkReview(item: Item) {
+  return (
+    !item.reviewed &&
+    item.keyConsistent !== false &&
+    item.reviewFlags.length === 0 &&
+    itemSchema.safeParse({ ...item, reviewed: true }).success
+  );
+}
 export type Assignment = z.infer<typeof assignmentSchema>;
 export type Job = z.infer<typeof jobSchema>;
 export function reviewProblems(items: Item[]) {
