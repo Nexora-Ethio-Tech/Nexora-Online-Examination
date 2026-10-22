@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { tourCornerRadius } from './tour-appearance';
 import { tourTail } from './tour-tail';
 import { tourPosition } from './tour-position';
 import { Button } from '@/components/ui/button';
@@ -197,7 +198,8 @@ export function GuidedTour({
               ref={box}
               aria-label="Portal onboarding"
               aria-describedby={id}
-              className="pointer-events-auto fixed z-[100] max-h-[calc(100dvh-1rem)] w-[min(24rem,calc(100vw-1rem))] space-y-3 overflow-y-auto rounded-[24px] border border-primary/20 bg-background p-5 text-foreground shadow-[0_18px_60px_-16px_rgba(0,0,0,0.45)]"
+              style={{ borderRadius: tourCornerRadius }}
+              className="pointer-events-auto fixed z-[100] max-h-[calc(100dvh-1rem)] w-[min(24rem,calc(100vw-1rem))] space-y-3 overflow-y-auto border border-primary/20 bg-background p-5 text-foreground shadow-[0_18px_60px_-16px_rgba(0,0,0,0.45)]"
             >
               <p className="text-xs font-semibold uppercase tracking-wider text-primary">
                 Getting started · {progress.index + 1} of {steps.length}
