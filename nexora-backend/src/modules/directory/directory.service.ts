@@ -20,11 +20,18 @@ const name = z.string().trim().min(1).max(160),
   revision = z.number().int().positive();
 const edit = { revision, reason };
 const classInput = z
-  .object({ name, academicYear: z.string().trim().min(1).max(30), reason })
+  .object({
+    name,
+    academicYear: z.string().trim().min(1).max(30),
+    grade: z.string().trim().min(1).max(40).optional(),
+    section: z.string().trim().min(1).max(40).optional(),
+    reason,
+  })
   .strict();
 const subjectInput = z
   .object({
     name,
+    grade: z.string().trim().min(1).max(40).optional(),
     code: z
       .string()
       .trim()
@@ -42,6 +49,9 @@ const query = z
       .optional(),
     cursor: z.string().min(1).max(1500).optional(),
     search: z.string().max(160).optional(),
+    grade: z.string().max(40).optional(),
+    teacherId: uuid.optional(),
+    subjectId: uuid.optional(),
     classId: z.union([uuid, z.literal('unassigned')]).optional(),
   })
   .strict();
@@ -110,7 +120,7 @@ export class DirectoryService {
     const { school } = identity(req, 'school_admin'),
       q = parse(query, input),
       limit = q.limit ?? 25;
-    const scope = `${school.id}:${kind}:${q.search ?? ''}:${q.classId ?? ''}`;
+    const scope = `${school.id}:${kind}:${q.search ?? ''}:${q.classId ?? ''}:${q.grade ?? ''}:${q.teacherId ?? ''}:${q.subjectId ?? ''}`;
     let after = '';
     if (q.cursor) {
       try {
@@ -130,9 +140,9 @@ export class DirectoryService {
         let sql = '';
         const params: unknown[] = [school.id, after || null, limit + 1];
         if (kind === 'classes')
-          sql = `SELECT id "classId",name,code_or_year "academicYear",revision,active,(SELECT count(*)::int FROM users u WHERE u.school_id=classes.school_id AND u.role='student' AND (SELECT e.class_id FROM enrollments e WHERE e.school_id=u.school_id AND e.student_id=u.id ORDER BY e.created_at DESC,e.id LIMIT 1)=classes.id) "studentCount" FROM classes WHERE school_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`;
+          sql = `SELECT id "classId",name,grade,section,code_or_year "academicYear",revision,active,(SELECT count(*)::int FROM users u WHERE u.school_id=classes.school_id AND u.role='student' AND (SELECT e.class_id FROM enrollments e WHERE e.school_id=u.school_id AND e.student_id=u.id ORDER BY e.created_at DESC,e.id LIMIT 1)=classes.id) "studentCount" FROM classes WHERE school_id=$1 AND active AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`;
         if (kind === 'subjects')
-          sql = `SELECT id "subjectId",name,code,revision,active FROM subjects WHERE school_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`;
+          sql = `SELECT id "subjectId",name,grade,code,revision,active FROM subjects WHERE school_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`;
         if (kind === 'students' || kind === 'teachers') {
           params.push(
             kind === 'students' ? 'student' : 'teacher',
@@ -141,8 +151,16 @@ export class DirectoryService {
           );
           sql = `${accountSelect} WHERE u.school_id=$1 AND ($2::uuid IS NULL OR u.id>$2) AND u.role=$4 AND (u.display_name ILIKE '%'||$5||'%' OR u.login_id ILIKE '%'||$5||'%' OR COALESCE(u.student_ref,'') ILIKE '%'||$5||'%') AND ($6::text IS NULL OR COALESCE((SELECT e.class_id::text FROM enrollments e WHERE e.school_id=u.school_id AND e.student_id=u.id ORDER BY e.created_at DESC,e.id LIMIT 1),'unassigned')=$6) ORDER BY u.id LIMIT $3`;
         }
-        if (kind === 'teacher-assignments')
-          sql = `SELECT a.id "assignmentId",a.teacher_id "teacherId",a.class_id "classId",a.subject_id "subjectId",a.active,a.revision,u.display_name "teacherName",c.name "className",s.name "subjectName" FROM teacher_assignments a JOIN users u ON u.school_id=a.school_id AND u.id=a.teacher_id JOIN classes c ON c.school_id=a.school_id AND c.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE a.school_id=$1 AND ($2::uuid IS NULL OR a.id>$2) ORDER BY a.id LIMIT $3`;
+        if (kind === 'teacher-assignments') {
+          params.push(
+            q.classId ?? null,
+            q.subjectId ?? null,
+            q.teacherId ?? null,
+            q.grade ?? null,
+            (q.search ?? '').replace(/[\\%_]/g, '\\$&'),
+          );
+          sql = `SELECT a.id "assignmentId",a.teacher_id "teacherId",a.class_id "classId",a.subject_id "subjectId",a.active,a.revision,u.display_name "teacherName",c.name "className",c.grade,s.name "subjectName" FROM teacher_assignments a JOIN users u ON u.school_id=a.school_id AND u.id=a.teacher_id JOIN classes c ON c.school_id=a.school_id AND c.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE a.school_id=$1 AND ($2::uuid IS NULL OR a.id>$2) AND c.active AND s.active AND ($4::text IS NULL OR a.class_id::text=$4) AND ($5::uuid IS NULL OR a.subject_id=$5) AND ($6::uuid IS NULL OR a.teacher_id=$6) AND ($7::text IS NULL OR COALESCE(c.grade,'unclassified')=$7) AND (u.display_name ILIKE '%'||$8||'%' OR c.name ILIKE '%'||$8||'%' OR s.name ILIKE '%'||$8||'%') ORDER BY a.id LIMIT $3`;
+        }
         if (kind === 'audit')
           sql = `SELECT id "auditId",action,resource_id target,COALESCE(target_label,resource_id) "targetLabel",COALESCE(actor_name,'Administrator') "actorName",reason,server_at at FROM audit_events WHERE school_id=$1 AND action LIKE 'directory:%' AND ($2::uuid IS NULL OR (server_at,id)<(SELECT server_at,id FROM audit_events WHERE id=$2 AND school_id=$1)) ORDER BY server_at DESC,id DESC LIMIT $3`;
         const rows = (await c.query(sql, params)).rows;
@@ -153,7 +171,9 @@ export class DirectoryService {
             : selected.map((r) => (kind === 'audit' ? { ...r, at: r.at.toISOString() } : r));
         const last = selected.at(-1);
         const lastId =
-          last?.classId ?? last?.subjectId ?? last?.assignmentId ?? last?.auditId ?? last?.id;
+          kind === 'teacher-assignments'
+            ? last?.assignmentId
+            : (last?.classId ?? last?.subjectId ?? last?.auditId ?? last?.id);
         return {
           items,
           nextCursor:
@@ -197,6 +217,19 @@ export class DirectoryService {
         if (id && !current) throw DomainException.notFound();
         if (current && (!('revision' in body) || current.revision !== body.revision))
           throw DomainException.conflict('REVISION_CONFLICT', 'Refresh before editing');
+        if ('grade' in body && body.grade && current?.grade !== body.grade) {
+          const used = id
+            ? await c.query(
+                `SELECT id FROM teacher_assignments WHERE school_id=$1 AND ${kind === 'classes' ? 'class_id' : 'subject_id'}=$2 AND active LIMIT 1`,
+                [school.id, id],
+              )
+            : null;
+          if (used?.rowCount)
+            throw DomainException.conflict(
+              'REVISION_CONFLICT',
+              'Remove active teaching assignments before changing the grade',
+            );
+        }
         const active = 'active' in body ? body.active : true;
         const all = (await c.query(`SELECT * FROM ${kind} WHERE school_id=$1`, [school.id])).rows;
         if (
@@ -207,7 +240,9 @@ export class DirectoryService {
                 ? 'academicYear' in body &&
                   normalize(r.name) === normalize(body.name) &&
                   normalize(r.code_or_year) === normalize(body.academicYear)
-                : 'code' in body && normalize(r.code) === normalize(body.code)),
+                : 'code' in body &&
+                  normalize(r.code) === normalize(body.code) &&
+                  (r.grade ?? null) === (body.grade ?? current?.grade ?? null)),
           )
         )
           throw DomainException.conflict('REVISION_CONFLICT', 'Name or code already exists');
@@ -233,6 +268,22 @@ export class DirectoryService {
               [target, school.id, body.name, value],
             );
         const row = result.rows[0];
+        if (body.grade !== undefined) {
+          await c.query(`UPDATE ${kind} SET grade=$1 WHERE school_id=$2 AND id=$3`, [
+            body.grade,
+            school.id,
+            target,
+          ]);
+          row.grade = body.grade;
+        }
+        if (kind === 'classes' && 'section' in body && body.section !== undefined) {
+          await c.query('UPDATE classes SET section=$1 WHERE school_id=$2 AND id=$3', [
+            body.section,
+            school.id,
+            target,
+          ]);
+          row.section = body.section;
+        }
         await this.audit(
           c,
           req,
@@ -245,6 +296,8 @@ export class DirectoryService {
           ? {
               classId: target,
               name: row.name,
+              grade: row.grade ?? null,
+              section: row.section ?? null,
               academicYear: row.code_or_year,
               active: row.active,
               revision: row.revision,
@@ -252,6 +305,7 @@ export class DirectoryService {
           : {
               subjectId: target,
               name: row.name,
+              grade: row.grade ?? null,
               code: row.code,
               active: row.active,
               revision: row.revision,
@@ -312,7 +366,8 @@ export class DirectoryService {
                 'Existing exams use this assignment',
               );
           }
-          const retained = await hasRetainedReferences(c, table, school.id, id);
+          const retained =
+            table === 'classes' || (await hasRetainedReferences(c, table, school.id, id));
           if (retained) {
             await c.query(
               `UPDATE ${table} SET ${table === 'users' ? "status='inactive'" : 'active=false'},revision=revision+1 WHERE school_id=$1 AND id=$2`,
@@ -354,6 +409,11 @@ export class DirectoryService {
         .object({
           ...edit,
           displayName: name,
+          loginId: z
+            .string()
+            .trim()
+            .regex(/^[A-Za-z0-9_-]{1,160}$/)
+            .optional(),
           classId: uuid.nullable(),
           status: z.enum(['active', 'inactive']),
         })
@@ -392,11 +452,20 @@ export class DirectoryService {
             [school.id, id, body.classId, cls.code_or_year],
           );
         }
-        await c.query(
-          'UPDATE users SET display_name=$1,status=$2,revision=revision+1 WHERE school_id=$3 AND id=$4',
-          [body.displayName, body.status, school.id, id],
-        );
-        if (body.status === 'inactive')
+        try {
+          await c.query(
+            'UPDATE users SET display_name=$1,status=$2,revision=revision+1,login_id=COALESCE($5,login_id) WHERE school_id=$3 AND id=$4',
+            [body.displayName, body.status, school.id, id, body.loginId ?? null],
+          );
+        } catch (error) {
+          if (error && typeof error === 'object' && 'code' in error && error.code === '23505')
+            throw DomainException.conflict(
+              'REVISION_CONFLICT',
+              'This user ID is unavailable. Choose another.',
+            );
+          throw error;
+        }
+        if (body.status === 'inactive' || (body.loginId && body.loginId !== current.login_id))
           await c.query(
             'UPDATE auth_sessions SET revoked_at=$1 WHERE school_id=$2 AND user_id=$3 AND revoked_at IS NULL',
             [this.clock.now(), school.id, id],
@@ -405,6 +474,7 @@ export class DirectoryService {
         return account({
           ...current,
           display_name: body.displayName,
+          login_id: body.loginId ?? current.login_id,
           status: body.status,
           class_id: body.classId,
           revision: current.revision + 1,
@@ -423,7 +493,29 @@ export class DirectoryService {
     const { user, school } = identity(req, 'school_admin');
     if (id) parse(uuid, id);
     const body = create
-      ? parse(z.object({ displayName: name, reason }).strict(), input)
+      ? parse(
+          z
+            .object({
+              displayName: name,
+              firstName: name.optional(),
+              fatherName: name.optional(),
+              grandfatherName: name.optional(),
+              reason,
+            })
+            .strict()
+            .superRefine((v, ctx) => {
+              if (
+                [v.firstName, v.fatherName, v.grandfatherName].some(Boolean) &&
+                (![v.firstName, v.fatherName, v.grandfatherName].every(Boolean) ||
+                  [v.firstName, v.fatherName, v.grandfatherName].join(' ') !== v.displayName)
+              )
+                ctx.addIssue({
+                  code: 'custom',
+                  message: 'Enter all three names matching the full name',
+                });
+            }),
+          input,
+        )
       : id
         ? parse(z.object(edit).strict(), input)
         : parse(
@@ -461,6 +553,16 @@ export class DirectoryService {
             await c.query(
               "INSERT INTO users(id,school_id,login_id,display_name,role,password_hash,credentials_issued) VALUES($1,$2,$3,$4,'teacher',NULL,false)",
               [newId, school.id, login, body.displayName],
+            );
+            await c.query(
+              'UPDATE users SET first_name=$1,father_name=$2,grandfather_name=$3 WHERE school_id=$4 AND id=$5',
+              [
+                body.firstName ?? null,
+                body.fatherName ?? null,
+                body.grandfatherName ?? null,
+                school.id,
+                newId,
+              ],
             );
             targets = [{ userId: newId, revision: 1 }];
           } else if (id && 'revision' in body) targets = [{ userId: id, revision: body.revision }];
@@ -550,7 +652,7 @@ export class DirectoryService {
               `SELECT u.id FROM users u JOIN classes c ON c.school_id=u.school_id
                JOIN subjects s ON s.school_id=u.school_id
                WHERE u.school_id=$1 AND u.id=$2 AND c.id=$3 AND s.id=$4
-               AND u.role='teacher' AND u.status='active' AND c.active AND s.active
+               AND u.role='teacher' AND u.status='active' AND c.active AND s.active AND (c.grade IS NOT DISTINCT FROM s.grade)
                FOR SHARE OF u,c,s`,
               [school.id, row.teacher_id, row.class_id, row.subject_id],
             );
@@ -577,7 +679,7 @@ export class DirectoryService {
         } else if ('teacherId' in body) {
           const valid = (
             await c.query(
-              `SELECT u.id FROM users u JOIN classes c ON c.school_id=u.school_id JOIN subjects s ON s.school_id=u.school_id WHERE u.school_id=$1 AND u.id=$2 AND c.id=$3 AND s.id=$4 AND u.role='teacher' AND u.status='active' AND c.active AND s.active FOR SHARE OF u,c,s`,
+              `SELECT u.id FROM users u JOIN classes c ON c.school_id=u.school_id JOIN subjects s ON s.school_id=u.school_id WHERE u.school_id=$1 AND u.id=$2 AND c.id=$3 AND s.id=$4 AND u.role='teacher' AND u.status='active' AND c.active AND s.active AND (c.grade IS NOT DISTINCT FROM s.grade) FOR SHARE OF u,c,s`,
               [school.id, body.teacherId, body.classId, body.subjectId],
             )
           ).rows[0];
@@ -599,7 +701,7 @@ export class DirectoryService {
         }
         const r = (
           await c.query(
-            `SELECT a.*,u.display_name teacher_name,c.name class_name,s.name subject_name FROM teacher_assignments a JOIN users u ON u.id=a.teacher_id AND u.school_id=a.school_id JOIN classes c ON c.id=a.class_id AND c.school_id=a.school_id JOIN subjects s ON s.id=a.subject_id AND s.school_id=a.school_id WHERE a.school_id=$1 AND a.id=$2`,
+            `SELECT a.*,u.display_name teacher_name,c.name class_name,c.grade,s.name subject_name FROM teacher_assignments a JOIN users u ON u.id=a.teacher_id AND u.school_id=a.school_id JOIN classes c ON c.id=a.class_id AND c.school_id=a.school_id JOIN subjects s ON s.id=a.subject_id AND s.school_id=a.school_id WHERE a.school_id=$1 AND a.id=$2`,
             [school.id, target],
           )
         ).rows[0];
@@ -620,6 +722,7 @@ export class DirectoryService {
           revision: r.revision,
           teacherName: r.teacher_name,
           className: r.class_name,
+          grade: r.grade ?? null,
           subjectName: r.subject_name,
         };
       });

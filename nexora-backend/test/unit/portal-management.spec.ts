@@ -222,9 +222,15 @@ describe('import cancellation and stale workers', () => {
 });
 describe('school-wide numbering', () => {
   it('formats minimum four digits, keeps school prefix and never wraps after 9999', () => {
-    expect(studentLoginId('nexora-school', 1)).toBe('NEXORA-SCHOOL-STU-0001');
-    expect(studentLoginId('nexora-school', 1001)).toBe('NEXORA-SCHOOL-STU-1001');
-    expect(studentLoginId('nexora-school', 10000)).toBe('NEXORA-SCHOOL-STU-10000');
+    expect(studentLoginId('nexora-school', 1, new Date('2026-12-31T21:00:00Z'))).toBe(
+      'NEXORA-SCHOOL-STU-0001-2027',
+    );
+    expect(studentLoginId('nexora-school', 1001, new Date('2026-12-31T21:00:00Z'))).toBe(
+      'NEXORA-SCHOOL-STU-1001-2027',
+    );
+    expect(studentLoginId('nexora-school', 10000, new Date('2026-12-31T21:00:00Z'))).toBe(
+      'NEXORA-SCHOOL-STU-10000-2027',
+    );
   });
   it('allocates after existing IDs and retains the high-water mark across batches', async () => {
     let counter = 1000;
@@ -271,7 +277,7 @@ describe('directory removal', () => {
   it('deletes an unused record but archives referenced records', async () => {
     let used = false;
     mock.query.mockImplementation(async (sql: string) => {
-      if (sql.startsWith('SELECT * FROM classes'))
+      if (sql.startsWith('SELECT * FROM classes') || sql.startsWith('SELECT * FROM subjects'))
         return { rows: [{ revision: 1, name: 'Grade 1' }], rowCount: 1 };
       if (sql.includes('FROM pg_constraint'))
         return { rows: [{ check_sql: 'SELECT retained reference' }], rowCount: 1 };
@@ -282,7 +288,7 @@ describe('directory removal', () => {
     const id = randomUUID();
     const body = { revision: 1, reason: 'Cleanup', confirmed: true };
     await expect(
-      directory.remove(req('school_admin'), 'classes', id, body, randomUUID()),
+      directory.remove(req('school_admin'), 'subjects', id, body, randomUUID()),
     ).resolves.toMatchObject({ outcome: 'deleted' });
     used = true;
     await expect(
