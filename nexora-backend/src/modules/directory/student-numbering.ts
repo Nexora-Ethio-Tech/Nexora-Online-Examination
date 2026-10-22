@@ -1,16 +1,20 @@
 import { PoolClient } from 'pg';
 import { DomainException } from '../../common/errors/domain.exception';
 
-export function studentLoginId(slug: string, number: number) {
+export function studentLoginId(slug: string, number: number, createdAt = new Date()) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(slug) || !Number.isSafeInteger(number) || number < 1)
     throw DomainException.validationError('Invalid school student numbering configuration');
-  return `${slug.toUpperCase()}-STU-${String(number).padStart(4, '0')}`;
+  const year = new Intl.DateTimeFormat('en', {
+    timeZone: 'Africa/Addis_Ababa',
+    year: 'numeric',
+  }).format(createdAt);
+  return `${slug.toUpperCase()}-STU-${String(number).padStart(4, '0')}-${year}`;
 }
 
 /** Called inside the roster transaction, after the school directory lock. Never recycle IDs. */
 export async function allocateStudentNumbers(c: PoolClient, school: string, count: number) {
   const existing = await c.query<{ highest: string }>(
-    `SELECT COALESCE(max((substring(upper(login_id) from '(?:^|-)STU-([0-9]+)$'))::numeric),0)::text highest
+    `SELECT COALESCE(max((substring(upper(login_id) from '(?:^|-)STU-([0-9]+)(?:-[0-9]{4})?$'))::numeric),0)::text highest
      FROM users WHERE school_id=$1 AND role='student'`,
     [school],
   );

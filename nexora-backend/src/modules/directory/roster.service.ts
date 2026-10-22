@@ -219,7 +219,7 @@ export class RosterService {
               school.id,
               student.displayName,
               student.studentRef,
-              studentLoginId(slug, studentNumber++),
+              studentLoginId(slug, studentNumber++, this.clock.now()),
             ],
           );
           await c.query(
