@@ -3,13 +3,11 @@ import { unwrapPackageKey } from '../src/common/crypto/package-key';
 import { chromium, expect as browserExpect } from '@playwright/test';
 import { spawn } from 'child_process';
 import { PackageWorkerService } from '../src/modules/authoring/package-worker.service';
+import { WorkerSweepService } from '../src/modules/authoring/worker-sweep.service';
 import { decryptExamPackage } from '../src/common/crypto/package-cipher';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import {
-  ImportWorkerService,
-  QuestionAiService,
-} from '../src/modules/authoring/import-worker.service';
+import { QuestionAiService } from '../src/modules/authoring/import-worker.service';
 import 'reflect-metadata';
 import { randomUUID } from 'crypto';
 import { INestApplication } from '@nestjs/common';
@@ -550,7 +548,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       expect((await upload(bytes, 1, uploadKey).expect(202)).body).toEqual(job.body);
       await read(`/imports/${job.body.importId}`, studentCookie).expect(403);
       await post('/internal/import-worker', { schoolId: school }, adminCookie).expect(403);
-      await app.get(ImportWorkerService).run(school);
+      await app.get(WorkerSweepService).run({ schoolId: school });
       const ready = await read(`/imports/${job.body.importId}`, teacherCookie).expect(200);
       expect(ready.body).toMatchObject({ state: 'ready', parsedCount: 2, completedCount: 2 });
       const before = await read(`/exams/${id}/items`, teacherCookie).expect(200);
@@ -563,7 +561,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         before.body.revision,
         randomUUID(),
       ).expect(202);
-      await app.get(ImportWorkerService).run(school);
+      await app.get(WorkerSweepService).run({ schoolId: school });
       const failure = await read(`/imports/${failed.body.importId}`, teacherCookie).expect(200);
       expect(failure.body.state).toBe('failed');
       expect(failure.body.diagnostics.length).toBeGreaterThan(0);
