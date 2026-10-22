@@ -248,3 +248,9 @@
   color: var(--primary-foreground);
   background: var(--primary);
 }
+
+.nexora-tour-target {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 0.5rem;
+}
