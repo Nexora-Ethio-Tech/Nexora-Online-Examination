@@ -615,7 +615,9 @@ export function TeacherDetail() {
               </p>
               {busy && (
                 <p className="text-sm">
-                  Your draft is saved while we read your file. You can return to this paper later.
+                  {job.data.state === 'queued'
+                    ? 'Your file is saved and waiting to be read. If it stays here, contact your administrator; uploading it again will not restart processing.'
+                    : 'We are reading your file. Your draft is saved, and you can return to this paper later.'}
                 </p>
               )}
               {job.data.failure && <p role="alert">{job.data.failure}</p>}

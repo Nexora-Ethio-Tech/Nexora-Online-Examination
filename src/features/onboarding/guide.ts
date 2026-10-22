@@ -37,7 +37,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Upload and manage questions',
-      body: 'Use a Word or Excel template with answer keys. A stuck import can be cancelled; questions already read from the file stay in the draft. Unneeded drafts can be removed.',
+      body: 'Use a Word or Excel template with answer keys. File reading happens before AI suggestions. If a file stays waiting to be read, contact your administrator. A stuck import can be cancelled; questions already read stay in the draft. Unneeded drafts can be removed.',
       path: '/teacher',
     },
     {
