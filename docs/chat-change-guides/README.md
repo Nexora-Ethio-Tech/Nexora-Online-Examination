@@ -6,7 +6,7 @@ Verified locally on 22 October 2026: frontend check (241 tests plus 14 tooling c
 
 1. [Adjustable preparation duration](../adjustable-preparation-architecture-and-testing.md) — school admin, real local backend.
 2. [Student download display](../student-download-architecture-and-testing.md) — student, real local backend; production shell needed for offline acceptance.
-3. [Spotlight portal tours](../spotlight-tour-architecture-and-testing.md) — school accounts or platform owner; layout can also be checked in demo.
+3. [Spotlight portal tours](../spotlight-tour-architecture-and-testing.md) — includes the rounded speech bubble and target-facing pointer; school accounts or platform owner; layout can also be checked in demo.
 
 Prepared 21 October 2026. This report covers the implementation range `845a8ea..ed01fe2`: **14 local commits** on `feat/verified-platform-development`. The documentation commit that adds this report is additional.
 
