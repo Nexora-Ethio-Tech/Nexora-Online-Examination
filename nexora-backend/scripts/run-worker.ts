@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { AppModule } from '../src/app.module';
 import { loadBackendEnvironment } from '../src/common/db/database-config';
 import { WorkerSweepService } from '../src/modules/authoring/worker-sweep.service';
+import { workerSchoolIds } from '../src/modules/authoring/worker-scope';
 loadBackendEnvironment();
 async function main() {
   const args = process.argv.slice(2),
@@ -22,7 +23,12 @@ async function main() {
     )
   )
     throw new Error('Unknown worker argument');
-  const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+  const scope = school ? [school] : workerSchoolIds();
+  process.stdout.write(`Worker starting for ${scope.length} configured school(s).\n`);
+  const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] });
+  process.stdout.write(
+    'Worker ready. Checking for imports every second. Keep this terminal open.\n',
+  );
   let stopping = false;
   for (const signal of ['SIGINT', 'SIGTERM'])
     process.on(signal, () => {
@@ -42,7 +48,12 @@ async function main() {
     await app.close();
   }
 }
-main().catch(() => {
+main().catch((error: unknown) => {
+  if (error instanceof Error && error.message === 'WORKER_SCHOOL_IDS_REQUIRED') {
+    process.stderr.write(
+      'Set WORKER_SCHOOL_IDS to comma-separated school UUIDs or pass --school <UUID>.\n',
+    );
+  }
   process.stderr.write(
     'Worker stopped. Check the school UUID, private environment and database availability; job leases remain recoverable.\n',
   );
