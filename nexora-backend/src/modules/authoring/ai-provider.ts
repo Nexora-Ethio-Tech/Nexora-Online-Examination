@@ -9,7 +9,7 @@ export class AiProviderError extends Error {
   }
 }
 
-export function aiConfiguration(env: NodeJS.ProcessEnv = process.env) {
+function singleConfiguration(env: NodeJS.ProcessEnv) {
   const apiKey = env.OPENAI_API_KEY?.trim();
   const model = env.OPENAI_MODEL?.trim();
   if (!apiKey || !model) throw new AiProviderError('AI_NOT_CONFIGURED');
@@ -39,6 +39,31 @@ export function aiConfiguration(env: NodeJS.ProcessEnv = process.env) {
   )
     throw new AiProviderError('AI_INVALID_TOKEN_LIMIT');
   return { apiKey, model, endpoint: base.toString(), maxCompletionTokens };
+}
+
+export function aiConfigurations(env: NodeJS.ProcessEnv = process.env) {
+  if (!env.GROQ_API_KEY?.trim() && !env.GEMINI_API_KEY?.trim()) return [singleConfiguration(env)];
+  const providers = [];
+  for (const [key, model, base] of [
+    ['GROQ_API_KEY', 'GROQ_MODEL', 'https://api.groq.com/openai/v1'],
+    ['GEMINI_API_KEY', 'GEMINI_MODEL', 'https://generativelanguage.googleapis.com/v1beta/openai'],
+  ]) {
+    if (!env[key]?.trim()) continue;
+    providers.push(
+      singleConfiguration({
+        ...env,
+        OPENAI_API_KEY: env[key],
+        OPENAI_MODEL: env[model],
+        OPENAI_BASE_URL: base,
+      }),
+    );
+  }
+  return providers;
+}
+
+export function aiConfiguration(env: NodeJS.ProcessEnv = process.env) {
+  const configs = aiConfigurations(env);
+  return { ...configs[0], attemptCount: configs.length };
 }
 
 const text = z.string().trim().min(1);
@@ -159,7 +184,31 @@ export async function structuredCompletion<T>(
   env: NodeJS.ProcessEnv = process.env,
   request: typeof fetch = fetch,
 ) {
-  const config = aiConfiguration(env);
+  const configs = aiConfigurations(env);
+  for (const [index, config] of configs.entries()) {
+    try {
+      return await structuredAttempt(spec, config, request);
+    } catch (error) {
+      const eligible =
+        error instanceof AiProviderError &&
+        (error.retryable || ['AI_HTTP_401', 'AI_HTTP_403', 'AI_HTTP_404'].includes(error.code));
+      if (!eligible || index === configs.length - 1) throw error;
+    }
+  }
+  throw new AiProviderError('AI_NOT_CONFIGURED');
+}
+
+async function structuredAttempt<T>(
+  spec: {
+    input: unknown;
+    instruction: string;
+    name: string;
+    outputSchema: unknown;
+    validator: z.ZodType<T>;
+  },
+  config: ReturnType<typeof singleConfiguration>,
+  request: typeof fetch,
+) {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), 30000);
   try {
@@ -170,7 +219,10 @@ export async function structuredCompletion<T>(
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
       body: JSON.stringify({
         model: config.model,
-        store: false,
+        ...(new URL(config.endpoint).hostname === 'api.groq.com' ||
+        new URL(config.endpoint).hostname === 'generativelanguage.googleapis.com'
+          ? { reasoning_effort: 'low' }
+          : { store: false }),
         max_completion_tokens: config.maxCompletionTokens,
         messages: [
           {

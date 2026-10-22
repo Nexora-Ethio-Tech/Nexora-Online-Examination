@@ -42,6 +42,44 @@ function response(content: unknown = suggestion, finish = 'stop') {
 }
 
 describe('configurable AI provider boundary', () => {
+  const dual = {
+    GROQ_API_KEY: 'synthetic-groq',
+    GROQ_MODEL: 'openai/gpt-oss-120b',
+    GEMINI_API_KEY: 'synthetic-gemini',
+    GEMINI_MODEL: 'gemini-flash-latest',
+  };
+  it('uses Groq first and Gemini only on eligible failure, with separate credentials', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unavailable', { status: 503 }))
+      .mockResolvedValueOnce(response());
+    const result = await suggestQuestion(input, { ...env, ...dual }, request);
+    expect(result.model).toBe(dual.GEMINI_MODEL);
+    expect(request.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
+      'api.groq.com',
+      'generativelanguage.googleapis.com',
+    ]);
+    expect(request.mock.calls[0][1]?.headers).toMatchObject({
+      Authorization: 'Bearer synthetic-groq',
+    });
+    expect(request.mock.calls[1][1]?.headers).toMatchObject({
+      Authorization: 'Bearer synthetic-gemini',
+    });
+    expect(aiConfiguration(dual).attemptCount).toBe(2);
+  });
+  it('does not fall back on successful output or refusal', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(response());
+    expect((await suggestQuestion(input, dual, request)).model).toBe(dual.GROQ_MODEL);
+    expect(request).toHaveBeenCalledTimes(1);
+    request.mockClear().mockResolvedValue(response(suggestion, 'content_filter'));
+    await expect(suggestQuestion(input, dual, request)).rejects.toThrow('AI_FILTERED');
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+  it('does not silently route incomplete provider settings to the legacy provider', () => {
+    expect(() => aiConfiguration({ ...env, GROQ_API_KEY: 'synthetic' })).toThrow(
+      'AI_NOT_CONFIGURED',
+    );
+  });
   it('uses the configured URL and model without exposing secrets in the returned metadata', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(response());
     const original = JSON.stringify(input);
