@@ -23,7 +23,8 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   const port = process.env.PORT || 3000;
-  await app.listen(port);
+  if (process.env.HOST) await app.listen(port, process.env.HOST);
+  else await app.listen(port);
   Logger.log(`Nexora Backend running on port ${port} with prefix /api/v1`);
 }
 
