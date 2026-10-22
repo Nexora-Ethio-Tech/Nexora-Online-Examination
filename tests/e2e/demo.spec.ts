@@ -36,6 +36,11 @@ test('portal management: class cards, unused record deletion and reopenable onbo
       .toBe(true);
   };
   await verifyPlacement();
+  await expect(page.locator('[data-tour-tail]')).toBeVisible();
+  await expect(page.locator('[data-tail-fill]')).toHaveAttribute('d', /^M .+ Z$/);
+  await page.screenshot({
+    path: '../.local-test/tour-bubble-' + page.viewportSize()?.width + '.png',
+  });
   if (await page.getByRole('button', { name: 'Navigation', exact: true }).isVisible()) {
     await page.getByRole('button', { name: 'Navigation', exact: true }).click();
     await verifyPlacement();
