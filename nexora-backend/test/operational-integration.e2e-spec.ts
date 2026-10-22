@@ -238,6 +238,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
           await c.query('BEGIN');
           for (const table of [
             'directory_imports',
+            'school_student_counters',
             'device_transfer_events',
             'attempt_supervision_events',
           ])
