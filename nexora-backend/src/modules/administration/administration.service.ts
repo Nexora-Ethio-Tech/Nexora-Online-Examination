@@ -23,6 +23,8 @@ export type AdminExam = Exam & {
   teacher_name: string;
   class_name: string;
   subject_name: string;
+  grade: string | null;
+  submitted_at: Date | null;
 };
 type Version = { id: string; version: number; frozen_metadata: unknown };
 export type Session = {
@@ -44,6 +46,12 @@ const page = z
       .pipe(z.number().int().min(1).max(100))
       .optional(),
     cursor: z.string().max(1200).optional(),
+    search: z.string().max(160).optional(),
+    grade: z.string().max(40).optional(),
+    teacher: z.string().max(160).optional(),
+    subject: z.string().max(160).optional(),
+    from: z.string().datetime().optional(),
+    to: z.string().datetime().optional(),
   })
   .strict();
 
@@ -58,7 +66,7 @@ export class AdministrationService {
   async exam(c: PoolClient, school: string, id: string, lock = false) {
     const e = (
       await c.query<AdminExam>(
-        `SELECT e.*,u.display_name teacher_name,cl.name class_name,s.name subject_name FROM exams e JOIN users u ON u.school_id=e.school_id AND u.id=e.owner_id JOIN classes cl ON cl.school_id=e.school_id AND cl.id=e.class_id JOIN subjects s ON s.school_id=e.school_id AND s.id=e.subject_id WHERE e.school_id=$1 AND e.id=$2 AND e.state<>'draft' AND e.archived_at IS NULL ${lock ? 'FOR UPDATE OF e' : ''}`,
+        `SELECT e.*,u.display_name teacher_name,cl.name class_name,cl.grade,(SELECT max(server_at) FROM audit_events a WHERE a.school_id=e.school_id AND a.resource_id=e.id::text AND a.action='exam:submit') submitted_at,s.name subject_name FROM exams e JOIN users u ON u.school_id=e.school_id AND u.id=e.owner_id JOIN classes cl ON cl.school_id=e.school_id AND cl.id=e.class_id JOIN subjects s ON s.school_id=e.school_id AND s.id=e.subject_id WHERE e.school_id=$1 AND e.id=$2 AND e.state<>'draft' AND e.archived_at IS NULL ${lock ? 'FOR UPDATE OF e' : ''}`,
         [school, id],
       )
     ).rows[0];
@@ -139,6 +147,8 @@ export class AdministrationService {
     return {
       exam: await this.authoring.draftData(c, school, e),
       teacherName: e.teacher_name,
+      grade: e.grade ?? null,
+      submittedAt: e.submitted_at?.toISOString() ?? null,
       className: e.class_name,
       subjectName: e.subject_name,
       approvedVersion: v?.version ?? null,
@@ -208,13 +218,14 @@ export class AdministrationService {
     const { school } = identity(req, 'school_admin'),
       q = parse(page, input),
       limit = q.limit ?? 25;
+    const filterScope = JSON.stringify([q.search, q.grade, q.teacher, q.subject, q.from, q.to]);
     let after: { id: string; at: string } | null = null;
     if (q.cursor) {
       try {
         const value = z
-          .object({ school: uuid, id: uuid, at: z.string().datetime() })
+          .object({ school: uuid, id: uuid, at: z.string().datetime(), filterScope: z.string() })
           .parse(JSON.parse(Buffer.from(q.cursor, 'base64url').toString()));
-        if (value.school !== school.id) throw new Error();
+        if (value.school !== school.id || value.filterScope !== filterScope) throw new Error();
         after = value;
       } catch {
         throw DomainException.validationError('Invalid exam cursor');
@@ -225,8 +236,19 @@ export class AdministrationService {
       async (c) => {
         const rows = (
           await c.query<{ id: string; created_at: Date }>(
-            "SELECT id,created_at FROM exams WHERE school_id=$1 AND state<>'draft' AND archived_at IS NULL AND ($2::uuid IS NULL OR (created_at,id)<($3::timestamptz,$2::uuid)) ORDER BY created_at DESC,id DESC LIMIT $4",
-            [school.id, after?.id ?? null, after?.at ?? null, limit + 1],
+            `SELECT e.id,e.created_at FROM exams e JOIN classes cl ON cl.id=e.class_id AND cl.school_id=e.school_id JOIN users u ON u.id=e.owner_id AND u.school_id=e.school_id JOIN subjects s ON s.id=e.subject_id AND s.school_id=e.school_id LEFT JOIN LATERAL (SELECT max(server_at) submitted_at FROM audit_events a WHERE a.school_id=e.school_id AND a.resource_id=e.id::text AND a.action='exam:submit') submission ON true WHERE e.school_id=$1 AND e.state<>'draft' AND e.archived_at IS NULL AND ($2::uuid IS NULL OR (e.created_at,e.id)<($3::timestamptz,$2::uuid)) AND ($5::text IS NULL OR COALESCE(cl.grade,'unclassified')=$5) AND u.display_name ILIKE '%'||$6||'%' AND s.name ILIKE '%'||$7||'%' AND (e.title ILIKE '%'||$8||'%' OR cl.name ILIKE '%'||$8||'%' OR u.display_name ILIKE '%'||$8||'%' OR s.name ILIKE '%'||$8||'%') AND ($9::timestamptz IS NULL OR submission.submitted_at >= $9) AND ($10::timestamptz IS NULL OR submission.submitted_at <= $10) ORDER BY e.created_at DESC,e.id DESC LIMIT $4`,
+            [
+              school.id,
+              after?.id ?? null,
+              after?.at ?? null,
+              limit + 1,
+              q.grade ?? null,
+              (q.teacher ?? '').replace(/[\\%_]/g, '\\$&'),
+              (q.subject ?? '').replace(/[\\%_]/g, '\\$&'),
+              (q.search ?? '').replace(/[\\%_]/g, '\\$&'),
+              q.from ?? null,
+              q.to ?? null,
+            ],
           )
         ).rows;
         const items = [];
@@ -247,6 +269,7 @@ export class AdministrationService {
               ? Buffer.from(
                   JSON.stringify({
                     school: school.id,
+                    filterScope,
                     id: last.id,
                     at: last.created_at.toISOString(),
                   }),

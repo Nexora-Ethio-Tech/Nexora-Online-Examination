@@ -19,6 +19,8 @@ export const sessionSchema = z.object({
 });
 export const adminSummarySchema = z.object({
   exam: draftSchema.extend({ assignmentId: id.nullable() }),
+  grade: z.string().nullable().optional(),
+  submittedAt: z.string().nullable().optional(),
   teacherName: id,
   subjectName: id,
   className: id,
