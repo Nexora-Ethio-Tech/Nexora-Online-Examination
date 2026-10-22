@@ -42,7 +42,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Review in one action',
-      body: 'Use the review overview to confirm all eligible questions together. Resolve missing explanations, topics and flagged answers before submission. Individual review is optional.',
+      body: 'Use Confirm all questions without warnings for complete questions. Questions with warnings need individual attention. On phones, open a question card to edit it, then use Previous question or Next question.',
       path: '/teacher',
     },
     {
