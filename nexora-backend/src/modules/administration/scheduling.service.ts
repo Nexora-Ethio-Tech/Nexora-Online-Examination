@@ -83,9 +83,15 @@ export class SchedulingService {
         'Preparation or delivery has started',
       );
   }
-  times(preparation: string, duration: number, release: string, extra = 0) {
+  times(
+    preparation: string,
+    duration: number,
+    release: string,
+    extra = 0,
+    preparationMinutes = 10,
+  ) {
     const prep = new Date(preparation),
-      starts = new Date(prep.getTime() + 600000),
+      starts = new Date(prep.getTime() + preparationMinutes * 60000),
       ends = new Date(starts.getTime() + duration * 60000),
       latest = new Date(ends.getTime() + extra * 60000),
       results = new Date(release);
@@ -124,6 +130,8 @@ export class SchedulingService {
           body.preparationVisibleAt,
           e.duration_minutes,
           body.resultsReleaseAt,
+          0,
+          body.preparationMinutes ?? 10,
         );
         await this.overlap(c, school.id, e.id, times.prep, times.latest);
         const s = (
@@ -181,6 +189,9 @@ export class SchedulingService {
           e.duration_minutes,
           body.resultsReleaseAt,
           max,
+          body.preparationMinutes ??
+            (new Date(s.starts_at).getTime() - new Date(s.preparation_visible_at).getTime()) /
+              60000,
         );
         await this.overlap(c, school.id, e.id, times.prep, times.latest, id);
         await c.query(
