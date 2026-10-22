@@ -1,7 +1,7 @@
 import { RefreshControl } from '@/components/shared/RefreshControl';
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useBeforeUnload, useBlocker } from 'react-router';
+import { useBeforeUnload, useBlocker, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -85,6 +85,7 @@ export function useSchoolPage<T>(
     cursor: string | null,
     signal: AbortSignal,
   ) => Promise<{ items: T[]; nextCursor: string | null; serverNow: string }>,
+  allPages = false,
 ) {
   const scope = useTeacherScope();
   const query = useInfiniteQuery({
@@ -94,6 +95,10 @@ export function useSchoolPage<T>(
       call(pageParam, signal),
     getNextPageParam: (p) => p.nextCursor ?? undefined,
   });
+  const { hasNextPage, isFetching, error, fetchNextPage } = query;
+  useEffect(() => {
+    if (allPages && hasNextPage && !isFetching && !error) void fetchNextPage();
+  }, [allPages, hasNextPage, isFetching, error, fetchNextPage]);
   return {
     rows: query.data?.pages.flatMap((p) => p.items) ?? [],
     query,
@@ -204,9 +209,7 @@ function CredentialPanel({ issue, close }: { issue: CredentialIssue; close: () =
           </p>
           <ul className="list-disc space-y-1 pl-5">
             {issue.accounts.map((a) => (
-              <li key={a.userId}>
-                {a.displayName} · {a.loginId}
-              </li>
+              <li key={a.userId}>{a.displayName}</li>
             ))}
           </ul>
         </>
@@ -295,6 +298,10 @@ function StructureForm({
   const api = schoolApi(useApiClient());
   const op = useSchoolOperation();
   const [name, setName] = useState(selected?.name ?? '');
+  const [grade, setGrade] = useState(selected?.grade ?? '');
+  const [section, setSection] = useState(
+    selected && 'section' in selected ? (selected.section ?? '') : '',
+  );
   const [detail, setDetail] = useState(
     selected ? ('academicYear' in selected ? selected.academicYear : selected.code) : '',
   );
@@ -306,7 +313,12 @@ function StructureForm({
       onSubmit={(e) => {
         e.preventDefault();
         const body = {
-          name: name.trim(),
+          name:
+            kind === 'class' && grade && section
+              ? `Grade ${grade.trim()} ${section.trim()}`
+              : name.trim(),
+          ...(grade.trim() ? { grade: grade.trim() } : {}),
+          ...(kind === 'class' && section.trim() ? { section: section.trim() } : {}),
           ...(kind === 'class' ? { academicYear: detail.trim() } : { code: detail.trim() }),
           reason: reason.trim(),
           ...(selected ? { revision: selected.revision, active } : {}),
@@ -335,15 +347,44 @@ function StructureForm({
         {selected ? 'Edit' : 'Add'} {kind}
       </h2>
       <fieldset className="space-y-4" disabled={op.pending}>
-        <Field label={kind === 'class' ? 'Class name' : 'Subject name'}>
+        <Field label="Grade">
           <input
             className={control}
-            required
-            maxLength={160}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            required={!selected}
+            maxLength={40}
+            value={grade}
+            onChange={(e) => setGrade(e.target.value)}
+            placeholder="9, 10, 11, 12…"
           />
         </Field>
+        {kind === 'class' && (
+          <Field label="Section">
+            <input
+              className={control}
+              required={!selected}
+              maxLength={40}
+              value={section}
+              onChange={(e) => setSection(e.target.value)}
+              placeholder="A, B, C…"
+            />
+          </Field>
+        )}
+        {kind === 'class' && grade && section && (
+          <p>
+            Class name: Grade {grade} {section}
+          </p>
+        )}
+        {(kind === 'subject' || (!!selected && (!grade || !section))) && (
+          <Field label={kind === 'class' ? 'Class name' : 'Subject name'}>
+            <input
+              className={control}
+              required={kind === 'subject' || !grade || !section}
+              maxLength={160}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </Field>
+        )}
         <Field label={kind === 'class' ? 'Academic year' : 'Subject code'}>
           <input
             className={control}
@@ -362,7 +403,14 @@ function StructureForm({
         )}
         <Reason value={reason} onChange={setReason} />
         <div className="flex gap-3">
-          <Button className="min-h-11" disabled={!name.trim() || !detail.trim() || !reason.trim()}>
+          <Button
+            className="min-h-11"
+            disabled={
+              (!(kind === 'class' && grade.trim() && section.trim()) && !name.trim()) ||
+              !detail.trim() ||
+              !reason.trim()
+            }
+          >
             Save {kind}
           </Button>
           <Button type="button" variant="outline" onClick={onDone}>
@@ -497,6 +545,8 @@ function AccountList({
   const [editing, setEditing] = useState<Account | null>(null);
   const [resetting, setResetting] = useState<Account | null>(null);
   const [addingTeacher, setAddingTeacher] = useState(false);
+  const [fatherName, setFatherName] = useState('');
+  const [grandfatherName, setGrandfatherName] = useState('');
   const show = (v: CredentialIssue) => {
     setChecked([]);
     setConfirmed(false);
@@ -515,8 +565,18 @@ function AccountList({
           onSubmit={(e) => {
             e.preventDefault();
             void op.run(
-              JSON.stringify(['teacher', name, reason]),
-              (key) => api.createTeacher(name.trim(), reason.trim(), key),
+              JSON.stringify(['teacher', name, fatherName, grandfatherName, reason]),
+              (key) =>
+                api.createTeacher(
+                  [name, fatherName, grandfatherName].map((v) => v.trim()).join(' '),
+                  reason.trim(),
+                  key,
+                  {
+                    firstName: name.trim(),
+                    fatherName: fatherName.trim(),
+                    grandfatherName: grandfatherName.trim(),
+                  },
+                ),
               (value) => {
                 setAddingTeacher(false);
                 setName('');
@@ -528,7 +588,7 @@ function AccountList({
         >
           <h2 className="text-xl font-semibold">Add teacher</h2>
           <fieldset disabled={op.pending} className="space-y-3">
-            <Field label="Teacher name">
+            <Field label="First name">
               <input
                 className={control}
                 required
@@ -537,8 +597,31 @@ function AccountList({
                 onChange={(e) => setName(e.target.value)}
               />
             </Field>
+            <Field label="Father's name">
+              <input
+                className={control}
+                required
+                maxLength={50}
+                value={fatherName}
+                onChange={(e) => setFatherName(e.target.value)}
+              />
+            </Field>
+            <Field label="Grandfather's name">
+              <input
+                className={control}
+                required
+                maxLength={50}
+                value={grandfatherName}
+                onChange={(e) => setGrandfatherName(e.target.value)}
+              />
+            </Field>
             <Reason value={reason} onChange={setReason} />
-            <Button className="min-h-11" disabled={!name.trim() || !reason.trim()}>
+            <Button
+              className="min-h-11"
+              disabled={
+                !name.trim() || !fatherName.trim() || !grandfatherName.trim() || !reason.trim()
+              }
+            >
               Create teacher and login details
             </Button>
             <Button type="button" variant="outline" onClick={() => setAddingTeacher(false)}>
@@ -629,16 +712,7 @@ function AccountList({
               >
                 Edit {a.displayName}
               </Button>
-              <Button
-                variant="outline"
-                disabled={a.status !== 'active'}
-                onClick={() => {
-                  setResetting(a);
-                  setEditing(null);
-                }}
-              >
-                Reset password for {a.displayName}
-              </Button>
+
               <RemoveRecord
                 kind={role === 'student' ? 'students' : 'teachers'}
                 id={a.userId}
@@ -696,6 +770,10 @@ function AccountList({
           classes={classes.rows}
           more={classes.controls}
           close={() => setEditing(null)}
+          reset={() => {
+            setResetting(editing);
+            setEditing(null);
+          }}
         />
       )}
       {resetting && (
@@ -771,15 +849,18 @@ function AccountEditor({
   classes,
   more,
   close,
+  reset,
 }: {
   account: Account;
   classes: SchoolClass[];
   more: ReactNode;
   close: () => void;
+  reset: () => void;
 }) {
   const api = schoolApi(useApiClient());
   const op = useSchoolOperation();
   const [name, setName] = useState(account.displayName);
+  const [loginId, setLoginId] = useState(account.loginId);
   const [classId, setClassId] = useState(account.classId ?? '');
   const [active, setActive] = useState(account.status === 'active');
   const [reason, setReason] = useState('');
@@ -792,6 +873,7 @@ function AccountEditor({
         const body = {
           revision: account.revision,
           displayName: name.trim(),
+          loginId: loginId.trim(),
           classId: account.role === 'student' ? classId : null,
           status: active ? ('active' as const) : ('inactive' as const),
           reason: reason.trim(),
@@ -805,6 +887,38 @@ function AccountEditor({
       }}
     >
       <h2 className="text-xl font-semibold">Edit account: {account.loginId}</h2>
+      <Field label="Login ID">
+        <input
+          className={control}
+          required
+          pattern="[A-Za-z0-9_-]+"
+          value={loginId}
+          onChange={(e) => {
+            setLoginId(e.target.value);
+            setConfirmed(false);
+          }}
+        />
+      </Field>
+      <p>Changing the login ID signs this account out. Give the student the updated ID.</p>
+      <details>
+        <summary>Password</summary>
+        <p>Current passwords cannot be shown. Save profile edits before resetting a password.</p>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={
+            account.status !== 'active' ||
+            op.pending ||
+            name !== account.displayName ||
+            loginId !== account.loginId ||
+            classId !== (account.classId ?? '') ||
+            active !== (account.status === 'active')
+          }
+          onClick={reset}
+        >
+          Reset password for {account.displayName}
+        </Button>
+      </details>
       <p>
         Class changes apply to future exam rosters. Deactivating an account stops access and signs
         it out.
@@ -884,12 +998,26 @@ function AccountEditor({
 }
 function AssignmentsPage() {
   const api = schoolApi(useApiClient());
-  const teachers = useSchoolPage(['accounts', 'teacher', ''], (c, s) =>
-    api.accounts('teacher', '', c, s),
+  const teachers = useSchoolPage(
+    ['accounts', 'teacher', ''],
+    (c, s) => api.accounts('teacher', '', c, s),
+    true,
   );
-  const classes = useSchoolPage(['classes'], api.classes);
-  const subjects = useSchoolPage(['subjects'], api.subjects);
-  const list = useSchoolPage(['assignments'], api.assignments);
+  const classes = useSchoolPage(['classes'], api.classes, true);
+  const subjects = useSchoolPage(['subjects'], api.subjects, true);
+  const [filters, setFilters] = useState({
+    grade: '',
+    classId: '',
+    subjectId: '',
+    teacherId: '',
+    search: '',
+  });
+  const list = useSchoolPage(['assignments', JSON.stringify(filters)], (cursor, signal) =>
+    api.assignments(cursor, signal, filters),
+  );
+  const grades = [...new Set(classes.rows.map((c) => c.grade ?? 'unclassified'))].sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true }),
+  );
   const op = useSchoolOperation();
   const [teacherId, setTeacher] = useState('');
   const [classId, setClass] = useState('');
@@ -919,7 +1047,7 @@ function AssignmentsPage() {
                 .filter((a) => a.status === 'active')
                 .map((a) => (
                   <option key={a.userId} value={a.userId}>
-                    {a.displayName} · {a.loginId}
+                    {a.displayName}
                   </option>
                 ))}
             </select>
@@ -930,7 +1058,10 @@ function AssignmentsPage() {
               className={control}
               required
               value={classId}
-              onChange={(e) => setClass(e.target.value)}
+              onChange={(e) => {
+                setClass(e.target.value);
+                setSubject('');
+              }}
             >
               <option value="">Choose a class</option>
               {classes.rows
@@ -952,10 +1083,15 @@ function AssignmentsPage() {
             >
               <option value="">Choose a subject</option>
               {subjects.rows
-                .filter((a) => a.active)
+                .filter(
+                  (a) =>
+                    a.active &&
+                    (a.grade ?? null) ===
+                      (classes.rows.find((c) => c.classId === classId)?.grade ?? null),
+                )
                 .map((a) => (
                   <option key={a.subjectId} value={a.subjectId}>
-                    {a.name} · {a.code}
+                    {a.name}
                   </option>
                 ))}
             </select>
@@ -968,10 +1104,120 @@ function AssignmentsPage() {
         </fieldset>
         {op.feedback}
       </form>
+      <section className={`${panel} space-y-3`} aria-label="Assignment filters">
+        <Field label="Search assignments">
+          <input
+            className={control}
+            value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+            placeholder="Teacher, class or subject"
+          />
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Filter grade">
+            <select
+              className={control}
+              value={filters.grade}
+              onChange={(e) => setFilters({ ...filters, grade: e.target.value, classId: '' })}
+            >
+              <option value="">All grades</option>
+              {grades.map((g) => (
+                <option key={g} value={g}>
+                  {g === 'unclassified' ? 'Grade not assigned' : `Grade ${g}`}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Filter class">
+            <select
+              className={control}
+              value={filters.classId}
+              onChange={(e) => setFilters({ ...filters, classId: e.target.value })}
+            >
+              <option value="">All classes</option>
+              {classes.rows
+                .filter((c) => !filters.grade || (c.grade ?? 'unclassified') === filters.grade)
+                .map((c) => (
+                  <option key={c.classId} value={c.classId}>
+                    {c.name}
+                  </option>
+                ))}
+            </select>
+          </Field>
+          <Field label="Filter subject">
+            <select
+              className={control}
+              value={filters.subjectId}
+              onChange={(e) => setFilters({ ...filters, subjectId: e.target.value })}
+            >
+              <option value="">All subjects</option>
+              {subjects.rows.map((s) => (
+                <option key={s.subjectId} value={s.subjectId}>
+                  {s.name}
+                  {s.grade ? ` — Grade ${s.grade}` : ''}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Filter teacher">
+            <select
+              className={control}
+              value={filters.teacherId}
+              onChange={(e) => setFilters({ ...filters, teacherId: e.target.value })}
+            >
+              <option value="">All teachers</option>
+              {teachers.rows.map((t) => (
+                <option key={t.userId} value={t.userId}>
+                  {t.displayName}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {grades.map((g) => (
+            <Button
+              key={g}
+              variant={filters.grade === g ? 'default' : 'outline'}
+              onClick={() => setFilters({ ...filters, grade: g, classId: '' })}
+            >
+              {g === 'unclassified' ? 'Grade not assigned' : `Grade ${g}`}
+            </Button>
+          ))}
+        </div>
+        {filters.grade && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {classes.rows
+              .filter((c) => (c.grade ?? 'unclassified') === filters.grade)
+              .map((c) => (
+                <Button
+                  key={c.classId}
+                  variant="outline"
+                  onClick={() => setFilters({ ...filters, classId: c.classId })}
+                >
+                  {c.name}
+                </Button>
+              ))}
+          </div>
+        )}
+      </section>
       {list.controls}
-      {list.rows.map((a) => (
-        <AssignmentRow key={`${a.assignmentId}:${a.revision}`} assignment={a} />
-      ))}
+      {[...new Set(list.rows.map((a) => a.grade ?? 'unclassified'))]
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+        .map((grade) => (
+          <section key={grade} className="space-y-3">
+            <h2 className="text-xl font-semibold">
+              {grade === 'unclassified' ? 'Grade not assigned' : `Grade ${grade}`}
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              {list.rows
+                .filter((a) => (a.grade ?? 'unclassified') === grade)
+                .map((a) => (
+                  <AssignmentRow key={`${a.assignmentId}:${a.revision}`} assignment={a} />
+                ))}
+            </div>
+          </section>
+        ))}
       {!list.query.isPending && !list.rows.length && !list.query.error && (
         <p>No teaching assignments yet.</p>
       )}
@@ -1109,7 +1355,20 @@ function AiExamSettings() {
 export function SchoolSetupPage() {
   const [accountsClass, setAccountsClass] = useState<string | null>(null);
   const [issue, setIssue] = useState<CredentialIssue | null>(null);
-  const [tab, setTab] = useState('classes');
+  const [params, setParams] = useSearchParams();
+  const requestedTab = params.get('tab') ?? 'classes';
+  const tab = [
+    'classes',
+    'subjects',
+    'accounts',
+    'assignments',
+    'roster',
+    'activity',
+    'ai',
+  ].includes(requestedTab)
+    ? requestedTab
+    : 'classes';
+  const setTab = (value: string) => setParams({ tab: value });
   const blocker = useBlocker(!!issue?.credentials);
   useBeforeUnload(
     useCallback(

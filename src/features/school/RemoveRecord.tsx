@@ -24,14 +24,14 @@ export function RemoveRecord({
   return (
     <div className="space-y-3">
       <Button variant="destructive" onClick={() => setOpen(true)}>
-        Delete / archive {label}
+        Delete {kind === 'classes' ? 'class: ' : ''}
+        {label}
       </Button>
       {open && (
         <section className="space-y-3 rounded border p-4" aria-label={`Remove ${label}`}>
           <p>
-            Unused records are deleted. Records linked to academic or account history are
-            archived/deactivated instead. Archiving disables new use; account sessions are revoked.
-            Existing results and exam evidence remain.
+            Remove this record from active use? Previous exam results remain available. Deleting a
+            class does not delete its students’ accounts.
           </p>
           <Reason value={reason} onChange={setReason} />
           <label className="flex gap-3">
@@ -63,7 +63,7 @@ export function RemoveRecord({
           </Button>
         </section>
       )}
-      {outcome && <p role="status">Record {outcome}.</p>}
+      {outcome && <p role="status">Record removed.</p>}
       {op.feedback}
     </div>
   );

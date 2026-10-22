@@ -58,7 +58,8 @@ describe('school setup UI', () => {
   it('creates a class and subject and records who changed them', async () => {
     const { user, store } = setup();
     await user.click(await screen.findByRole('button', { name: 'Add class' }, { timeout: 5000 }));
-    await user.type(await screen.findByLabelText('Class name'), 'Grade 9 B');
+    await user.type(await screen.findByLabelText('Grade'), '9');
+    await user.type(screen.getByLabelText('Section'), 'B');
     await user.type(screen.getByLabelText('Academic year'), '2026');
     await user.type(screen.getByLabelText('Reason'), 'New intake');
     await user.click(screen.getByRole('button', { name: 'Save class' }));
@@ -66,6 +67,7 @@ describe('school setup UI', () => {
     await user.click(screen.getByRole('tab', { name: 'Subjects' }));
     await user.click(screen.getByRole('button', { name: 'Add subject' }));
     await user.type(screen.getByLabelText('Subject name'), 'Physics');
+    await user.type(screen.getByLabelText('Grade'), '10');
     await user.type(screen.getByLabelText('Subject code'), 'PHY');
     await user.type(screen.getByLabelText('Reason'), 'New subject');
     await user.click(screen.getByRole('button', { name: 'Save subject' }));
@@ -150,6 +152,8 @@ describe('school setup UI', () => {
     expect(await studentAuth.session()).not.toBeNull();
     await user.click(await screen.findByRole('tab', { name: 'Accounts' }));
     await user.click(await screen.findByRole('button', { name: /Grade 10 A/ }));
+    await user.click(await screen.findByRole('button', { name: 'Edit Samira' }));
+    await user.click(screen.getByText('Password', { selector: 'summary' }));
     await user.click(await screen.findByRole('button', { name: 'Reset password for Samira' }));
     await user.type(screen.getByLabelText('Reason'), 'Student lost password');
     expect(
@@ -176,7 +180,9 @@ describe('school setup UI', () => {
     await user.click(await screen.findByRole('tab', { name: 'Accounts' }));
     await user.click(screen.getByRole('button', { name: 'Teachers' }));
     await user.click(screen.getByRole('button', { name: 'Add teacher' }));
-    await user.type(screen.getByLabelText('Teacher name'), 'Teacher Example');
+    await user.type(screen.getByLabelText('First name'), 'Teacher');
+    await user.type(screen.getByLabelText("Father's name"), 'Example');
+    await user.type(screen.getByLabelText("Grandfather's name"), 'Family');
     await user.type(screen.getByLabelText('Reason'), 'New staff');
     await user.click(screen.getByRole('button', { name: 'Create teacher and login details' }));
     await waitFor(() => expect(keys).toHaveLength(1));
@@ -189,7 +195,7 @@ describe('school setup UI', () => {
     await screen.findByRole('heading', { name: 'Login details were already created' });
     expect(keys[1]).toBe(keys[0]);
     expect(store.directory.accounts.size).toBe(3);
-    expect(screen.getByText(/Teacher Example · DEMO-T/)).toBeInTheDocument();
+    expect(screen.getByText('Teacher Example Family')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Download login details (CSV)' }),
     ).not.toBeInTheDocument();
