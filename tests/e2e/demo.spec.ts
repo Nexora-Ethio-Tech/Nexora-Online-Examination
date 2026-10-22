@@ -36,6 +36,15 @@ test('portal management: class cards, unused record deletion and reopenable onbo
       .toBe(true);
   };
   await verifyPlacement();
+  const bubble = page.getByRole('complementary', { name: 'Portal onboarding' });
+  for (const corner of [
+    'border-top-left-radius',
+    'border-top-right-radius',
+    'border-bottom-left-radius',
+    'border-bottom-right-radius',
+  ]) {
+    await expect(bubble).toHaveCSS(corner, '32px');
+  }
   await expect(page.locator('[data-tour-tail]')).toBeVisible();
   await expect(page.locator('[data-tail-fill]')).toHaveAttribute('d', /^M .+ Z$/);
   await page.screenshot({
