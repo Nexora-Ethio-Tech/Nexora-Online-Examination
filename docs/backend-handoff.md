@@ -95,3 +95,7 @@ Portal date fields and displays now use Ethiopian calendar dates, Amharic months
 ## 21 October 2026 — exam deterrents and supervision clarity
 
 Added tiled private-reference watermarks, scoped question selection/drag deterrents, readable interruption timestamps and supervision freshness warnings. Existing backend contracts are unchanged. Reviewed package/unlock/ownership/supervision boundaries and expanded unit regressions; no production backend runtime change or migration. Fixed duplicate telemetry replay in the development demo. See [architecture and testing](exam-deterrents-architecture-and-testing.md) for evidence and outstanding real-DB/device checks.
+
+## 22 October 2026 — isolated local real integration
+
+Created separate persistent manual and disposable PostgreSQL databases without modifying hosted Supabase configuration. All repository migrations through 024 applied locally; 18 real integration cases and separate admin/owner password-MFA browser checks passed. See [local integrated testing](local-integrated-testing.md) for launch commands, test isolation and remaining acceptance. Test harness now uses TypeScript metadata emission, reserves its own Vite port and removes only its own student-counter fixtures. Backend HOST optionally binds local APIs to loopback.
