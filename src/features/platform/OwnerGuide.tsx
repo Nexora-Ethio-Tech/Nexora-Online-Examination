@@ -30,7 +30,7 @@ export function OwnerGuide({ owner }: { owner: string }) {
   return (
     <GuidedTour
       storageKey={`nexora:owner-guide:${owner}`}
-      revision={JSON.stringify(ownerSteps)}
+      revision={JSON.stringify({ presentation: 'speech-bubble-v1', steps: ownerSteps })}
       label="Owner guide"
       steps={ownerSteps}
     />
