@@ -31,9 +31,9 @@ export function adminExamApi(client: ApiClient) {
           idempotencyKey: key,
         },
       ),
-    list: (cursor: string | null, signal?: AbortSignal) =>
+    list: (cursor: string | null, signal?: AbortSignal, filters: Record<string, string> = {}) =>
       client.request(
-        `/admin/exams?limit=25${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+        `/admin/exams?limit=25${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}&${new URLSearchParams(Object.entries(filters).filter(([, v]) => !!v))}`,
         adminListSchema,
         { signal },
       ),
