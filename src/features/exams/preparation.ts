@@ -1,3 +1,4 @@
+import type { DownloadProgress } from '@/lib/download-progress';
 import { ApiError } from '@/lib/api-client';
 import type { examApi } from './api';
 import type { EncryptedPackage, Exam } from './schemas';
@@ -33,6 +34,7 @@ export async function preparePaper(
   exam: Exam,
   signal?: AbortSignal,
   onStep?: (step: PreparationStep) => void,
+  onDownloadProgress?: DownloadProgress,
 ) {
   const step = (value: PreparationStep) => {
     signal?.throwIfAborted();
@@ -86,7 +88,7 @@ export async function preparePaper(
       'The attempt changed. Refresh the schedule before continuing.',
     );
   step('download');
-  const packet = await api.package(attempt.attemptId, signal);
+  const packet = await api.package(attempt.attemptId, signal, onDownloadProgress);
   step('integrity');
   if (
     packet.examVersion !== attempt.examVersion ||

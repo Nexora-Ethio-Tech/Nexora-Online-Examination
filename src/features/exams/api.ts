@@ -1,3 +1,4 @@
+import type { DownloadProgress } from '@/lib/download-progress';
 import { z } from 'zod';
 import {
   readinessRequestSchema,
@@ -37,7 +38,10 @@ export function examApi(client: ApiClient) {
       }),
     attempt: (attemptId: string, signal?: AbortSignal) =>
       client.request(`/attempts/${part(attemptId)}`, attemptSchema, { signal }),
-    package: (attemptId: string, signal?: AbortSignal) =>
-      client.request(`/attempts/${part(attemptId)}/package`, packageSchema, { signal }),
+    package: (attemptId: string, signal?: AbortSignal, onDownloadProgress?: DownloadProgress) =>
+      client.request(`/attempts/${part(attemptId)}/package`, packageSchema, {
+        signal,
+        onDownloadProgress,
+      }),
   };
 }

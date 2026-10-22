@@ -78,7 +78,7 @@ it('shows the failed integrity step, hides readiness and allows a successful ret
   });
   await user.click(await screen.findByRole('button', { name: 'Download exam' }));
   expect(
-    await screen.findByText('Stopped: Check that the download is complete'),
+    await screen.findByText('Download could not finish. Please try again.'),
   ).toBeInTheDocument();
   expect(
     screen.queryByRole('heading', { name: 'Exam saved for this demo' }),
@@ -87,9 +87,10 @@ it('shows the failed integrity step, hides readiness and allows a successful ret
   corrupt = false;
   await user.click(screen.getByRole('button', { name: 'Try download again' }));
   await screen.findByRole('heading', { name: 'Exam saved for this demo' });
-  expect(screen.getByText('Unavailable in demo')).toBeInTheDocument();
+  expect(screen.getByText('Exam downloaded. Keep this page open.')).toBeInTheDocument();
+  expect(screen.queryByText(/Check that you can keep working/)).not.toBeInTheDocument();
   expect(
-    screen.queryByText('Stopped: Check that the download is complete'),
+    screen.queryByText('Download could not finish. Please try again.'),
   ).not.toBeInTheDocument();
 });
 it('loads the next opaque cursor without dropping the first page', async () => {
