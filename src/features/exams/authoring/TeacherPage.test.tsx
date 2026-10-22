@@ -96,10 +96,18 @@ describe('teacher workspace', () => {
       { timeout: 5000 },
     );
     await user.click(screen.getByRole('tab', { name: 'Review questions' }));
+    expect(
+      screen.queryByRole('button', { name: 'Go to question reviews' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Confirm all questions without warnings (1)' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Previous question' })).toBeDisabled();
     const first = (await screen.findByRole('heading', { name: 'MATH-001' })).closest('section');
     if (!first) throw new Error('Missing first question');
     await user.click(within(first).getByRole('checkbox'));
     expect(screen.getByRole('button', { name: 'Review MATH-002' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next question' })).toBeDisabled();
     await user.click(within(first).getByRole('button', { name: 'Save and next' }));
     await waitFor(() => expect(screen.getByText(/1 reviewed/)).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Submit for approval' })).toBeDisabled();
