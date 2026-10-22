@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useApiClient } from '@/lib/ApiProvider';
 import { authoringApi } from './api';
-import { itemSchema, reviewProblems, type Item } from './schemas';
+import { itemSchema, reviewProblems, eligibleForBulkReview, type Item } from './schemas';
 import {
   control,
   panel,
@@ -18,7 +18,6 @@ import {
   useAssignments,
   useTeacherScope,
 } from './TeacherPage';
-
 function ItemReview({
   item,
   disabled,
@@ -46,13 +45,13 @@ function ItemReview({
     onSave(parsed.data, next);
   }
   return (
-    <section className={panel}>
+    <section id="question-editor" className={`${panel} min-w-0 scroll-mt-4`}>
       <div className="mb-4 flex justify-between gap-3">
         <h3 className="font-semibold">{item.externalId}</h3>
         <span className="text-sm">{item.reviewed ? 'Reviewed' : 'Needs review'}</span>
       </div>
-      <fieldset disabled={disabled} className="grid gap-5 lg:grid-cols-2">
-        <div className="space-y-3">
+      <fieldset disabled={disabled} className="grid min-w-0 gap-5 lg:grid-cols-2">
+        <div className="min-w-0 space-y-3">
           <h4 className="text-sm font-semibold">Teacher question and answer</h4>
           <label className="block text-sm">
             Question
@@ -105,7 +104,7 @@ function ItemReview({
             />
           </label>
         </div>
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           <h4 className="text-sm font-semibold">Topic and explanation review</h4>
           <p className="text-xs text-muted-foreground">
             AI suggestions require your review. Changing the key never updates the explanation
@@ -170,7 +169,6 @@ function ItemReview({
     </section>
   );
 }
-
 export function TeacherDetail() {
   const navigate = useNavigate();
   const [removeOpen, setRemoveOpen] = useState(false);
@@ -281,6 +279,7 @@ export function TeacherDetail() {
   const disabled = !editable || busy || action.isPending;
   const paper = items.data?.items ?? [];
   const needsReview = new Set(reviewProblems(paper).map((item) => item.itemId));
+  const bulkEligible = paper.filter(eligibleForBulkReview);
   const visibleItems = paper.filter(
     (item) =>
       reviewFilter === 'All' ||
@@ -667,9 +666,8 @@ export function TeacherDetail() {
               {editable && (
                 <div className="my-4 space-y-3">
                   <p>
-                    You can review questions individually or confirm all eligible questions
-                    together. Missing topics, explanations and unresolved flags still need
-                    attention.
+                    Confirm complete questions without warnings together. Questions with missing
+                    topics or explanations and questions with warnings need individual attention.
                   </p>
                   <label className="flex gap-3">
                     <input
@@ -678,18 +676,10 @@ export function TeacherDetail() {
                       disabled={disabled || dirty}
                       onChange={(e) => setBulkConfirmed(e.target.checked)}
                     />
-                    I checked all eligible questions and their answer keys.
+                    I checked the questions without warnings and their answer keys.
                   </label>
                   <Button
-                    disabled={
-                      disabled ||
-                      dirty ||
-                      !bulkConfirmed ||
-                      !paper.some(
-                        (i) =>
-                          !i.reviewed && itemSchema.safeParse({ ...i, reviewed: true }).success,
-                      )
-                    }
+                    disabled={disabled || dirty || !bulkConfirmed || !bulkEligible.length}
                     onClick={() =>
                       run(() =>
                         api.reviewAll(
@@ -700,7 +690,7 @@ export function TeacherDetail() {
                       )
                     }
                   >
-                    Review all eligible questions
+                    Confirm all questions without warnings ({bulkEligible.length})
                   </Button>
                 </div>
               )}
@@ -729,7 +719,41 @@ export function TeacherDetail() {
                   </Button>
                 ))}
               </div>
-              <div className="overflow-x-auto">
+              <div className="space-y-3 md:hidden" aria-label="Question cards">
+                {visibleItems.map((item) => (
+                  <article
+                    key={item.itemId}
+                    className="min-w-0 space-y-2 rounded-lg border p-3 break-words"
+                  >
+                    <h3 className="font-semibold">Question {item.externalId}</h3>
+                    <p>{item.stem}</p>
+                    <p className="text-sm">
+                      Answer: {item.correctOptionId} · {item.primaryTopic || 'Topic needed'}
+                    </p>
+                    <p className="text-sm">
+                      {item.reviewed ? 'Confirmed' : 'Not yet confirmed'}
+                      {item.reviewFlags.length > 0 || item.keyConsistent === false
+                        ? ' · Warning needs attention'
+                        : ''}
+                    </p>
+                    <Button
+                      variant="outline"
+                      disabled={dirty || action.isPending}
+                      onClick={() => {
+                        setSelectedItemId(item.itemId);
+                        requestAnimationFrame(() =>
+                          document
+                            .getElementById('question-editor')
+                            ?.scrollIntoView({ block: 'start', behavior: 'smooth' }),
+                        );
+                      }}
+                    >
+                      Open question {item.externalId}
+                    </Button>
+                  </article>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-left text-sm">
                   <caption className="sr-only">
                     Question keys, topics, explanations and review status
@@ -792,6 +816,33 @@ export function TeacherDetail() {
                 </p>
               )}
             </section>
+          )}
+          {selectedItem && (
+            <nav aria-label="Question navigation" className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="outline"
+                disabled={dirty || action.isPending || paper.indexOf(selectedItem) === 0}
+                onClick={() =>
+                  setSelectedItemId(paper[paper.indexOf(selectedItem) - 1]?.itemId ?? null)
+                }
+              >
+                Previous question
+              </Button>
+              <span>
+                Question {paper.indexOf(selectedItem) + 1} of {paper.length}
+              </span>
+              <Button
+                variant="outline"
+                disabled={
+                  dirty || action.isPending || paper.indexOf(selectedItem) === paper.length - 1
+                }
+                onClick={() =>
+                  setSelectedItemId(paper[paper.indexOf(selectedItem) + 1]?.itemId ?? null)
+                }
+              >
+                Next question
+              </Button>
+            </nav>
           )}
           {(selectedItem ? [selectedItem] : []).map((item) => (
             <ItemReview
@@ -858,16 +909,6 @@ export function TeacherDetail() {
                   <li key={reason}>{reason}</li>
                 ))}
               </ul>
-              {!dirty && paper.length > 0 && !busy && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-3 min-h-11"
-                  onClick={() => setTab('review')}
-                >
-                  Go to question reviews
-                </Button>
-              )}
             </div>
           )}
           <Button
