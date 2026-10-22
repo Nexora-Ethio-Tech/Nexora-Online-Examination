@@ -89,6 +89,7 @@ describe('bulk teacher review', () => {
     vi.spyOn(authoring, 'items').mockResolvedValue([
       good,
       { ...good, itemId: 'flagged', reviewFlags: ['Check key'] },
+      { ...good, itemId: 'flagged-with-note', reviewFlags: ['Check key'], reviewNote: 'Checked' },
       { ...good, itemId: 'empty', explanation: '' },
     ]);
     vi.spyOn(authoring, 'snapshot').mockResolvedValue(undefined);

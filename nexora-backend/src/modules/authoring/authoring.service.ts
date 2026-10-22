@@ -12,6 +12,7 @@ import {
 } from '../delivery/preparation-schemas';
 import { draftSchema, itemSchema, metadataSchema, revision, Item } from './schemas';
 import { hasRetainedReferences } from '../directory/record-removal';
+import { actionableReviewFlags } from './review-flags';
 
 export type Exam = {
   id: string;
@@ -63,7 +64,8 @@ export class AuthoringService {
     return z
       .array(itemSchema)
       .max(200)
-      .parse((await c.query(itemSelect, [school, id])).rows);
+      .parse((await c.query(itemSelect, [school, id])).rows)
+      .map((item) => ({ ...item, reviewFlags: actionableReviewFlags(item.reviewFlags) }));
   }
   async draftData(c: PoolClient, school: string, e: Exam) {
     const items = await this.items(c, school, e.id);
@@ -366,7 +368,11 @@ export class AuthoringService {
         await this.mutable(c, school.id, e, body.revision);
         const items = await this.items(c, school.id, id);
         const eligible = items.filter(
-          (item) => !item.reviewed && itemSchema.safeParse({ ...item, reviewed: true }).success,
+          (item) =>
+            !item.reviewed &&
+            item.keyConsistent !== false &&
+            item.reviewFlags.length === 0 &&
+            itemSchema.safeParse({ ...item, reviewed: true }).success,
         );
         if (!eligible.length)
           throw DomainException.validationError(
