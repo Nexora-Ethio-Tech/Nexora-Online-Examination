@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('../../src/common/db/db.service', () => ({
   DbService: class {
-    query = mocks.query;
+    tenantQuery = mocks.query;
   },
 }));
 vi.mock('../../src/modules/authoring/import-worker.service', () => ({
@@ -32,7 +32,7 @@ const second = '22222222-2222-4222-8222-222222222222';
 function sweep() {
   // Prototype instances intentionally skip constructors; mocks provide all dependencies.
   return new WorkerSweepService(
-    Object.assign(Object.create(DbService.prototype), { query: mocks.query }),
+    Object.assign(Object.create(DbService.prototype), { tenantQuery: mocks.query }),
     Object.assign(Object.create(ImportWorkerService.prototype), { run: mocks.imports }),
     Object.assign(Object.create(PackageWorkerService.prototype), { run: mocks.packages }),
   );
@@ -46,6 +46,7 @@ describe('bounded school worker sweep', () => {
   });
 
   function setup() {
+    vi.stubEnv('WORKER_SCHOOL_IDS', `${first},${second}`);
     const service = sweep();
     // No database connection is created in these tests.
     mocks.packages.mockResolvedValue(true);
@@ -67,15 +68,16 @@ describe('bounded school worker sweep', () => {
     expect(mocks.packages.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.imports.mock.invocationCallOrder[0],
     );
-    expect(mocks.query.mock.calls[0][0]).toContain("status = 'active'");
-    expect(mocks.query.mock.calls[0][0]).toContain('LIMIT 2');
+    expect(mocks.query.mock.calls[0][0]).toBe(first);
+    expect(mocks.query.mock.calls[0][1]).toContain("status = 'active'");
+    expect(mocks.query.mock.calls[0][2]).toEqual([first]);
   });
 
   it('advances past the cursor and finishes when no more schools exist', async () => {
     const service = setup();
     mocks.query.mockResolvedValue({ rows: [{ id: second }] });
     expect((await service.run({ afterSchoolId: first })).nextCursor).toBeNull();
-    expect(mocks.query.mock.calls[0][1]).toEqual([null, first]);
+    expect(mocks.query.mock.calls[0][0]).toBe(second);
     expect(mocks.imports).toHaveBeenCalledWith(second);
     mocks.query.mockResolvedValue({ rows: [] });
     mocks.imports.mockClear();
@@ -93,6 +95,24 @@ describe('bounded school worker sweep', () => {
       await expect(service.run(input)).rejects.toThrow();
     }
     expect(mocks.query).not.toHaveBeenCalled();
+  });
+
+  it('skips an inactive school without losing the continuation cursor', async () => {
+    const service = setup();
+    mocks.query.mockResolvedValue({ rows: [] });
+    expect(await service.run({})).toMatchObject({ parsed: false, nextCursor: first });
+    expect(mocks.imports).not.toHaveBeenCalled();
+    expect(mocks.packages).not.toHaveBeenCalled();
+  });
+
+  it('fails on missing sweep configuration but permits explicit trusted scope', async () => {
+    const service = setup();
+    vi.stubEnv('WORKER_SCHOOL_IDS', '');
+    await expect(service.run({})).rejects.toThrow('WORKER_SCHOOL_IDS_REQUIRED');
+    expect(mocks.query).not.toHaveBeenCalled();
+    mocks.query.mockResolvedValue({ rows: [{ id: first }] });
+    await service.run({ schoolId: first });
+    expect(mocks.query.mock.calls[0][0]).toBe(first);
   });
 
   it('authenticates cron and external triggers before selecting a school', async () => {

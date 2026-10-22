@@ -4,6 +4,7 @@ import { DbService } from '../../common/db/db.service';
 import { parsePreparationInput } from '../delivery/preparation-schemas';
 import { ImportWorkerService } from './import-worker.service';
 import { PackageWorkerService } from './package-worker.service';
+import { workerSchoolIds } from './worker-scope';
 
 const sweepSchema = z
   .object({
@@ -27,23 +28,28 @@ export class WorkerSweepService {
   // Existing database leases continue to arbitrate concurrent/repeated triggers.
   async run(input: unknown) {
     const options = parsePreparationInput(sweepSchema, input ?? {});
-    const schools = await this.db.query<{ id: string }>(
-      `SELECT id FROM schools WHERE status = 'active'
-       AND ($1::uuid IS NULL OR id = $1)
-       AND ($2::uuid IS NULL OR id > $2)
-       ORDER BY id LIMIT 2`,
-      [options.schoolId ?? null, options.afterSchoolId ?? null],
+    const candidates = options.schoolId
+      ? [options.schoolId]
+      : workerSchoolIds().filter((id) => !options.afterSchoolId || id > options.afterSchoolId);
+    const selected = candidates[0];
+    if (!selected)
+      return { parsed: false, aiProcessed: 0, packageProcessed: false, nextCursor: null };
+    const nextCursor = candidates.length > 1 ? selected : null;
+    const schools = await this.db.tenantQuery<{ id: string }>(
+      selected,
+      "SELECT id FROM schools WHERE status = 'active' AND id = $1",
+      [selected],
     );
     const school = schools.rows[0];
     if (!school) {
-      return { parsed: false, aiProcessed: 0, packageProcessed: false, nextCursor: null };
+      return { parsed: false, aiProcessed: 0, packageProcessed: false, nextCursor };
     }
     const packageProcessed = await this.packages.run(school.id);
     const imported = await this.imports.run(school.id);
     return {
       ...imported,
       packageProcessed,
-      nextCursor: schools.rows.length > 1 ? school.id : null,
+      nextCursor,
     };
   }
 }
