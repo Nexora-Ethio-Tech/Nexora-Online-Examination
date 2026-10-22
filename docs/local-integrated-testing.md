@@ -38,6 +38,8 @@ For real upload processing, keep a fourth terminal running:
 node scripts/local-test.ts worker
 ```
 
+The worker must print `Worker ready`. Its private manual configuration includes `WORKER_SCHOOL_IDS`; add any newly created test schools to that comma-separated UUID list and restart the worker. File uploads stay queued when the worker is stopped. See [import recovery and AI testing](import-worker-recovery-and-ai-testing.md) for provider checks and troubleshooting.
+
 Open http://127.0.0.1:5183. Use the [private local test accounts](../../.local-test/LOCAL-TEST-ACCOUNTS.md), not the DEMO passwords. MFA remains enabled. The platform API uses port 3101 and its separate restricted database role; school API uses port 3100. PostgreSQL uses loopback port 55432.
 
 After code changes, rebuild the backend with `npm run build` in `nexora-backend` before restarting it. Stop frontend/backend terminal processes with Ctrl+C. Stopping an application does not delete database records.

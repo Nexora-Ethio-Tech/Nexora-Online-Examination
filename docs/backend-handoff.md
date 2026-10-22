@@ -99,3 +99,8 @@ Added tiled private-reference watermarks, scoped question selection/drag deterre
 ## 22 October 2026 — isolated local real integration
 
 Created separate persistent manual and disposable PostgreSQL databases without modifying hosted Supabase configuration. All repository migrations through 024 applied locally; 18 real integration cases and separate admin/owner password-MFA browser checks passed. See [local integrated testing](local-integrated-testing.md) for launch commands, test isolation and remaining acceptance. Test harness now uses TypeScript metadata emission, reserves its own Vite port and removes only its own student-counter fixtures. Backend HOST optionally binds local APIs to loopback.
+# 22 October 2026 — queued imports and Groq/Gemini configuration
+
+Fixed worker school discovery under restricted runtime RLS by using explicit operator scope and tenant transactions. Local worker restarted with the test school configured. Added Groq primary/Gemini fallback, bounded attempts and token reservations, actual successful-model recording, and a synthetic provider diagnostic. Private credentials remain outside Git. See [architecture, setup and acceptance guide](import-worker-recovery-and-ai-testing.md).
+
+Validation: 168 backend unit tests, 18 real local integration cases, 229 frontend tests and 14 release/config checks passed; backend/frontend builds and frontend check passed. Live synthetic Groq response passed; Gemini returned HTTP 503 and remains unverified. Prior cancelled imports were not resurrected. No hosted database, push or deployment was involved.

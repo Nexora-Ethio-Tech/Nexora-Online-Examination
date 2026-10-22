@@ -1,5 +1,7 @@
 # Teacher authoring and import worker
 
+22 October correction: unrestricted school discovery is not compatible with the runtime role's row security. Unscoped sweeps now require the operator's comma-separated `WORKER_SCHOOL_IDS`; each lookup uses tenant context. Explicit authenticated `schoolId` triggers remain supported. Update the list when provisioning schools. See [recovery, provider configuration and testing](../../docs/import-worker-recovery-and-ai-testing.md).
+
 20 October 2026 update: the worker now supports paginated multi-school sweeps and a separate `CRON_SECRET`-authenticated GET trigger. See [current operations](../../docs/operations-development.md) for cursor handling, active-school filtering and Vercel limits. The per-school POST contract below remains supported; omitting `schoolId` now processes one active school and returns `nextCursor`. No hosted scheduler has been enabled.
 
 The authoring module implements the existing teacher routes for assignments, draft metadata, item review, submission, DOCX/XLSX upload, job status and AI retry. It keeps original upload bytes private in PostgreSQL, and keeps immutable pre-edit/pre-replacement/submitted snapshots. Approval is a separate administrator operation.
