@@ -1,7 +1,7 @@
 export type Rectangle = { left: number; top: number; right: number; bottom: number };
 /** Choose free space beside a target, never clamp the popup back over it. */
 export function tourPosition(target: Rectangle, viewport: { width: number; height: number }) {
-  const gap = 12,
+  const gap = 20,
     margin = 8;
   const areas = [
     {
