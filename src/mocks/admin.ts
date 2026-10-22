@@ -201,7 +201,16 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
     }
     const v = input.data;
     const start = Date.parse(v.preparationVisibleAt);
-    const times = scheduleTimes(v.preparationVisibleAt, approved.draft.durationMinutes);
+    const times = scheduleTimes(
+      v.preparationVisibleAt,
+      approved.draft.durationMinutes,
+      v.preparationMinutes ??
+        (sitting
+          ? (Date.parse(sitting.session.startsAt) -
+              Date.parse(sitting.session.preparationVisibleAt)) /
+            60000
+          : 10),
+    );
     const extraMs = sitting ? latestDeadline(sitting) - Date.parse(sitting.session.endsAt) : 0;
     const proposedDeadline = Date.parse(times.endsAt) + extraMs;
     if (start <= clock() || Date.parse(v.resultsReleaseAt) < proposedDeadline)

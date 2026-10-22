@@ -59,11 +59,13 @@ export const scheduleSchema = z.object({
   revision,
   approvedVersion: revision,
   preparationVisibleAt: instant,
+  preparationMinutes: z.number().int().min(1).max(120).optional(),
   resultsReleaseAt: instant,
 });
 export const rescheduleSchema = z.object({
   scheduleRevision: revision,
   preparationVisibleAt: instant,
+  preparationMinutes: z.number().int().min(1).max(120).optional(),
   resultsReleaseAt: instant,
   reason: z.string().trim().min(1).max(2000),
 });
@@ -72,8 +74,12 @@ export type Sitting = z.infer<typeof sessionSchema>;
 
 // Kept as re-exports for existing scheduling callers.
 export { parseEatInput, toEatInput } from '@/lib/ethiopian-date';
-export function scheduleTimes(preparation: string, durationMinutes: number) {
-  const startsAt = new Date(Date.parse(preparation) + 10 * 60000).toISOString();
+export function scheduleTimes(
+  preparation: string,
+  durationMinutes: number,
+  preparationMinutes = 10,
+) {
+  const startsAt = new Date(Date.parse(preparation) + preparationMinutes * 60000).toISOString();
   return {
     startsAt,
     endsAt: new Date(Date.parse(startsAt) + durationMinutes * 60000).toISOString(),
