@@ -1102,9 +1102,9 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
           [
             resolve('../node_modules/vite/bin/vite.js'),
             '--host',
-            'localhost',
+            '127.0.0.1',
             '--port',
-            '5173',
+            '5184',
             '--strictPort',
           ],
           {
@@ -1115,29 +1115,33 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
               VITE_USE_MOCKS: 'false',
               VITE_API_BASE_URL: '/api/v1',
             },
-            stdio: 'ignore',
+            stdio: ['ignore', 'pipe', 'pipe'],
             windowsHide: true,
           },
         );
         let browserProcess;
         try {
-          let ready = false;
-          for (let i = 0; i < 100; i++) {
-            try {
-              ready = (await fetch('http://localhost:5173')).ok;
-            } catch {
-              ready = false;
-            }
-            if (ready) break;
-            if (vite.exitCode !== null)
-              throw new Error('Vite exited before startup (port 5173 must be free)');
-            await new Promise((r) => setTimeout(r, 100));
-          }
-          if (!ready) throw new Error('Vite startup timed out');
+          await new Promise<void>((resolveReady, reject) => {
+            const timer = setTimeout(() => reject(new Error('Vite startup timed out')), 15000);
+            vite.stdout?.on('data', (chunk: Buffer) => {
+              if (chunk.toString().includes('http://127.0.0.1:5184')) {
+                clearTimeout(timer);
+                resolveReady();
+              }
+            });
+            vite.once('error', (error) => {
+              clearTimeout(timer);
+              reject(error);
+            });
+            vite.once('exit', () => {
+              clearTimeout(timer);
+              reject(new Error('Vite exited before startup; port 5184 must be free'));
+            });
+          });
           const direct = await fetch(apiUrl + '/api/v1/auth/me', {
             headers: { Cookie: adminCookie },
           });
-          const proxied = await fetch('http://localhost:5173/api/v1/auth/me', {
+          const proxied = await fetch('http://127.0.0.1:5184/api/v1/auth/me', {
             headers: { Cookie: adminCookie },
           });
           if (direct.status !== 200 || proxied.status !== 200)
@@ -1162,7 +1166,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
               {
                 name: 'nexora_session',
                 value: token,
-                url: 'http://localhost:5173',
+                url: 'http://127.0.0.1:5184',
                 httpOnly: true,
                 sameSite: 'Lax',
               },
@@ -1181,7 +1185,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
               (r) => r.url().includes('/api/v1' + endpoint) && r.status() === 200,
               { timeout: 20000 },
             );
-            await page.goto('http://localhost:5173' + path);
+            await page.goto('http://127.0.0.1:5184' + path);
             try {
               await response;
             } catch {
