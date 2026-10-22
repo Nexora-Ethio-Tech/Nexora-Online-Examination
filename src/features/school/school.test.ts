@@ -32,8 +32,16 @@ describe('class-scoped account management', () => {
     const first = await api.accounts('student', '', null, undefined, 'demo-class-10a');
     const second = await api.accounts('student', '', null, undefined, cls.classId);
     expect(second.items).toHaveLength(1);
-    expect(second.items[0]?.loginId).toBe('DEMO-STU-0002');
-    expect(first.items.some((a) => a.loginId === 'DEMO-STU-0001')).toBe(true);
+    expect(second.items[0]?.loginId).toBe(
+      `DEMO-STU-0002-${new Intl.DateTimeFormat('en', { timeZone: 'Africa/Addis_Ababa', year: 'numeric' }).format(new Date())}`,
+    );
+    expect(
+      first.items.some(
+        (a) =>
+          a.loginId ===
+          `DEMO-STU-0001-${new Intl.DateTimeFormat('en', { timeZone: 'Africa/Addis_Ababa', year: 'numeric' }).format(new Date())}`,
+      ),
+    ).toBe(true);
     const created = second.items[0];
     if (!created) throw new Error('Missing fixture');
     await api.remove('students', created.userId, created.revision, 'Duplicate intake', key());
@@ -46,7 +54,9 @@ describe('class-scoped account management', () => {
     await api.commit(next.importId, next.revision, reason, key());
     expect(
       (await api.accounts('student', '', null, undefined, cls.classId)).items[0]?.loginId,
-    ).toBe('DEMO-STU-0003');
+    ).toBe(
+      `DEMO-STU-0003-${new Intl.DateTimeFormat('en', { timeZone: 'Africa/Addis_Ababa', year: 'numeric' }).format(new Date())}`,
+    );
   });
 });
 async function setup(store = createAuthoringStore(), clock = Date.now) {

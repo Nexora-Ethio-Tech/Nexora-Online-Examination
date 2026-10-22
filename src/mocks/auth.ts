@@ -278,7 +278,13 @@ export function createDemoTransport(
     ) {
       if (role !== 'school_admin')
         return error(403, 'FORBIDDEN', 'Administrator access with MFA is required.');
-      return adminDemo(apiPath, method, body, new Headers(init.headers));
+      return adminDemo(
+        apiPath,
+        method,
+        body,
+        new Headers(init.headers),
+        new URL(url, 'http://localhost').searchParams,
+      );
     }
     if (/^\/(exams|imports|me\/teaching-assignments)(\/|$)/.test(apiPath)) {
       if (role !== 'teacher') return error(403, 'FORBIDDEN', 'Teacher access is required.');

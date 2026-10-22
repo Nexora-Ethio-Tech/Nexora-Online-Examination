@@ -24,6 +24,8 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
     const assignment = store.directory.assignments.get(exam.assignmentId);
     return {
       exam: structuredClone(exam),
+      grade: assignment ? (store.directory.classes.get(assignment.classId)?.grade ?? null) : null,
+      submittedAt: store.history.get(id)?.find((h) => h.action === 'submitted')?.at ?? null,
       teacherName:
         store.directory.accounts.get(store.draftOwners.get(id) ?? 'demo-teacher')?.displayName ??
         'Dawit',
@@ -53,12 +55,34 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
     method: string,
     body: unknown,
     headers: Headers,
+    filters = new URLSearchParams(),
   ): Promise<Response> => {
     if (method === 'GET' && path === '/admin/exams')
       return json({
         items: [...store.drafts.keys()].reverse().flatMap((id) => {
           const d = detail(id);
-          return d ? [d] : [];
+          if (!d) return [];
+          if (filters.get('grade') && (d.grade ?? 'unclassified') !== filters.get('grade'))
+            return [];
+          if (
+            !d.teacherName.toLowerCase().includes((filters.get('teacher') ?? '').toLowerCase()) ||
+            !d.subjectName.toLowerCase().includes((filters.get('subject') ?? '').toLowerCase())
+          )
+            return [];
+          if (
+            ![d.exam.title, d.teacherName, d.subjectName, d.className].some((v) =>
+              v.toLowerCase().includes((filters.get('search') ?? '').toLowerCase()),
+            )
+          )
+            return [];
+          if (
+            filters.get('from') &&
+            (!d.submittedAt || d.submittedAt < (filters.get('from') ?? ''))
+          )
+            return [];
+          if (filters.get('to') && (!d.submittedAt || d.submittedAt > (filters.get('to') ?? '')))
+            return [];
+          return [d];
         }),
         nextCursor: null,
         serverNow: new Date(clock()).toISOString(),

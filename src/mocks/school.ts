@@ -60,7 +60,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
     displayName,
     loginId:
       role === 'student'
-        ? `DEMO-STU-${String(d.studentSequence++).padStart(4, '0')}`
+        ? `DEMO-STU-${String(d.studentSequence++).padStart(4, '0')}-${new Intl.DateTimeFormat('en', { timeZone: 'Africa/Addis_Ababa', year: 'numeric' }).format(new Date(now()))}`
         : `DEMO-T${String(d.sequence++).padStart(6, '0')}`,
     role,
     classId,
@@ -101,6 +101,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
       ...a,
       teacherName: d.accounts.get(a.teacherId)?.displayName ?? a.teacherName,
       className: d.classes.get(a.classId)?.name ?? a.className,
+      grade: d.classes.get(a.classId)?.grade ?? null,
       subjectName: d.subjects.get(a.subjectId)?.name ?? a.subjectName,
     }));
   async function handle(url: URL, method: string, body: unknown, headers: Headers) {
@@ -121,16 +122,31 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         return fail('Invalid list filter or page.', 'VALIDATION_ERROR', 422);
       const rows =
         path === '/classes'
-          ? [...d.classes.values()].map((c) => ({
-              ...c,
-              studentCount: [...d.accounts.values()].filter(
-                (a) => a.role === 'student' && a.classId === c.classId,
-              ).length,
-            }))
+          ? [...d.classes.values()]
+              .filter((c) => c.active)
+              .map((c) => ({
+                ...c,
+                studentCount: [...d.accounts.values()].filter(
+                  (a) => a.role === 'student' && a.classId === c.classId,
+                ).length,
+              }))
           : path === '/subjects'
             ? [...d.subjects.values()]
             : path === '/teacher-assignments'
-              ? assignmentView()
+              ? assignmentView().filter(
+                  (a) =>
+                    (!url.searchParams.get('grade') ||
+                      (a.grade ?? 'unclassified') === url.searchParams.get('grade')) &&
+                    (!url.searchParams.get('classId') ||
+                      a.classId === url.searchParams.get('classId')) &&
+                    (!url.searchParams.get('subjectId') ||
+                      a.subjectId === url.searchParams.get('subjectId')) &&
+                    (!url.searchParams.get('teacherId') ||
+                      a.teacherId === url.searchParams.get('teacherId')) &&
+                    [a.teacherName, a.className, a.subjectName].some((v) =>
+                      normalize(v).includes(normalize(search)),
+                    ),
+                )
               : path === '/admin/directory-audit'
                 ? d.audit
                 : path === '/students' || path === '/teachers'
@@ -222,6 +238,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
       if (!b.success || row.revision !== b.data.revision)
         return fail('Refresh before removing this record.');
       const used =
+        kind === 'classes' ||
         [...d.assignments.values()].some(
           (a) => a.classId === id || a.subjectId === id || a.teacherId === id,
         ) ||
@@ -400,6 +417,8 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
           classId: id ?? crypto.randomUUID(),
           name: fields.name,
           academicYear: fields.academicYear,
+          grade: fields.grade ?? null,
+          section: fields.section ?? null,
           active: changes?.active ?? true,
           revision: (old?.revision ?? 0) + 1,
         };
@@ -424,7 +443,10 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         return fail('Subject changed. Refresh before editing.');
       if (
         [...d.subjects.values()].some(
-          (s) => s.subjectId !== id && normalize(s.code) === normalize(fields.code),
+          (s) =>
+            s.subjectId !== id &&
+            normalize(s.code) === normalize(fields.code) &&
+            (s.grade ?? null) === (fields.grade ?? null),
         )
       )
         return fail('This subject code already exists.');
@@ -443,6 +465,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         subjectId: id ?? crypto.randomUUID(),
         name: fields.name,
         code: fields.code.toUpperCase(),
+        grade: fields.grade ?? null,
         active: changes?.active ?? true,
         revision: (old?.revision ?? 0) + 1,
       };
@@ -451,7 +474,16 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
       return commit(result);
     }
     if (path === '/teachers' && method === 'POST') {
-      const parsed = z.object({ displayName: text, reason: reasonSchema }).strict().safeParse(body);
+      const parsed = z
+        .object({
+          displayName: text,
+          firstName: text.optional(),
+          fatherName: text.optional(),
+          grandfatherName: text.optional(),
+          reason: reasonSchema,
+        })
+        .strict()
+        .safeParse(body);
       if (!parsed.success) return fail('Enter a teacher name and reason.', 'VALIDATION_ERROR', 422);
       const account = makeAccount('teacher', parsed.data.displayName, null, null);
       d.accounts.set(account.userId, account);
@@ -523,13 +555,21 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
             'VALIDATION_ERROR',
             422,
           );
+        const loginChanged = !!input.data.loginId && input.data.loginId !== account.loginId;
+        if (
+          [...d.accounts.values()].some(
+            (a) => a.userId !== account.userId && a.loginId === input.data.loginId,
+          )
+        )
+          return fail('This user ID is already in use.', 'VALIDATION_ERROR', 422);
         Object.assign(account, {
           displayName: input.data.displayName,
+          loginId: input.data.loginId ?? account.loginId,
           classId: input.data.classId,
           status: input.data.status,
           revision: account.revision + 1,
         });
-        if (account.status === 'inactive') {
+        if (account.status === 'inactive' || loginChanged) {
           const password = d.passwords.get(account.userId);
           if (password) password.generation++;
         }
@@ -558,7 +598,8 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         teacher?.role !== 'teacher' ||
         teacher.status !== 'active' ||
         !cls?.active ||
-        !subject?.active
+        !subject?.active ||
+        (cls.grade ?? null) !== (subject.grade ?? null)
       )
         return fail('Select active school records.', 'VALIDATION_ERROR', 422);
       if (
