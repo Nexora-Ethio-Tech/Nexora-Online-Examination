@@ -1,5 +1,13 @@
 # Changes made in this chat and how to test them
 
+## Latest: preparation, downloads and tours
+
+Verified locally on 22 October 2026: frontend check (241 tests plus 14 tooling checks), frontend/backend builds, 177 backend unit tests, 20 disposable PostgreSQL integration tests, and three spotlight browser journeys (desktop, mobile and landscape). No production database was used.
+
+1. [Adjustable preparation duration](../adjustable-preparation-architecture-and-testing.md) — school admin, real local backend.
+2. [Student download display](../student-download-architecture-and-testing.md) — student, real local backend; production shell needed for offline acceptance.
+3. [Spotlight portal tours](../spotlight-tour-architecture-and-testing.md) — school accounts or platform owner; layout can also be checked in demo.
+
 Prepared 21 October 2026. This report covers the implementation range `845a8ea..ed01fe2`: **14 local commits** on `feat/verified-platform-development`. The documentation commit that adds this report is additional.
 
 Repository: `C:\Users\kaleab\Desktop\Nexora_Exam_Platform\exam-frontend`. Backend: its `nexora-backend` folder. This is the checkout changed in this chat, not the other agent's `D:\Nexora` checkout.

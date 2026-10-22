@@ -1,5 +1,9 @@
 # Backend handoff
 
+## Adjustable preparation, download progress and spotlight tours — 22 October 2026
+
+Scheduling and rescheduling accept optional `preparationMinutes` (integer 1–120). Creation defaults to 10; omission on reschedule preserves the stored timestamp gap. Existing timestamp columns persist the setting, so no migration is required. Approved exam duration, frozen roster, allowances, overlap checks and cutoff/replay rules remain enforced. See [preparation duration](adjustable-preparation-architecture-and-testing.md), [student download](student-download-architecture-and-testing.md), and [spotlight tours](spotlight-tour-architecture-and-testing.md).
+
 ## Grade directories and portal usability — 22 October 2026
 
 Migration 025 adds explicit class grade/section, subject grade and teacher name components. Directory assignment checks enforce matching grades, list filters execute before pagination, student IDs append their creation year in EAT, and login-ID changes revoke sessions. Class removal retains its record and hides it from active lists. Existing IDs and frozen rosters remain unchanged. Migration 025 is applied only to the isolated local manual and disposable databases; production is untouched. See [architecture and acceptance](grade-directory-architecture-and-testing.md).
