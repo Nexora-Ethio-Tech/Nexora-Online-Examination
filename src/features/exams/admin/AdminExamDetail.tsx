@@ -38,6 +38,14 @@ export function ScheduleForm({
   const elapsed = () => Math.max(0, performance.now() - detail.clockReceivedAt);
   const now = () => Date.parse(detail.serverNow) + elapsed();
   const stale = elapsed() >= 60_000;
+  const lastRefresh = useRef(-Infinity);
+  useEffect(() => {
+    const elapsedMs = Math.max(0, performance.now() - detail.clockReceivedAt);
+    if (elapsedMs >= 45_000 && performance.now() - lastRefresh.current >= 15_000 && !pending) {
+      lastRefresh.current = performance.now();
+      onRefresh();
+    }
+  });
   const locked = !!initial && now() >= Date.parse(initial.preparationVisibleAt);
   const suggested = new Date(
     Math.ceil((Date.parse(detail.serverNow) + 120000) / 60000) * 60000,
@@ -78,7 +86,10 @@ export function ScheduleForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (elapsed() >= 60_000) {
-          setError('Refresh server time before confirming this schedule.');
+          onRefresh();
+          setError(
+            'Checking school time. Your dates are saved here; confirm again once connected.',
+          );
           return;
         }
         if (initial && now() >= Date.parse(initial.preparationVisibleAt)) {
@@ -116,7 +127,12 @@ export function ScheduleForm({
       <p className="text-sm text-muted-foreground">
         These times stay in EAT even if your device uses a different timezone.
       </p>
-      {stale && <p role="alert">Server time needs refreshing. Your entered dates are kept.</p>}
+      {stale && (
+        <p role="alert">
+          Checking school time. Keep this page open; your entered dates are kept. If this continues,
+          check your connection and try Refresh server time.
+        </p>
+      )}
       {locked && (
         <p role="alert">Preparation has opened. This schedule can no longer be changed.</p>
       )}
