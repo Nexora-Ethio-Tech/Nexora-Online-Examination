@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const roleSchema = z.enum(['student', 'teacher', 'school_admin']);
+export const roleSchema = z.enum(['student', 'teacher', 'school_admin', 'invigilator']);
 export type Role = z.infer<typeof roleSchema>;
 export const loginSchema = z.object({
   loginId: z.string().trim().min(1, 'Enter your user ID.'),

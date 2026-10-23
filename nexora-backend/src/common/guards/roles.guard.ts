@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { DomainException } from '../errors/domain.exception';
 
-export type UserRole = 'student' | 'teacher' | 'school_admin';
+export type UserRole = 'student' | 'teacher' | 'school_admin' | 'invigilator';
 
 export const ROLES_KEY = 'roles';
 export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);

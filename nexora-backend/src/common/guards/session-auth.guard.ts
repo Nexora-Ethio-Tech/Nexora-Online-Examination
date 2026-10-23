@@ -14,7 +14,7 @@ export interface RequestUser {
   id: string;
   loginId: string;
   displayName: string;
-  role: 'student' | 'teacher' | 'school_admin';
+  role: 'student' | 'teacher' | 'school_admin' | 'invigilator';
 }
 
 export interface RequestSchool {
