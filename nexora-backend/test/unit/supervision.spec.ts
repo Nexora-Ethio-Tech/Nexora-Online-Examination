@@ -141,26 +141,32 @@ describe('supervision service authorization, replay and deadlines (database doub
     await service.decide(req, attemptId, body, key);
     expect(events).toHaveLength(1);
   });
-  it.each(['hidden', 'focus_lost', 'pagehide', 'fullscreen_exit'])(
-    'deduplicates %s telemetry without suspending or changing exam state',
-    async (kind) => {
-      const req = request('student', studentId);
-      const event = {
-        id: randomUUID(),
-        kind,
-        observedAt: now.toISOString(),
-        deviceGeneration: 1,
-      };
-      await service.report(req, attemptId, { events: [event] });
-      await service.report(req, attemptId, { events: [event] });
-      expect(events).toHaveLength(1);
-      expect(attempt.suspended).toBe(false);
-      expect(attempt.state).toBe('active');
-      await expect(
-        service.report(req, attemptId, { events: [{ ...event, kind: 'returned' }] }),
-      ).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
-    },
-  );
+  it.each([
+    'hidden',
+    'focus_lost',
+    'pagehide',
+    'fullscreen_exit',
+    'screenshot_attempt',
+    'window_blur',
+    'watermark_tamper',
+  ])('deduplicates %s telemetry without suspending or changing exam state', async (kind) => {
+    const req = request('student', studentId);
+    const event = {
+      id: randomUUID(),
+      kind,
+      reason: 'Synthetic shield event',
+      observedAt: now.toISOString(),
+      deviceGeneration: 1,
+    };
+    await service.report(req, attemptId, { events: [event] });
+    await service.report(req, attemptId, { events: [event] });
+    expect(events).toHaveLength(1);
+    expect(attempt.suspended).toBe(false);
+    expect(attempt.state).toBe('active');
+    await expect(
+      service.report(req, attemptId, { events: [{ ...event, kind: 'returned' }] }),
+    ).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
+  });
   it('keeps client observation and server receipt separate and rejects invented screenshot events', async () => {
     const req = request('student', studentId);
     const event = {
