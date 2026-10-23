@@ -129,3 +129,5 @@ Validation: 168 backend unit tests, 18 real local integration cases, 229 fronten
 ## 23 October 2026 — supplied shield activated
 
 The missing geometry and incidents panel were supplied. Official RunnerPage now mounts the strict/fullscreen shield with a five-episode UI lock, a user-gesture Start exam, one watermark and one overlay. New callback kinds use the existing interruption endpoint and offline queue; no automatic server penalties were introduced. Administrator attempt monitoring includes the supplied grouped panel, with display-only review recommendations. See [architecture and testing](supplied-security-shield-integration.md) for integration details, limitations and acceptance steps. This supersedes the earlier incomplete-integration status.
+
+23 October 2026: [Factual activity reporting](factual-activity-reporting.md) adds the `devtools` interruption kind, removes weighted risk/recommendation displays, preserves the four history groups and adds displayed-record CSV export. Deploy backend acceptance before the new frontend emitter. Existing event names and historical evidence remain unchanged.
