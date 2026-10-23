@@ -897,7 +897,7 @@ function AccountEditor({
         <input
           className={control}
           required
-          pattern="[A-Za-z0-9_-]+"
+          pattern="[A-Za-z0-9_\/\-]+"
           value={loginId}
           onChange={(e) => {
             setLoginId(e.target.value);

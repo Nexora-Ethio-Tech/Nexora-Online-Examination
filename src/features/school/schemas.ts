@@ -45,7 +45,7 @@ export const accountEditSchema = z.object({
   loginId: z
     .string()
     .trim()
-    .regex(/^[A-Za-z0-9_-]{1,160}$/)
+    .regex(/^[A-Za-z0-9_/-]{1,160}$/)
     .optional(),
   displayName: name,
   classId: id.nullable(),
