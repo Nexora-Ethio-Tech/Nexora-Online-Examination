@@ -35,11 +35,19 @@ export function examStatus(exam: Exam) {
 export function ExamsPage() {
   const client = useApiClient();
   const { session } = useAuth();
+  const [filter, setFilter] = useState<'All exams' | (typeof examGroups)[number]>('All exams');
+  const category = {
+    'All exams': 'all',
+    'Current exams': 'current',
+    'Needs attention': 'attention',
+    'Upcoming exams': 'upcoming',
+    'Past exams': 'past',
+  }[filter];
   const query = useInfiniteQuery({
-    queryKey: ['exams', session?.school.id, session?.user.id],
+    queryKey: ['exams', session?.school.id, session?.user.id, category],
     initialPageParam: null,
     queryFn: async ({ pageParam, signal }: { pageParam: string | null; signal: AbortSignal }) => {
-      const data = await examApi(client).list(pageParam, signal);
+      const data = await examApi(client).list(pageParam, signal, category);
       return {
         ...data,
         clock: { epoch: Date.parse(data.serverNow), receivedAt: performance.now() },
@@ -52,7 +60,7 @@ export function ExamsPage() {
     query.data?.pages.flatMap((page) =>
       page.items.map((item) => ({ ...item, clock: page.clock })),
     ) ?? [];
-  const [filter, setFilter] = useState<'All exams' | (typeof examGroups)[number]>('All exams');
+
   const [gradeFilter, setGradeFilter] = useState<'All past exams' | GradeStatus>('All past exams');
   const hasPast = exams.some((exam) => examGroup(exam) === 'Past exams');
   const grades = useQuery({
@@ -115,13 +123,13 @@ export function ExamsPage() {
       ) : null}
       {!query.isPending && !query.error && exams.length === 0 ? (
         <div className="nexora-surface rounded-xl border bg-background p-8">
-          <h2 className="text-lg font-semibold">No exams assigned yet</h2>
+          <h2 className="text-lg font-semibold">No exams in this category</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your school’s scheduled papers will appear here.
+            Choose another category or refresh after your school schedules an exam.
           </p>
         </div>
       ) : null}
-      {!!exams.length && (
+      {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filter exams">
             {(['All exams', ...examGroups] as const).map((name) => (
@@ -177,16 +185,17 @@ export function ExamsPage() {
           )}
           {query.hasNextPage && (
             <p className="text-xs text-muted-foreground">
-              Filters apply to loaded exams. Use Load more exams to include older or later sittings.
+              Categories and alphabetical order apply across all pages. Result-status filters apply
+              to loaded exams; load more to include the rest.
             </p>
           )}
           {!groups.length && <p role="status">No loaded exams match this filter.</p>}
         </div>
-      )}
+      }
       {groups.map((group) => (
         <section key={group.title} className="space-y-4" aria-label={group.title}>
           <h2 className="text-xl font-semibold">{group.title}</h2>
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {group.items.map((exam) => (
               <article
                 key={exam.sessionId}
@@ -197,11 +206,16 @@ export function ExamsPage() {
                     {exam.subjectName} · {exam.className}
                   </span>
                   <span
-                    className={
-                      exam.attemptState === 'submitted'
-                        ? 'inline-flex items-center gap-2 py-1 text-xs font-medium text-primary'
-                        : 'py-1 text-xs font-medium'
-                    }
+                    className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ${
+                      {
+                        'Current exams': 'bg-primary/10 text-primary',
+                        'Needs attention':
+                          'bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100',
+                        'Upcoming exams':
+                          'bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100',
+                        'Past exams': 'bg-muted text-muted-foreground',
+                      }[group.title]
+                    }`}
                   >
                     {exam.attemptState === 'submitted' && (
                       <CircleCheck className="size-4" aria-hidden="true" />

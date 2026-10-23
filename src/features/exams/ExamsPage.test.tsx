@@ -65,7 +65,9 @@ it('shows an empty assignment state', async () => {
         )
       : demo(url, init),
   );
-  expect(await screen.findByRole('heading', { name: 'No exams assigned yet' })).toBeInTheDocument();
+  expect(
+    await screen.findByRole('heading', { name: 'No exams in this category' }),
+  ).toBeInTheDocument();
 });
 it('shows the failed integrity step, hides readiness and allows a successful retry', async () => {
   const demo = createDemoTransport('student');
@@ -96,8 +98,8 @@ it('shows the failed integrity step, hides readiness and allows a successful ret
 it('loads the next opaque cursor without dropping the first page', async () => {
   const demo = createDemoTransport('student');
   const user = setup('/student', async (url, init) => {
-    const response = await demo(url, init);
-    if (!url.includes('/me/exams?')) return response;
+    if (!url.includes('/me/exams?')) return demo(url, init);
+    const response = await demo(url.replace('&cursor=next-page', ''), init);
     const data = listSchema.parse(await response.json());
     return Response.json({
       ...data,

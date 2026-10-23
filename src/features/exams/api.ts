@@ -17,10 +17,14 @@ export function examApi(client: ApiClient) {
         idempotencyKey: key,
         signal,
       }),
-    list: (cursor: string | null, signal?: AbortSignal) =>
-      client.request(`/me/exams?limit=25${cursor ? `&cursor=${part(cursor)}` : ''}`, listSchema, {
-        signal,
-      }),
+    list: (cursor: string | null, signal?: AbortSignal, category = 'all') =>
+      client.request(
+        `/me/exams?limit=25&sort=title&category=${encodeURIComponent(category)}${cursor ? `&cursor=${part(cursor)}` : ''}`,
+        listSchema,
+        {
+          signal,
+        },
+      ),
     detail: (sessionId: string, signal?: AbortSignal) =>
       client.request(`/me/exams/${part(sessionId)}`, detailSchema, { signal }),
     enroll: (deviceId: string, signal?: AbortSignal) =>
