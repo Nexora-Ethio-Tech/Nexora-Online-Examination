@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type BlackoutReason = 'blur' | 'screenshot' | 'devtools' | 'fullscreen';
-export type InterruptionKind = 'screenshot_attempt' | 'window_blur' | 'fullscreen_exit';
+export type InterruptionKind =
+  'screenshot_attempt' | 'window_blur' | 'fullscreen_exit' | 'devtools';
 
 export interface AntiScreenshotOptions {
   active: boolean;
@@ -130,7 +131,9 @@ export function useAntiScreenshot({
           ? 'window_blur'
           : reason === 'fullscreen'
             ? 'fullscreen_exit'
-            : 'screenshot_attempt';
+            : reason === 'devtools'
+              ? 'devtools'
+              : 'screenshot_attempt';
 
       if (blackedOutRef.current) {
         // Same incident: don't re-count, but do log a new kind of event once.

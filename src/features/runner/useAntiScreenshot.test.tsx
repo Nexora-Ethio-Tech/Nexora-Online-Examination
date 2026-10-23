@@ -75,3 +75,17 @@ it('requests clipboard clearing on PrintScreen without claiming permission succe
     else Reflect.deleteProperty(navigator, 'clipboard');
   }
 });
+
+it('reports inspection separately without changing the blackout episode count', () => {
+  const report = vi.fn();
+  const { result, unmount } = renderHook(() =>
+    useAntiScreenshot({ active: true, onInterruption: report }),
+  );
+  fireEvent.keyDown(window, { key: 'F12' });
+  expect(report).toHaveBeenCalledWith('devtools', expect.any(String));
+  expect(report).not.toHaveBeenCalledWith('screenshot_attempt', expect.any(String));
+  fireEvent.keyDown(window, { key: 'PrintScreen' });
+  expect(report).toHaveBeenCalledWith('screenshot_attempt', expect.any(String));
+  expect(result.current.warningCount).toBe(1);
+  unmount();
+});
