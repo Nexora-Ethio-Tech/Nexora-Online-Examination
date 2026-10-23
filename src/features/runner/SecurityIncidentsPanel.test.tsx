@@ -77,7 +77,9 @@ it('orders attempts by receipt time rather than event severity and retains dismi
   const buttons = screen.getAllByRole('button', { expanded: false });
   expect(buttons[0]).toHaveTextContent('NEW');
   expect(buttons[1]).toHaveTextContent('OLD');
-  fireEvent.click(buttons[0]!);
+  const first = buttons[0];
+  if (!first) throw new Error('Missing incident group button');
+  fireEvent.click(first);
   expect(screen.getByText('dismissed')).toBeVisible();
   expect(screen.getByText(/School received:/)).toBeVisible();
   expect(
