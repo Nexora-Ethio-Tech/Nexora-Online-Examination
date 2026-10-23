@@ -85,3 +85,13 @@ export function formatEatDateTime(value: string, seconds = false) {
   if (!Number.isFinite(Date.parse(value))) return 'Date unavailable';
   return `${formatEthiopianDate(toEatInput(value))} · ${formatEatClock(value, seconds)}`;
 }
+
+/** Display only: the input is already a UTC instant; never infer the browser timezone. */
+export function formatGregorianEatDate(value: string) {
+  return new Intl.DateTimeFormat('en-GB-u-ca-gregory-nu-latn', {
+    timeZone: EAT_ZONE,
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
+}
