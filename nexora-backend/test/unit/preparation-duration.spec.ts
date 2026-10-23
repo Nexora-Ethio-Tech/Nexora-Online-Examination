@@ -7,7 +7,7 @@ const schedule = {
   preparationVisibleAt: '2026-12-01T05:00:00Z',
   resultsReleaseAt: '2026-12-01T09:00:00Z',
 };
-it.each([0, -1, 121, 2.5, '20', null])(
+it.each([-1, 121, 2.5, '20', null])(
   'rejects invalid preparation minutes %s',
   (preparationMinutes) => {
     expect(scheduleSchema.safeParse({ ...schedule, preparationMinutes }).success).toBe(false);
@@ -24,7 +24,7 @@ it.each([0, -1, 121, 2.5, '20', null])(
 );
 it('accepts legacy requests and supported whole-minute values', () => {
   expect(scheduleSchema.parse(schedule).preparationMinutes).toBeUndefined();
-  for (const preparationMinutes of [1, 10, 25, 120])
+  for (const preparationMinutes of [0, 1, 10, 25, 120])
     expect(scheduleSchema.parse({ ...schedule, preparationMinutes }).preparationMinutes).toBe(
       preparationMinutes,
     );
