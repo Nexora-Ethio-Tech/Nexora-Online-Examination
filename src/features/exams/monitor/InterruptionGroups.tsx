@@ -11,7 +11,7 @@ const groups = [
   {
     title: 'Screen protection',
     description: 'Fullscreen exits and capture or inspection shortcuts reported by the browser.',
-    kinds: ['fullscreen_exit', 'screenshot_attempt'],
+    kinds: ['fullscreen_exit', 'screenshot_attempt', 'devtools'],
   },
   {
     title: 'Watermark integrity',

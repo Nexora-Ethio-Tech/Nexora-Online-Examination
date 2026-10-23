@@ -9,6 +9,7 @@ it('organizes every event into four collapsed categories without losing source d
     'fullscreen_exit',
     'focus_lost',
     'screenshot_attempt',
+    'devtools',
     'window_blur',
     'watermark_tamper',
   ] as const;
@@ -24,10 +25,10 @@ it('organizes every event into four collapsed categories without losing source d
     />,
   );
   expect(screen.getByText('Window and tab changes · 4')).toBeVisible();
-  expect(screen.getByText('Screen protection · 2')).toBeVisible();
+  expect(screen.getByText('Screen protection · 3')).toBeVisible();
   expect(screen.getByText('Watermark integrity · 1')).toBeVisible();
   expect(screen.getByText('Returns to the exam · 1')).toBeVisible();
   fireEvent.click(screen.getByText('Returns to the exam · 1'));
   expect(screen.getByText('Exam tab visible again')).toBeVisible();
-  expect(screen.getAllByText(/School received report:/)).toHaveLength(8);
+  expect(screen.getAllByText(/School received report:/)).toHaveLength(9);
 });
