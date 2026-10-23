@@ -22,7 +22,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Import students into a class',
-      body: 'Choose a class in Roster import and preview your CSV. In Accounts, open the class card to find students and give students their login details. New IDs continue across all classes in your school and end with the year of creation. Use Edit to change student details or reset a password.',
+      body: 'Choose a class in Roster import and preview your CSV. In Accounts, open the class card to find students and give students their login details. New student IDs look like STU/001/0001/19: school number, student number and Ethiopian creation year. Teacher IDs look like TCH/001/0001. Numbers continue across classes; existing IDs stay unchanged. Generated passwords have eight characters with uppercase and lowercase letters, numbers and symbols. Use Edit to change student details or reset a password.',
       path: '/admin/school?tab=roster',
     },
     {
