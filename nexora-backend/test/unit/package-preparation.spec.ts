@@ -24,16 +24,16 @@ const item = {
 function setup(items: unknown[] = [item]) {
   vi.stubEnv('MFA_ENCRYPTION_KEY', randomBytes(32).toString('base64url'));
   const client = new PackageClient();
-  const query = vi.spyOn(client, 'query').mockResolvedValue(empty);
+  const query = vi.spyOn(client, 'query').mockImplementation(async () => empty);
   query
-    .mockResolvedValueOnce(rows([{ id: 'job', exam_version_id: 'version' }]))
-    .mockResolvedValueOnce(empty)
-    .mockResolvedValueOnce(empty)
-    .mockResolvedValueOnce(rows([{ id: 'job' }]))
-    .mockResolvedValueOnce(
+    .mockImplementationOnce(async () => rows([{ id: 'job', exam_version_id: 'version' }]))
+    .mockImplementationOnce(async () => empty)
+    .mockImplementationOnce(async () => empty)
+    .mockImplementationOnce(async () => rows([{ id: 'job' }]))
+    .mockImplementationOnce(async () =>
       rows([{ version: 1, title: 'Frozen title', instructions: 'Answer all.' }]),
     )
-    .mockResolvedValueOnce(rows(items));
+    .mockImplementationOnce(async () => rows(items));
   return { client, query, worker: new PackageWorkerService(new DbService()) };
 }
 afterEach(() => vi.unstubAllEnvs());
@@ -89,7 +89,7 @@ describe('immediate approved package preparation', () => {
   });
   it('leaves ready jobs and unexpired worker leases alone', async () => {
     const client = new PackageClient();
-    const query = vi.spyOn(client, 'query').mockResolvedValue(empty);
+    const query = vi.spyOn(client, 'query').mockImplementation(async () => empty);
     const worker = new PackageWorkerService(new DbService());
     expect(await worker.prepareNow(client, 'school', 'version')).toBe(false);
     expect(query).toHaveBeenCalledTimes(1);
