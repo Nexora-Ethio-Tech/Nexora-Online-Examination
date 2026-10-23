@@ -28,6 +28,7 @@ export type Exam = {
   import_id: string | null;
   return_comment: string | null;
   created_at: Date;
+  concluded?: boolean;
 };
 export function teacherIdentity(req: Request) {
   if (!req.sessionUser || !req.school) throw DomainException.authRequired();
@@ -42,6 +43,8 @@ const listInput = z
       .transform(Number)
       .pipe(z.number().int().min(1).max(100))
       .optional(),
+    category: z.enum(['all', 'active', 'past']).default('all'),
+    status: z.enum(['draft', 'returned', 'in_review', 'approved']).optional(),
     cursor: z.string().max(1200).optional(),
   })
   .strict();
@@ -71,6 +74,8 @@ export class AuthoringService {
     const items = await this.items(c, school, e.id);
     return {
       examId: e.id,
+      createdAt: e.created_at?.toISOString(),
+      concluded: e.concluded,
       title: e.title,
       instructions: e.instructions,
       assignmentId: e.assignment_id,
@@ -167,13 +172,26 @@ export class AuthoringService {
     const { school, user } = teacherIdentity(req),
       q = parse(listInput, input),
       limit = q.limit ?? 25;
+    const filterScope = JSON.stringify([q.category, q.status]);
+    const concluded = `e.state='approved' AND EXISTS(SELECT 1 FROM exam_sessions es WHERE es.school_id=e.school_id AND es.exam_id=e.id) AND NOT EXISTS(SELECT 1 FROM exam_sessions es WHERE es.school_id=e.school_id AND es.exam_id=e.id AND es.ends_at+make_interval(mins=>COALESCE((SELECT max(extra_time_minutes) FROM session_roster sr WHERE sr.school_id=es.school_id AND sr.session_id=es.id),0))+interval '5 seconds' >= now())`;
     let after: { id: string; at: string } | null = null;
     if (q.cursor) {
       try {
         const value = z
-          .object({ school: uuid, teacher: uuid, id: uuid, at: z.string().datetime() })
+          .object({
+            school: uuid,
+            teacher: uuid,
+            filterScope: z.string(),
+            id: uuid,
+            at: z.string().datetime(),
+          })
           .parse(JSON.parse(Buffer.from(q.cursor, 'base64url').toString()));
-        if (value.school !== school.id || value.teacher !== user.id) throw new Error();
+        if (
+          value.school !== school.id ||
+          value.teacher !== user.id ||
+          value.filterScope !== filterScope
+        )
+          throw new Error();
         after = value;
       } catch {
         throw DomainException.validationError('Invalid exam cursor');
@@ -184,8 +202,16 @@ export class AuthoringService {
       async (c) => {
         const rows = (
           await c.query<Exam>(
-            `SELECT e.* FROM exams e JOIN teacher_assignments a ON a.school_id=e.school_id AND a.id=e.assignment_id AND a.teacher_id=e.owner_id JOIN classes cl ON cl.school_id=a.school_id AND cl.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE e.school_id=$1 AND e.archived_at IS NULL AND e.owner_id=$2 AND a.active AND cl.active AND s.active AND ($3::uuid IS NULL OR (e.created_at,e.id)<($4::timestamptz,$3::uuid)) ORDER BY e.created_at DESC,e.id DESC LIMIT $5`,
-            [school.id, user.id, after?.id ?? null, after?.at ?? null, limit + 1],
+            `SELECT e.*, (${concluded}) concluded FROM exams e JOIN teacher_assignments a ON a.school_id=e.school_id AND a.id=e.assignment_id AND a.teacher_id=e.owner_id JOIN classes cl ON cl.school_id=a.school_id AND cl.id=a.class_id JOIN subjects s ON s.school_id=a.school_id AND s.id=a.subject_id WHERE e.school_id=$1 AND e.archived_at IS NULL AND e.owner_id=$2 AND a.active AND cl.active AND s.active AND ($6='all' OR ($6='past')=(${concluded})) AND ($7::text IS NULL OR e.state=$7) AND ($3::uuid IS NULL OR (e.created_at,e.id)<($4::timestamptz,$3::uuid)) ORDER BY e.created_at DESC,e.id DESC LIMIT $5`,
+            [
+              school.id,
+              user.id,
+              after?.id ?? null,
+              after?.at ?? null,
+              limit + 1,
+              q.category,
+              q.status === 'in_review' ? 'pending_approval' : (q.status ?? null),
+            ],
           )
         ).rows;
         const selected = rows.slice(0, limit);
@@ -200,6 +226,7 @@ export class AuthoringService {
                   JSON.stringify({
                     school: school.id,
                     teacher: user.id,
+                    filterScope,
                     id: last.id,
                     at: last.created_at.toISOString(),
                   }),
