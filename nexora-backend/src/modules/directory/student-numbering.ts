@@ -1,20 +1,30 @@
 import { PoolClient } from 'pg';
 import { DomainException } from '../../common/errors/domain.exception';
 
-export function studentLoginId(slug: string, number: number, createdAt = new Date()) {
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(slug) || !Number.isSafeInteger(number) || number < 1)
+export function studentLoginId(schoolNumber: number, number: number, createdAt = new Date()) {
+  if (
+    !Number.isSafeInteger(schoolNumber) ||
+    schoolNumber < 1 ||
+    !Number.isSafeInteger(number) ||
+    number < 1
+  )
     throw DomainException.validationError('Invalid school student numbering configuration');
   const year = new Intl.DateTimeFormat('en', {
     timeZone: 'Africa/Addis_Ababa',
+    calendar: 'ethiopic',
+    numberingSystem: 'latn',
     year: 'numeric',
-  }).format(createdAt);
-  return `${slug.toUpperCase()}-STU-${String(number).padStart(4, '0')}-${year}`;
+  })
+    .formatToParts(createdAt)
+    .find((p) => p.type === 'year')?.value;
+  if (!year) throw DomainException.validationError('Ethiopian year unavailable');
+  return `STU/${String(schoolNumber).padStart(3, '0')}/${String(number).padStart(4, '0')}/${year.slice(-2).padStart(2, '0')}`;
 }
 
 /** Called inside the roster transaction, after the school directory lock. Never recycle IDs. */
 export async function allocateStudentNumbers(c: PoolClient, school: string, count: number) {
   const existing = await c.query<{ highest: string }>(
-    `SELECT COALESCE(max((substring(upper(login_id) from '(?:^|-)STU-([0-9]+)(?:-[0-9]{4})?$'))::numeric),0)::text highest
+    `SELECT COALESCE(max(COALESCE(substring(upper(login_id) from '^STU/[0-9]+/([0-9]+)/[0-9]{2}$'),substring(upper(login_id) from '(?:^|-)STU-([0-9]+)(?:-[0-9]{4})?$'))::numeric),0)::text highest
      FROM users WHERE school_id=$1 AND role='student'`,
     [school],
   );
