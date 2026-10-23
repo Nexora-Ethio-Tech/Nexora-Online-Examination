@@ -1,5 +1,7 @@
 # Exam assistance: architecture and testing guide
 
+23 October 2026 update: see [Invigilator assignment and private MFA setup](invigilator-assignment-and-mfa-architecture-and-testing.md) for limited non-teaching accounts, assignment after scheduling, private first enrollment, and the strict-lock help action. Migration 026 requires isolated database validation.
+
 Status: implemented locally on `feat/verified-platform-development`; not deployed. Updated 20 October 2026. This replaces the earlier proposal in this file. Real PostgreSQL, migration-upgrade and two-device acceptance remain pending.
 
 ## What the user sees

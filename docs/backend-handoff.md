@@ -1,5 +1,7 @@
 # Backend handoff
 
+23 October 2026 update: see [Invigilator assignment and private MFA setup](invigilator-assignment-and-mfa-architecture-and-testing.md) for limited non-teaching accounts, assignment after scheduling, private first enrollment, and the strict-lock help action. Migration 026 requires isolated database validation.
+
 ## Supplied shield integration preparation — 23 October 2026
 
 The interruptions DTO now accepts `screenshot_attempt`, `window_blur`, and `watermark_tamper`, with optional reason text limited to 500 characters. Existing fullscreen events remain supported. Reports remain telemetry only: no server penalties or deadline changes. The engine exposes `reportSecurityEvent` using the existing IndexedDB queue and authorized reporting endpoint. The replacement shield is not activated yet: the supplied watermark imports missing `watermark-geometry.ts`. See [integration status and tests](supplied-security-shield-integration.md).

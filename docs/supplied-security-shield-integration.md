@@ -1,5 +1,7 @@
 # Supplied security shield: architecture and testing
 
+23 October 2026 update: see [Invigilator assignment and private MFA setup](invigilator-assignment-and-mfa-architecture-and-testing.md) for limited non-teaching accounts, assignment after scheduling, private first enrollment, and the strict-lock help action. Migration 026 requires isolated database validation.
+
 ## Integration — 23 October 2026
 
 The supplied shield is activated in the official exam runner. Practice and ordinary portal pages do not mount it. All original exports are preserved. watermark-geometry.ts is copied byte-for-byte (SHA256 7848B81DB59F2695BCA54BFBC4D73642FE9B6F7513359AF9A93013A0A562896A).
