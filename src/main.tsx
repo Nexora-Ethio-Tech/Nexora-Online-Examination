@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+import './features/runner/security-shield.css';
 import { App } from '@/app/App';
 import { ApiClient, type Transport } from '@/lib/api-client';
 import { readEnvironment } from '@/lib/env';

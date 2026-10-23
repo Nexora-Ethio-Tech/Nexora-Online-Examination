@@ -1,0 +1,84 @@
+/* Nexora 6-Layer Anti-Cheating CSS Shield (hardened) */
+
+/* ------------------------------------------------------------------ */
+/* Layer 1: Selection & Drag Shield                                    */
+/* ------------------------------------------------------------------ */
+.exam-runner-protected {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Answer fields must stay typeable (Safari breaks inputs under user-select:none).
+   Copy / cut / paste are still blocked by useAntiScreenshot. */
+.exam-runner-protected input,
+.exam-runner-protected textarea,
+.exam-runner-protected [contenteditable='true'] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+}
+
+.exam-runner-protected img,
+.exam-runner-protected svg {
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* Layer 1: Print & Screen Capture Neutralization */
+@media print {
+  html:has(.exam-runner-protected),
+  body:has(.exam-runner-protected) {
+    background-color: #000000 !important;
+    background: #000000 !important;
+    color: #000000 !important;
+  }
+  html:has(.exam-runner-protected) body > *,
+  body:has(.exam-runner-protected),
+  .exam-runner-protected,
+  [data-testid='exam-watermark'] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Layer 2: 100% Full Black Screen Shutter                             */
+/* ------------------------------------------------------------------ */
+/* The shutter is pure CSS: adding the class to <html> paints black on the
+   very next frame, without waiting for React to render the overlay. */
+html.nexora-screen-blackout,
+body.nexora-screen-blackout {
+  background-color: #000000 !important;
+  background: #000000 !important;
+  overflow: hidden !important;
+}
+
+/* Pre-armed black layer. Sits just below the React overlay (z-index 9999999). */
+html.nexora-screen-blackout::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: #000000;
+  opacity: 1;
+  z-index: 9999998;
+  pointer-events: auto;
+}
+
+/* Hide everything except the overlay (the overlay is portaled to <body>).
+   The first two selectors are structure-independent; the rest are legacy. */
+html.nexora-screen-blackout body > *:not([data-testid='anti-screenshot-overlay']),
+body.nexora-screen-blackout > *:not([data-testid='anti-screenshot-overlay']),
+html.nexora-screen-blackout .exam-runner-protected,
+html.nexora-screen-blackout [data-testid='exam-watermark'],
+body.nexora-screen-blackout .exam-runner-protected,
+body.nexora-screen-blackout [data-testid='exam-watermark'],
+html.nexora-screen-blackout main > *:not([data-testid='anti-screenshot-overlay']),
+body.nexora-screen-blackout main > *:not([data-testid='anti-screenshot-overlay']) {
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
