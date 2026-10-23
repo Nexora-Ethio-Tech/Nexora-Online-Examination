@@ -1,5 +1,7 @@
 # Backend handoff
 
+24 October 2026: [Deployment developer handoff](deployment-developer-handoff.md) records hosted work and release gates; [local alignment](local-release-readiness.md) records migrations through 029 and passing real API/browser acceptance.
+
 24 October 2026: [Account IDs and passwords](account-ids-and-passwords.md) introduces migration 028, stable numeric school IDs, student Ethiopian-year suffixes, teacher counters and eight-character credential generation. Existing login IDs remain unchanged. Apply 028 before using new account creation on a target database.
 
 24 October 2026: [Organized exam portals](organized-exam-portals.md) adds server-side list categories, title sorting, teacher conclusion metadata, pending-approval FIFO and grade/class search filters. No new migration. Real PostgreSQL acceptance remains required; see the guide for exact query and pagination contracts.
