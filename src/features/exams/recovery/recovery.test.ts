@@ -92,7 +92,7 @@ describe('recovery decisions', () => {
       'sitting',
       {
         revision: 1,
-        releaseAt: '2026-10-17T06:20:05.000Z',
+        releaseAt: '2026-10-17T07:00:00.000Z',
         reason: 'Reviewed pending evidence.',
         exclusions: [{ attemptId: c.attempt.attemptId, reason: 'Under review.' }],
       },
@@ -176,7 +176,7 @@ describe('recovery decisions', () => {
     await c.login('ADMIN');
     expect((await c.api.get(next.recoveryId)).relatedUploads[0]?.status).toBe('rejected');
   });
-  it('settles competing pending uploads and preserves published history until reapproval', async () => {
+  it('settles competing pending uploads and automatically releases corrections while preserving published history', async () => {
     const c = await setup();
     const other = await c.runner.recovery(
       c.attempt.attemptId,
@@ -188,16 +188,9 @@ describe('recovery decisions', () => {
     expect((await c.api.get(c.upload.recoveryId)).relatedUploads[0]?.recoveryId).toBe(
       other.recoveryId,
     );
-    await c.results.publish(
-      'sitting',
-      {
-        revision: 1,
-        releaseAt: '2026-10-17T06:20:05.000Z',
-        reason: 'Release settled results with explicit exclusion.',
-        exclusions: [{ attemptId: c.attempt.attemptId, reason: 'Recovery investigation ongoing.' }],
-      },
-      crypto.randomUUID(),
-    );
+    c.setTime('2026-10-17T07:00:00.001Z');
+    const original = await c.results.results('sitting', null);
+    expect(original.rows[0]?.status).toBe('recovery_pending');
     await c.api.decide(
       c.upload.recoveryId,
       { decision: 'accept', reason: 'First upload verified.' },
@@ -211,21 +204,10 @@ describe('recovery decisions', () => {
         crypto.randomUUID(),
       ),
     ).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
-    expect((await c.results.report('sitting', 1)).rows[0]?.status).toBe('excluded');
-    expect((await c.results.results('sitting', null)).rows[0]?.score).toBe(4);
-    await c.login('STUDENT');
-    expect((await c.results.mine(null)).items[0]?.result?.status).toBe('excluded');
-    await c.login('ADMIN');
-    await c.results.publish(
-      'sitting',
-      {
-        revision: 2,
-        releaseAt: '2026-10-17T06:20:05.000Z',
-        reason: 'Approve recovered result revision.',
-        exclusions: [],
-      },
-      crypto.randomUUID(),
+    expect((await c.results.report('sitting', original.summary.revision)).rows[0]?.status).toBe(
+      'recovery_pending',
     );
+    expect((await c.results.results('sitting', null)).rows[0]?.score).toBe(4);
     await c.login('STUDENT');
     expect((await c.results.mine(null)).items[0]?.result?.score).toBe(4);
   });

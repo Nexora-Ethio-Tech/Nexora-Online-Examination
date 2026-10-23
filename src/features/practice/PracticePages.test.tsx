@@ -47,7 +47,7 @@ describe('practice screens', () => {
     await waitFor(() => expect(c.store.practiceAccess.get('paper')?.enabled).toBe(true));
     await screen.findByText('Settings history');
     expect(
-      screen.getByText('Official results must be approved and released for every related cohort.'),
+      screen.getByText('Official results must be released for every related cohort.'),
     ).toBeInTheDocument();
   });
   it('shows first-answer feedback, completes the score, and resets navigation for another attempt', async () => {

@@ -12,7 +12,7 @@ it('keeps early submissions past and unresolved uploads visible separately', () 
 const row = (
   sessionId: string,
   publicationRevision: number | null,
-  status: 'finalized' | 'absent' | null,
+  status: 'finalized' | 'absent' | 'recovery_pending' | null,
 ) => ({
   sessionId,
   title: 'Paper',
@@ -38,7 +38,7 @@ it('follows result cursors and distinguishes a published zero mark from no grade
     urls.push(url);
     return Response.json({
       items: url.includes('cursor=second')
-        ? [row('absent', 1, 'absent')]
+        ? [row('absent', 1, 'absent'), row('recovery', 1, 'recovery_pending')]
         : [row('zero', 1, 'finalized'), row('waiting', null, null)],
       nextCursor: url.includes('cursor=second') ? null : 'second',
       serverNow: '2026-10-23T11:00:00Z',
@@ -48,6 +48,7 @@ it('follows result cursors and distinguishes a published zero mark from no grade
     zero: 'Graded',
     waiting: 'Awaiting results',
     absent: 'No grade',
+    recovery: 'Awaiting results',
   });
   expect(urls).toHaveLength(2);
 });

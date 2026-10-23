@@ -17,17 +17,7 @@ export async function practiceFixture(released = true) {
   };
   const admin = await clientFor('school_admin');
   const student = await clientFor('student');
-  const publish = () =>
-    admin.results.publish(
-      'sitting',
-      {
-        revision: 1,
-        releaseAt: '2026-10-17T07:00:00.000Z',
-        reason: 'Reviewed official results.',
-        exclusions: [],
-      },
-      crypto.randomUUID(),
-    );
+  const publish = () => student.results.mine(null);
   const enable = async (releaseAt = '2026-10-17T07:00:00.000Z') => {
     const access = await admin.api.access('paper');
     return admin.api.settings(
@@ -43,9 +33,9 @@ export async function practiceFixture(released = true) {
     );
   };
   if (released) {
-    await publish();
     await enable();
     time = Date.parse('2026-10-17T08:00:00.000Z');
+    await publish();
   }
   return {
     ...fixture,

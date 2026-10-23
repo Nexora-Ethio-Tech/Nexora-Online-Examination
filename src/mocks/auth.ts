@@ -254,7 +254,9 @@ export function createDemoTransport(
       apiPath === '/me/results' ||
       apiPath === '/results/sessions' ||
       apiPath.startsWith('/exports/') ||
-      /^\/sessions\/[^/]+\/(results|analytics|results-publication)$/.test(apiPath)
+      /^\/sessions\/[^/]+\/(results|analytics|results-publication|results-release-schedule)$/.test(
+        apiPath,
+      )
     )
       return resultsDemo(
         new URL(url, 'http://localhost'),

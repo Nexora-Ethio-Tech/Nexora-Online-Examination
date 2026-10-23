@@ -75,11 +75,14 @@ export function practiceAccess(
         !store.publications
           .get(s.session.sessionId)
           ?.some(
-            (p) => p.summary.publication && Date.parse(p.summary.publication.releaseAt) <= clock(),
+            (p) =>
+              p.summary.publication &&
+              Date.parse(p.summary.publication.releaseAt) <= clock() &&
+              Date.parse(s.session.resultsReleaseAt ?? s.session.endsAt) <= clock(),
           ),
     )
   )
-    blockers.push('Official results must be approved and released for every related cohort.');
+    blockers.push('Official results must be released for every related cohort.');
   const result = {
     ...data,
     available: blockers.length === 0,

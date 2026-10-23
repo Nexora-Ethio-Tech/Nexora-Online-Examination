@@ -89,17 +89,10 @@ describe('official result rules', () => {
     expect(marked.analytics.topics.every((t) => t.studentCount === 4)).toBe(true);
     expect(marked.analytics.distribution.map((b) => b.count)).toEqual([1, 0, 2, 0, 1]);
   });
-  it('keeps scores out of raw student payloads until both approval and exact release time', async () => {
-    const c = await setup();
-    await c.login('STUDENT');
+  it('keeps raw student marks hidden until exact automatic release without admin approval', async () => {
+    const c = await setup('student');
     const raw = await c.transport('/api/v1/me/results', { method: 'GET' });
     expect(await raw.text()).not.toMatch(/"score"|"rank"|"correctOptionId"|"explanation"/);
-    c.setTime('2026-10-17T08:00:00.000Z');
-    expect((await c.api.mine(null)).items[0]?.result).toBeNull();
-    await c.login('ADMIN');
-    c.setTime('2026-10-17T06:30:00.000Z');
-    await c.api.publish('sitting', publishBody, crypto.randomUUID());
-    await c.login('STUDENT');
     c.setTime('2026-10-17T06:59:59.999Z');
     expect((await c.api.mine(null)).items[0]?.result).toBeNull();
     c.setTime('2026-10-17T07:00:00.000Z');
@@ -108,6 +101,8 @@ describe('official result rules', () => {
       percent: 100,
       rank: 1,
     });
+    await c.api.mine(null);
+    expect(c.store.publications.get('sitting')).toHaveLength(1);
   });
   it('waits beyond final acceptance and accommodation windows, and replays approval safely', async () => {
     const c = await setup();
@@ -127,45 +122,47 @@ describe('official result rules', () => {
       c.api.publish('sitting', { ...publishBody, reason: 'Changed' }, key),
     ).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
   });
-  it('requires explicit recovery exclusion and preserves the released snapshot after a later acceptance', async () => {
-    const c = await setup();
+  it('releases pending status without a grade and automatically publishes accepted corrections', async () => {
+    const c = await setup('student');
     c.attempt.state = 'recovery_pending';
     c.attempt.receipt = null;
-    await expect(c.api.publish('sitting', publishBody, crypto.randomUUID())).rejects.toMatchObject({
-      code: 'RECOVERY_REQUIRED',
-    });
-    await c.api.publish(
-      'sitting',
-      {
-        ...publishBody,
-        exclusions: [{ attemptId: 'attempt', reason: 'Upload evidence still under review.' }],
-      },
-      crypto.randomUUID(),
-    );
-    c.setTime('2026-10-17T07:01:00.000Z');
-    await c.login('STUDENT');
+    c.setTime('2026-10-17T07:00:00.000Z');
     expect((await c.api.mine(null)).items[0]?.result).toMatchObject({
-      status: 'excluded',
+      status: 'recovery_pending',
       score: null,
       rank: null,
     });
+    const earlier = structuredClone(c.store.publications.get('sitting')?.[0]);
     c.attempt.state = 'submitted';
     c.attempt.receipt = resultsFixture().attempt.receipt;
-    expect((await c.api.mine(null)).items[0]?.result?.status).toBe('excluded');
-    await c.login('ADMIN');
-    const current = await c.api.results('sitting', null);
-    expect(current.summary.revision).toBe(2);
-    expect((await c.api.report('sitting', 1)).rows[0]?.status).toBe('excluded');
-    await expect(c.api.publish('sitting', publishBody, crypto.randomUUID())).rejects.toMatchObject({
-      code: 'REVISION_CONFLICT',
+    expect((await c.api.mine(null)).items[0]?.result).toMatchObject({
+      status: 'finalized',
+      score: 4,
     });
-    await c.api.publish(
-      'sitting',
-      { ...publishBody, revision: 2, reason: 'Recovery accepted; reviewed revision.' },
-      crypto.randomUUID(),
+    expect(c.store.publications.get('sitting')).toHaveLength(2);
+    expect(c.store.publications.get('sitting')?.[0]).toEqual(earlier);
+  });
+  it('allows release-date edits before the old time, rejects stale edits and locks at the exact time', async () => {
+    const c = await setup();
+    const key = crypto.randomUUID();
+    const body = {
+      expectedReleaseAt: '2026-10-17T07:00:00.000Z',
+      releaseAt: '2026-10-17T08:00:00.000Z',
+    };
+    const updated = await c.api.scheduleRelease('sitting', body, key);
+    expect(updated.plannedReleaseAt).toBe(body.releaseAt);
+    expect(await c.api.scheduleRelease('sitting', body, key)).toEqual(updated);
+    await expect(c.api.scheduleRelease('sitting', body, crypto.randomUUID())).rejects.toMatchObject(
+      { code: 'REVISION_CONFLICT' },
     );
-    await c.login('STUDENT');
-    expect((await c.api.mine(null)).items[0]?.result?.score).toBe(4);
+    c.setTime(body.releaseAt);
+    await expect(
+      c.api.scheduleRelease(
+        'sitting',
+        { expectedReleaseAt: body.releaseAt, releaseAt: '2026-10-17T09:00:00.000Z' },
+        crypto.randomUUID(),
+      ),
+    ).rejects.toMatchObject({ code: 'RESULTS_NOT_RELEASED' });
   });
   it('enforces staff roles and assigned scope on results, reports, analytics and CSV', async () => {
     const c = await setup('student');

@@ -31,6 +31,7 @@ export function createAuthoringStore() {
       string,
       { attempt: Attempt; answers: { itemId: string; value: string | null }[] }
     >(),
+    resultFingerprints: new Map<string, string>(),
     resultSnapshots: new Map<string, Report[]>(),
     publications: new Map<string, Report[]>(),
     recoveries: new Map<string, { detail: RecoveryDetail; uploadKey: string }>(),

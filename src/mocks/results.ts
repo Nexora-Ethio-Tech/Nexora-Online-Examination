@@ -7,7 +7,7 @@ import { markResults, reportsCsv } from './result-math';
 import { practiceAccess, practiceBest } from './practice';
 
 export function createResultsDemo(store: AuthoringStore, clock = Date.now) {
-  const fingerprints = new Map<string, string>();
+  const fingerprints = store.resultFingerprints;
   const replays = new Map<string, { payload: string; result: unknown }>();
   const json = (data: unknown, status = 200) =>
     new Response(JSON.stringify(data), {
@@ -17,6 +17,36 @@ export function createResultsDemo(store: AuthoringStore, clock = Date.now) {
   const error = (code: string, message: string, status = 409) =>
     json({ code, message, details: [], requestId: 'demo-results' }, status);
   const now = () => new Date(clock()).toISOString();
+  function automatic(report: Report): Report {
+    const id = report.summary.sessionId;
+    const existing = store.publications.get(id) ?? [];
+    if (
+      clock() < Date.parse(report.summary.plannedReleaseAt) ||
+      clock() <= Date.parse(report.summary.publishableAfter) ||
+      existing.some((p) => p.summary.revision === report.summary.revision)
+    )
+      return report;
+    report.summary.publication = {
+      revision: report.summary.revision,
+      approvedAt: now(),
+      approvedBy: 'Automatic scheduled release',
+      releaseAt: new Date(
+        Math.max(
+          Date.parse(report.summary.plannedReleaseAt),
+          Date.parse(report.summary.publishableAfter) + 1,
+        ),
+      ).toISOString(),
+      reason: 'Released at the school-scheduled time',
+      exclusions: [],
+    };
+    store.publications.set(id, [...existing, structuredClone(report)]);
+    const snapshots = store.resultSnapshots.get(id);
+    if (snapshots) {
+      const index = snapshots.findIndex((r) => r.summary.revision === report.summary.revision);
+      if (index >= 0) snapshots[index] = structuredClone(report);
+    }
+    return report;
+  }
   function current(id: string): Report | null {
     const sitting = store.sessions.get(id);
     if (!sitting) return null;
@@ -61,11 +91,11 @@ export function createResultsDemo(store: AuthoringStore, clock = Date.now) {
     const previous = snapshots.at(-1);
     const publication = store.publications.get(id)?.at(-1)?.summary.publication ?? null;
     if (previous && fingerprints.get(id) === fingerprint)
-      return {
+      return automatic({
         ...structuredClone(previous),
         summary: { ...previous.summary, publication },
         serverNow: now(),
-      };
+      });
     const revision = (previous?.summary.revision ?? 0) + 1;
     const report: Report = {
       summary: {
@@ -91,7 +121,7 @@ export function createResultsDemo(store: AuthoringStore, clock = Date.now) {
     snapshots.push(structuredClone(report));
     store.resultSnapshots.set(id, snapshots);
     fingerprints.set(id, fingerprint);
-    return report;
+    return automatic(report);
   }
   function version(id: string, revision: number) {
     current(id);
@@ -138,7 +168,9 @@ export function createResultsDemo(store: AuthoringStore, clock = Date.now) {
               .get(r.summary.sessionId)
               ?.filter(
                 (p) =>
-                  p.summary.publication && Date.parse(p.summary.publication.releaseAt) <= clock(),
+                  p.summary.publication &&
+                  Date.parse(p.summary.publication.releaseAt) <= clock() &&
+                  Date.parse(r.summary.plannedReleaseAt) <= clock(),
               )
               .at(-1);
             const row = published?.rows.find((row) => row.studentId === 'demo-student');
@@ -148,7 +180,7 @@ export function createResultsDemo(store: AuthoringStore, clock = Date.now) {
               sessionId: r.summary.sessionId,
               title: r.summary.title,
               className: r.summary.className,
-              plannedReleaseAt: r.summary.publication?.releaseAt ?? r.summary.plannedReleaseAt,
+              plannedReleaseAt: r.summary.plannedReleaseAt,
               publicationRevision: published?.summary.revision ?? null,
               result: row
                 ? {
@@ -178,11 +210,61 @@ export function createResultsDemo(store: AuthoringStore, clock = Date.now) {
       );
     if (path === '/results/sessions' && method === 'GET')
       return json(page(reports.map((r) => r.summary)));
-    const match = /^\/sessions\/([^/]+)\/(results|analytics|results-publication)$/.exec(path);
+    const match =
+      /^\/sessions\/([^/]+)\/(results|analytics|results-publication|results-release-schedule)$/.exec(
+        path,
+      );
     const id = match?.[1] ?? url.searchParams.get('sessionId');
     const report = id && allowed(id) ? current(id) : null;
     if (match && !report) return error('NOT_FOUND', 'Sitting not found.', 404);
     if (match && match[1] && report) {
+      if (match[2] === 'results-release-schedule' && method === 'POST') {
+        if (role !== 'school_admin')
+          return error('FORBIDDEN', 'Only administrators can change release dates.', 403);
+        const parsed = z
+          .object({ expectedReleaseAt: z.string().datetime(), releaseAt: z.string().datetime() })
+          .strict()
+          .safeParse(body);
+        const key = headers.get('Idempotency-Key');
+        if (!parsed.success || !key || !z.uuid().safeParse(key).success)
+          return error('VALIDATION_ERROR', 'Choose a valid release date.', 422);
+        const payload = JSON.stringify(parsed.data),
+          replayKey = `release:${match[1]}:${key}`,
+          old = replays.get(replayKey);
+        if (old)
+          return old.payload === payload
+            ? json(old.result)
+            : error('REVISION_CONFLICT', 'Request key reused');
+        const planned = Date.parse(report.summary.plannedReleaseAt);
+        if (Date.parse(parsed.data.expectedReleaseAt) !== planned)
+          return error('REVISION_CONFLICT', 'Release date changed. Refresh.');
+        if (
+          clock() >= planned ||
+          store.publications
+            .get(match[1])
+            ?.some(
+              (p) =>
+                p.summary.publication && Date.parse(p.summary.publication.releaseAt) <= clock(),
+            )
+        )
+          return error(
+            'RESULTS_NOT_RELEASED',
+            'The release time has arrived and cannot be changed.',
+          );
+        const next = Date.parse(parsed.data.releaseAt);
+        if (next <= clock() || next < Date.parse(report.summary.publishableAfter))
+          return error(
+            'VALIDATION_ERROR',
+            'Choose a future date after submission windows close.',
+            422,
+          );
+        const sitting = store.sessions.get(match[1]);
+        if (!sitting) return error('NOT_FOUND', 'Sitting not found', 404);
+        sitting.session.resultsReleaseAt = parsed.data.releaseAt;
+        const updated = current(match[1]);
+        replays.set(replayKey, { payload, result: structuredClone(updated?.summary) });
+        return json(updated?.summary);
+      }
       if (match[2] === 'results' && method === 'GET') {
         const p = page(report.rows);
         return json({
@@ -228,6 +310,14 @@ export function createResultsDemo(store: AuthoringStore, clock = Date.now) {
           return error(
             'RESULTS_NOT_RELEASED',
             'Wait until every submission window closes and choose a release time after that boundary.',
+          );
+        if (
+          clock() >= Date.parse(report.summary.plannedReleaseAt) ||
+          Date.parse(request.releaseAt) <= clock()
+        )
+          return error(
+            'RESULTS_NOT_RELEASED',
+            'The release time has arrived or the requested time is not in the future.',
           );
         const pending = report.rows.filter(
           (r) => r.status === 'recovery_pending' || r.status === 'awaiting_upload',

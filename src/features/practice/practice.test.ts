@@ -52,17 +52,7 @@ describe('practice release and scoring', () => {
     expect((await c.student.api.mine(null)).items[0]?.available).toBe(false);
     c.setTime('2026-10-17T10:00:00.000Z');
     expect((await c.student.api.mine(null)).items[0]?.available).toBe(false);
-    const later = await c.admin.results.results('later', null);
-    await c.admin.results.publish(
-      'later',
-      {
-        revision: later.summary.revision,
-        releaseAt: '2026-10-17T10:00:00.000Z',
-        reason: 'Reviewed second cohort.',
-        exclusions: [],
-      },
-      key(),
-    );
+    await c.admin.results.results('later', null); // Due results release automatically on read.
     c.attempt.finalAcceptUntil = '2026-10-17T10:00:05.000Z';
     c.setTime('2026-10-17T10:00:05.000Z');
     expect((await c.student.api.mine(null)).items[0]?.available).toBe(false);

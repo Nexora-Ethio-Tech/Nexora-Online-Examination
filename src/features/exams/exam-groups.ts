@@ -33,7 +33,9 @@ export async function studentGradeStatuses(client: ApiClient, signal?: AbortSign
         row.publicationRevision !== null && row.result
           ? row.result.status === 'finalized' && row.result.score !== null
             ? 'Graded'
-            : 'No grade'
+            : row.result.status === 'awaiting_upload' || row.result.status === 'recovery_pending'
+              ? 'Awaiting results'
+              : 'No grade'
           : 'Awaiting results';
     }
     cursor = page.nextCursor;
