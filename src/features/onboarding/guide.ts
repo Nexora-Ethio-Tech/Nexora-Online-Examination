@@ -27,7 +27,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Approve and schedule exams',
-      body: 'Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Choose 1–120 preparation minutes (10 by default). Check the exam start, end and results dates before confirming. Then assign invigilators under the saved sitting dates and check their authenticator readiness.',
+      body: 'Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Use the month, day and year controls or open the seven-day calendar. The date summary also shows the Gregorian equivalent. Preparation and results are side by side on wider screens. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Choose 1–120 preparation minutes (10 by default). Check the exam start, end and results dates before confirming. Then assign invigilators under the saved sitting dates and check their authenticator readiness.',
       path: '/admin',
     },
     {
@@ -71,7 +71,7 @@ export const guides: Record<Role, GuideStep[]> = {
   student: [
     {
       title: 'Prepare for your exam',
-      body: 'Open My exams and check the Ethiopian calendar date. Times use AM/PM in EAT, even if your device uses another timezone. Choose Download exam when preparation opens. Follow the download progress, keep this page open and stay connected until the exam starts.',
+      body: 'Use Current exams, Upcoming exams and Past exams in My exams. Past exams can be filtered by published grades, awaiting results, or no grade. Needs attention keeps unfinished submissions visible. Check the Ethiopian calendar date. Times use AM/PM in EAT, even if your device uses another timezone. Choose Download exam when preparation opens. Follow the download progress, keep this page open and stay connected until the exam starts.',
       path: '/student',
     },
     {
