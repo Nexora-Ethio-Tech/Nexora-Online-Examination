@@ -375,6 +375,12 @@ export function createDemoTransport(
         actorId ?? `demo-${role === 'school_admin' ? 'admin' : role}`,
       );
     if (role !== 'student') return error(403, 'FORBIDDEN', 'Student access is required.');
-    return examDemo(path.replace(/^\/api\/v1/, ''), method, body, new Headers(init.headers));
+    return examDemo(
+      path.replace(/^\/api\/v1/, ''),
+      method,
+      body,
+      new Headers(init.headers),
+      new URL(url, 'http://localhost').searchParams,
+    );
   };
 }

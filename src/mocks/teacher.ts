@@ -1,3 +1,4 @@
+import { latestDeadline } from './accommodations';
 import { generationInputSchema } from '@/features/exams/authoring/generation-schemas';
 import { z } from 'zod';
 import {
@@ -132,11 +133,41 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
             ? String(Number(params.get('cursor') ?? 0) + 25)
             : null,
       });
-    if (method === 'GET' && path === '/exams')
+    if (method === 'GET' && path === '/exams') {
+      const items = [...drafts.values()]
+        .filter((d) => own(d.examId))
+        .reverse()
+        .map((d) => {
+          const sittings = [...store.sessions.values()].filter(
+            (s) => s.session.examId === d.examId,
+          );
+          return {
+            ...d,
+            concluded:
+              d.status === 'approved' &&
+              sittings.length > 0 &&
+              sittings.every((s) => latestDeadline(s) + 5000 < clock()),
+          };
+        })
+        .filter(
+          (d) =>
+            (!params.get('status') || d.status === params.get('status')) &&
+            (!params.get('category') ||
+              params.get('category') === 'all' ||
+              d.concluded === (params.get('category') === 'past')),
+        )
+        .sort(
+          (a, b) =>
+            (b.createdAt ?? '').localeCompare(a.createdAt ?? '') ||
+            b.examId.localeCompare(a.examId),
+        );
+      const offset = Number(params.get('cursor') ?? 0),
+        limit = Number(params.get('limit') ?? 25);
       return json({
-        items: [...drafts.values()].filter((d) => own(d.examId)).reverse(),
-        nextCursor: null,
+        items: items.slice(offset, offset + limit),
+        nextCursor: offset + limit < items.length ? String(offset + limit) : null,
       });
+    }
     let fingerprint = JSON.stringify(body);
     let uploaded: File | null = null;
     let input = body;
@@ -179,6 +210,7 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
         ...parsed.data,
         examId: crypto.randomUUID(),
         revision: 1,
+        createdAt: new Date(clock()).toISOString(),
         status: 'draft',
         totalMarks: 0,
         itemCount: 0,

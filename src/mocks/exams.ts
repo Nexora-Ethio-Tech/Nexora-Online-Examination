@@ -1,3 +1,4 @@
+import { examGroup } from '@/features/exams/exam-groups';
 import { createSupervisionDemo } from './supervision';
 import { readinessRequestSchema, type Readiness } from '@/features/exams/readiness';
 import { accommodationRoster } from './accommodations';
@@ -317,7 +318,13 @@ export function createExamDemo(
     (id) => [...attempts.values(), ...retainedAttempts()].find((a) => a.attemptId === id),
     clock,
   );
-  const handle = async (path: string, method: string, body: unknown, headers: Headers) => {
+  const handle = async (
+    path: string,
+    method: string,
+    body: unknown,
+    headers: Headers,
+    params = new URLSearchParams(),
+  ) => {
     if (path === '/auth/device' && method === 'POST') {
       const parsed = z.object({ deviceId: z.uuid() }).safeParse(body);
       if (!parsed.success) return error('VALIDATION_ERROR', 'Invalid device ID.', 422);
@@ -325,8 +332,29 @@ export function createExamDemo(
       activeDevice = parsed.data.deviceId;
       return json(parsed.data);
     }
-    if (path === '/me/exams' && method === 'GET')
-      return json({ items: exams(), nextCursor: null, serverNow: now() });
+    if (path === '/me/exams' && method === 'GET') {
+      const names: Record<string, string> = {
+        current: 'Current exams',
+        attention: 'Needs attention',
+        upcoming: 'Upcoming exams',
+        past: 'Past exams',
+      };
+      const category = params.get('category') ?? 'all';
+      const items = exams()
+        .filter((e) => category === 'all' || examGroup(e) === names[category])
+        .sort(
+          (a, b) =>
+            a.title.toLowerCase().localeCompare(b.title.toLowerCase(), 'en') ||
+            a.sessionId.localeCompare(b.sessionId),
+        );
+      const offset = Number(params.get('cursor') ?? 0),
+        limit = Number(params.get('limit') ?? 25);
+      return json({
+        items: items.slice(offset, offset + limit),
+        nextCursor: offset + limit < items.length ? String(offset + limit) : null,
+        serverNow: now(),
+      });
+    }
     if (path.startsWith('/me/exams/') && method === 'GET') {
       const exam = exams().find(
         (item) => item.sessionId === decodeURIComponent(path.slice('/me/exams/'.length)),

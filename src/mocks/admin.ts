@@ -25,7 +25,11 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
     return {
       exam: structuredClone(exam),
       grade: assignment ? (store.directory.classes.get(assignment.classId)?.grade ?? null) : null,
-      submittedAt: store.history.get(id)?.find((h) => h.action === 'submitted')?.at ?? null,
+      submittedAt:
+        store.history
+          .get(id)
+          ?.filter((h) => h.action === 'submitted')
+          .at(-1)?.at ?? null,
       teacherName:
         store.directory.accounts.get(store.draftOwners.get(id) ?? 'demo-teacher')?.displayName ??
         'Dawit',
@@ -57,11 +61,17 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
     headers: Headers,
     filters = new URLSearchParams(),
   ): Promise<Response> => {
-    if (method === 'GET' && path === '/admin/exams')
-      return json({
-        items: [...store.drafts.keys()].reverse().flatMap((id) => {
+    if (method === 'GET' && path === '/admin/exams') {
+      const items = [...store.drafts.keys()]
+        .reverse()
+        .flatMap((id) => {
           const d = detail(id);
           if (!d) return [];
+          if (filters.get('status') && d.exam.status !== filters.get('status')) return [];
+          const assignment = d.exam.assignmentId
+            ? store.directory.assignments.get(d.exam.assignmentId)
+            : null;
+          if (filters.get('classId') && assignment?.classId !== filters.get('classId')) return [];
           if (filters.get('grade') && (d.grade ?? 'unclassified') !== filters.get('grade'))
             return [];
           if (
@@ -70,9 +80,13 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
           )
             return [];
           if (
-            ![d.exam.title, d.teacherName, d.subjectName, d.className].some((v) =>
-              v.toLowerCase().includes((filters.get('search') ?? '').toLowerCase()),
-            )
+            ![
+              d.exam.title,
+              d.teacherName,
+              d.subjectName,
+              d.className,
+              assignment ? (store.directory.subjects.get(assignment.subjectId)?.code ?? '') : '',
+            ].some((v) => v.toLowerCase().includes((filters.get('search') ?? '').toLowerCase()))
           )
             return [];
           if (
@@ -83,10 +97,22 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
           if (filters.get('to') && (!d.submittedAt || d.submittedAt > (filters.get('to') ?? '')))
             return [];
           return [d];
-        }),
-        nextCursor: null,
+        })
+        .sort((a, b) =>
+          filters.get('status') === 'in_review'
+            ? (a.submittedAt ?? '9999').localeCompare(b.submittedAt ?? '9999') ||
+              a.exam.examId.localeCompare(b.exam.examId)
+            : (b.exam.createdAt ?? '').localeCompare(a.exam.createdAt ?? '') ||
+              b.exam.examId.localeCompare(a.exam.examId),
+        );
+      const offset = Number(filters.get('cursor') ?? 0),
+        limit = Number(filters.get('limit') ?? 25);
+      return json({
+        items: items.slice(offset, offset + limit),
+        nextCursor: offset + limit < items.length ? String(offset + limit) : null,
         serverNow: new Date(clock()).toISOString(),
       });
+    }
     if (method === 'GET' && path.startsWith('/admin/exams/')) {
       const d = detail(path.slice('/admin/exams/'.length));
       return d ? json(d) : fail('Exam not found.', 'NOT_FOUND', 404);
