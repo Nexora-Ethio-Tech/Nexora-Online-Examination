@@ -1,3 +1,4 @@
+import { StaffAuthenticatorService } from './staff-authenticator.service';
 import { OperationalService } from './operational.service';
 import { RecoveryReviewService } from './recovery-review.service';
 import { MonitorService } from './monitor.service';
@@ -25,6 +26,7 @@ import { AssistanceService } from './assistance.service';
     ClockService,
     DeviceBindingGuard,
     AssistanceService,
+    StaffAuthenticatorService,
   ],
   exports: [DeliveryService],
 })

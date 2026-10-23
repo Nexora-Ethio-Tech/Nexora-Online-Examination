@@ -41,7 +41,7 @@ function identity(req: Request, student = false) {
   if (
     student
       ? req.sessionUser.role !== 'student'
-      : !['teacher', 'school_admin'].includes(req.sessionUser.role)
+      : !['teacher', 'school_admin', 'invigilator'].includes(req.sessionUser.role)
   )
     throw DomainException.forbidden();
   return { school: req.school.id, user: req.sessionUser };
@@ -80,7 +80,7 @@ export class AssistanceService {
         mfa_enrolled_at: Date | null;
       }>(
         `SELECT role,mfa_secret_enc,mfa_secret_version,mfa_enrolled_at FROM users
-       WHERE school_id=$1 AND id=$2 AND status='active' AND role IN ('teacher','school_admin')
+       WHERE school_id=$1 AND id=$2 AND status='active' AND role IN ('teacher','school_admin','invigilator')
        FOR UPDATE`,
         [school, userId],
       )
@@ -170,13 +170,7 @@ export class AssistanceService {
         await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
           `assistance:${school}:${sessionId}:${command.staffId}`,
         ]);
-        const target = await this.staff(c, school, command.staffId);
-        if (target.role !== 'teacher')
-          throw DomainException.validationError('Only teachers need sitting assignments');
-        if (command.active && !target.mfa_enrolled_at)
-          throw DomainException.validationError(
-            'Staff must complete protected MFA enrollment first',
-          );
+        await this.staff(c, school, command.staffId);
         const existing = (
           await c.query<{ revision: number }>(
             'SELECT revision FROM sitting_staff_assignments WHERE school_id=$1 AND session_id=$2 AND staff_id=$3 FOR UPDATE',
@@ -210,7 +204,7 @@ export class AssistanceService {
          COALESCE(a.active,false) AS active,COALESCE(a.revision,0) AS revision
          FROM users u LEFT JOIN sitting_staff_assignments a
          ON a.school_id=u.school_id AND a.staff_id=u.id AND a.session_id=$2
-         WHERE u.school_id=$1 AND u.status='active' AND u.role IN ('teacher','school_admin')
+         WHERE u.school_id=$1 AND u.status='active' AND u.role IN ('teacher','school_admin','invigilator')
          ORDER BY u.display_name,u.id`,
         [school, sessionId],
       );
@@ -382,7 +376,7 @@ export class AssistanceService {
       assertAssistanceMatches(a, row, now);
       if (!staff.mfa_enrolled_at || !staff.mfa_secret_enc || !staff.mfa_secret_version)
         throw DomainException.forbidden(
-          'Complete protected MFA enrollment before approving assistance',
+          'Complete authenticator setup on your staff page before approving assistance',
         );
       const secret = decryptMfaSecret(staff.mfa_secret_enc, {
         schoolId: school,

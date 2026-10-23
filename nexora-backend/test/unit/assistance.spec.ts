@@ -43,7 +43,10 @@ const attemptId = randomUUID(),
 const now = new Date('2030-01-01T00:00:00Z');
 const clock = new ClockService();
 const service = new AssistanceService(new DbService(), clock);
-function req(role: 'student' | 'teacher' | 'school_admin', userId = teacher): Request {
+function req(
+  role: 'student' | 'teacher' | 'school_admin' | 'invigilator',
+  userId = teacher,
+): Request {
   const value: Request = Object.create(baseRequest);
   value.school = { id: school, name: 'Test', timezone: 'Africa/Addis_Ababa' };
   value.sessionUser = { id: userId, role, loginId: 'TEST', displayName: 'Test' };
@@ -98,6 +101,7 @@ beforeEach(() => {
 function decisionQueries(
   options: {
     assigned?: boolean;
+    staffRole?: 'teacher' | 'invigilator' | 'school_admin';
     current?: ReturnType<typeof attempt>;
     pending?: ReturnType<typeof request>;
     consumed?: boolean;
@@ -110,7 +114,7 @@ function decisionQueries(
       return {
         rows: [
           {
-            role: 'teacher',
+            role: options.staffRole ?? 'teacher',
             mfa_enrolled_at: now,
             mfa_secret_enc: 'encrypted',
             mfa_secret_version: randomUUID(),
@@ -303,4 +307,58 @@ describe('time boundaries', () => {
     expect(() => assertAssistanceMatches(attempt(), request(), now)).not.toThrow();
     expect(() => assertAssistanceOpen(attempt(), attempt().deadline_at)).toThrow();
   });
+});
+
+it('denies an unassigned non-teaching invigilator before verifying MFA', async () => {
+  decisionQueries({ assigned: false, staffRole: 'invigilator' });
+  await expect(service.decide(req('invigilator'), requestId, decision)).rejects.toMatchObject({
+    code: 'FORBIDDEN',
+  });
+  expect(mocks.decrypt).not.toHaveBeenCalled();
+});
+it('allows an assigned non-teaching invigilator to approve with fresh MFA', async () => {
+  decisionQueries({ staffRole: 'invigilator' });
+  const result = await service.decide(req('invigilator'), requestId, decision);
+  expect(result.status).toBe('approved');
+  expect(
+    mocks.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO mfa_consumed_steps')),
+  ).toBe(true);
+});
+
+it.each(['teacher', 'invigilator', 'school_admin'])(
+  'allows scheduling assignment for %s before MFA enrollment',
+  async (role) => {
+    let staffRead = 0;
+    mocks.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM users') && sql.includes('FOR UPDATE'))
+        return {
+          rows: [{ role: staffRead++ === 0 ? 'school_admin' : role, mfa_enrolled_at: null }],
+        };
+      if (sql.includes('FROM exam_sessions')) return { rows: [{ id: sessionId }] };
+      return { rows: [] };
+    });
+    await service.assignments(req('school_admin'), sessionId, {
+      staffId: teacher,
+      active: true,
+      expectedRevision: 0,
+      reason: 'Assigned before the sitting',
+    });
+    expect(
+      mocks.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO sitting_staff_assignments')),
+    ).toBe(true);
+  },
+);
+it('does not let an assigned staff member without enrolled MFA approve a request', async () => {
+  decisionQueries();
+  const original = mocks.query.getMockImplementation();
+  if (!original) throw new Error('Missing query fixture');
+  mocks.query.mockImplementation(async (sql: string, ...args: unknown[]) => {
+    if (sql.includes('FROM users'))
+      return { rows: [{ role: 'invigilator', mfa_enrolled_at: null }] };
+    return original(sql, ...args);
+  });
+  await expect(service.decide(req('invigilator'), requestId, decision)).rejects.toMatchObject({
+    code: 'FORBIDDEN',
+  });
+  expect(mocks.decrypt).not.toHaveBeenCalled();
 });
