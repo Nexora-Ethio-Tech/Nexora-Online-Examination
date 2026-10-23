@@ -70,6 +70,17 @@ export class ResultsController {
     res.setHeader('Content-Disposition', 'attachment; filename="nexora-results.csv"');
     return csv;
   }
+  @Post('sessions/:id/results-release-schedule')
+  @HttpCode(200)
+  @Roles('school_admin')
+  releaseSchedule(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: unknown,
+  ) {
+    return this.results.releaseSchedule(req, id, body, key);
+  }
   @Post('sessions/:id/results-publication') @HttpCode(200) @Roles('school_admin') publish(
     @Req() req: Request,
     @Param('id') id: string,

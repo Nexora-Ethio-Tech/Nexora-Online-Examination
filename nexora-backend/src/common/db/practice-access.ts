@@ -20,7 +20,7 @@ export async function practiceGate(
   ).rows[0];
   const sittings = (
     await c.query<{ deadline: Date; released: Date | null }>(
-      `SELECT s.ends_at+make_interval(mins=>COALESCE((SELECT max(extra_time_minutes) FROM session_roster r WHERE r.school_id=s.school_id AND r.session_id=s.id),0))+interval '5 seconds' deadline,(SELECT min(results_release_at) FROM result_publications p WHERE p.school_id=s.school_id AND p.session_id=s.id) released FROM exam_sessions s WHERE s.school_id=$1 AND s.exam_version_id=$2`,
+      `SELECT s.ends_at+make_interval(mins=>COALESCE((SELECT max(extra_time_minutes) FROM session_roster r WHERE r.school_id=s.school_id AND r.session_id=s.id),0))+interval '5 seconds' deadline,(SELECT GREATEST(min(results_release_at),s.planned_results_release_at) FROM result_publications p WHERE p.school_id=s.school_id AND p.session_id=s.id HAVING count(*)>0) released FROM exam_sessions s WHERE s.school_id=$1 AND s.exam_version_id=$2`,
       [school, version],
     )
   ).rows;

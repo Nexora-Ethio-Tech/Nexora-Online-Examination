@@ -1,3 +1,8 @@
+import {
+  releaseScheduledResults,
+  changeReleaseSchedule,
+  assertReleaseChange,
+} from './scheduled-release';
 import { practiceGate, practiceStats } from '../../common/db/practice-access';
 import { Injectable } from '@nestjs/common';
 import { Request } from 'express';
@@ -84,7 +89,7 @@ export class ResultsService {
         reason: string | null;
         excluded_attempt_ids: unknown;
       }>(
-        'SELECT p.*,u.display_name FROM result_publications p JOIN users u ON u.id=p.approved_by AND u.school_id=p.school_id WHERE p.school_id=$1 AND p.session_id=$2 ORDER BY revision DESC LIMIT 1',
+        'SELECT p.*,u.display_name FROM result_publications p LEFT JOIN users u ON u.id=p.approved_by AND u.school_id=p.school_id WHERE p.school_id=$1 AND p.session_id=$2 ORDER BY revision DESC LIMIT 1',
         [school, id],
       )
     ).rows[0];
@@ -125,6 +130,8 @@ export class ResultsService {
     return resultSourceSchema.parse(row.source);
   }
   async report(c: PoolClient, school: string, id: string, revision?: number) {
+    if (revision === undefined)
+      await releaseScheduledResults(c, school, id, () => this.clock.now());
     if (revision !== undefined) {
       const saved = (
         await c.query<{ report_snapshot: unknown }>(
@@ -138,7 +145,10 @@ export class ResultsService {
           serverNow: this.clock.now().toISOString(),
         };
     }
-    const source = await this.source(c, school, id, revision);
+    const source =
+      revision === undefined
+        ? await currentResultSource(c, school, id)
+        : await this.source(c, school, id, revision);
     const publication = await this.latestPublication(c, school, id);
     return renderReport(
       source,
@@ -163,6 +173,10 @@ export class ResultsService {
             [school.id, user.role, user.id, after?.id ?? null, after?.at ?? null, limit + 1],
           )
         ).rows;
+        await c.query(
+          'SELECT id FROM exam_sessions WHERE school_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR UPDATE',
+          [school.id, rows.slice(0, limit).map((row) => row.id)],
+        );
         const items = [];
         for (const row of rows.slice(0, limit)) {
           await this.authorized(c, req, row.id);
@@ -178,7 +192,7 @@ export class ResultsService {
           serverNow: this.clock.now().toISOString(),
         };
       },
-      true,
+      false,
     );
   }
   async rows(req: Request, id: string, input: unknown) {
@@ -213,7 +227,7 @@ export class ResultsService {
           serverNow: report.serverNow,
         };
       },
-      true,
+      false,
     );
   }
   async exportReport(req: Request, id: string, revision: number, analytics = false) {
@@ -226,8 +240,42 @@ export class ResultsService {
         const report = await this.report(c, school.id, id, revision);
         return analytics ? report.analytics : report;
       },
-      true,
+      false,
     );
+  }
+  async releaseSchedule(req: Request, id: string, input: unknown, key: unknown) {
+    const { school, user } = identity(req);
+    if (user.role !== 'school_admin') throw DomainException.forbidden();
+    parse(uuid, id);
+    const body = parse(
+      z
+        .object({ expectedReleaseAt: z.string().datetime(), releaseAt: z.string().datetime() })
+        .strict(),
+      input,
+    );
+    return this.db.withTenantTransaction(school.id, async (c) => {
+      await this.authorized(c, req, id);
+      return mutate(
+        c,
+        school.id,
+        user.id,
+        `session:${id}:release-schedule`,
+        key,
+        body,
+        async () => {
+          await changeReleaseSchedule(
+            c,
+            school.id,
+            id,
+            user.id,
+            () => this.clock.now(),
+            body.expectedReleaseAt,
+            body.releaseAt,
+          );
+          return (await this.report(c, school.id, id)).summary;
+        },
+      );
+    });
   }
   async publish(req: Request, id: string, input: unknown, key: unknown) {
     const { school, user } = identity(req);
@@ -260,6 +308,12 @@ export class ResultsService {
             'RESULTS_NOT_RELEASED',
             'Wait until every final acceptance window has closed',
           );
+        assertReleaseChange(
+          now,
+          new Date(source.session.plannedReleaseAt),
+          new Date(body.releaseAt),
+          after,
+        );
         const candidate = renderReport(source, null, now.toISOString());
         const pending = candidate.rows.filter(
           (r) => r.status === 'awaiting_upload' || r.status === 'recovery_pending',
@@ -330,12 +384,16 @@ export class ResultsService {
             [school.id, user.id, after?.id ?? null, limit + 1],
           )
         ).rows;
+        await c.query(
+          'SELECT id FROM exam_sessions WHERE school_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR UPDATE',
+          [school.id, sessions.slice(0, limit).map((s) => s.id)],
+        );
         const items = [];
         for (const s of sessions.slice(0, limit)) {
-          const latest = await this.latestPublication(c, school.id, s.id);
+          await releaseScheduledResults(c, school.id, s.id, () => this.clock.now());
           const released = (
             await c.query<{ report_snapshot: unknown; revision: number }>(
-              'SELECT report_snapshot,revision FROM result_publications WHERE school_id=$1 AND session_id=$2 AND results_release_at<=$3 AND report_snapshot IS NOT NULL ORDER BY revision DESC LIMIT 1',
+              'SELECT report_snapshot,revision FROM result_publications WHERE school_id=$1 AND session_id=$2 AND results_release_at<=$3 AND $3 >= (SELECT COALESCE(planned_results_release_at,ends_at) FROM exam_sessions WHERE school_id=$1 AND id=$2) AND report_snapshot IS NOT NULL ORDER BY revision DESC LIMIT 1',
               [school.id, s.id, this.clock.now()],
             )
           ).rows[0];
@@ -358,7 +416,7 @@ export class ResultsService {
             sessionId: s.id,
             title: s.title,
             className: s.className,
-            plannedReleaseAt: latest?.releaseAt ?? s.planned.toISOString(),
+            plannedReleaseAt: s.planned.toISOString(),
             publicationRevision: released?.revision ?? null,
             result,
             bestPracticePercent: stats.bestPercent,
@@ -377,7 +435,7 @@ export class ResultsService {
           serverNow: this.clock.now().toISOString(),
         };
       },
-      true,
+      false,
     );
   }
   async csv(req: Request, sessionId?: string, revision?: number) {
@@ -410,6 +468,10 @@ export class ResultsService {
             'Exclusion reason',
           ],
         ];
+        await c.query(
+          'SELECT id FROM exam_sessions WHERE school_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR UPDATE',
+          [school.id, ids],
+        );
         for (const id of ids) {
           await this.authorized(c, req, id);
           const report = await this.report(c, school.id, id, revision);
@@ -448,7 +510,7 @@ export class ResultsService {
         };
         return '\ufeff' + rows.map((row) => row.map(cell).join(',')).join('\r\n') + '\r\n';
       },
-      true,
+      false,
     );
   }
 }
