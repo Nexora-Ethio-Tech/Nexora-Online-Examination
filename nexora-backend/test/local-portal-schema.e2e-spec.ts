@@ -5,7 +5,7 @@ import { databasePoolConfig } from '../src/common/db/database-config';
 import { allocateStudentNumbers, studentLoginId } from '../src/modules/directory/student-numbering';
 
 describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
-  'migrations 024 through 026 on isolated PostgreSQL',
+  'migrations 024 through 027 on isolated PostgreSQL',
   () => {
     let admin: Pool;
     let runtime: Pool;
@@ -114,6 +114,29 @@ describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
             .rows[0].role,
         ).toBe('invigilator');
       }, true);
+    });
+    it('records migration 027 and allows explicitly automatic system publications', async () => {
+      expect(
+        (
+          await admin.query(
+            "SELECT version FROM schema_migrations WHERE version='027_automatic_result_release.sql'",
+          )
+        ).rowCount,
+      ).toBe(1);
+      expect(
+        (
+          await admin.query(
+            "SELECT is_nullable FROM information_schema.columns WHERE table_name='result_publications' AND column_name='approved_by'",
+          )
+        ).rows[0]?.is_nullable,
+      ).toBe('YES');
+      expect(
+        (
+          await admin.query(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='result_publications' AND column_name='automatic'",
+          )
+        ).rowCount,
+      ).toBe(1);
     });
     it('continues after both legacy and year-suffixed student IDs without renaming them', async () => {
       await transaction(async (c) => {
