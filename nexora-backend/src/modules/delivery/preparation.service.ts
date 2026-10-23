@@ -61,6 +61,9 @@ const cursorSchema = z
     schoolId: resourceIdSchema,
     studentId: resourceIdSchema,
     startsAt: z.string().datetime(),
+    title: z.string().optional(),
+    category: z.string().optional(),
+    sort: z.string().optional(),
     sessionId: resourceIdSchema,
   })
   .strict();
@@ -73,6 +76,8 @@ const listQuerySchema = z
       .pipe(z.number().int().min(1).max(100))
       .optional(),
     cursor: z.string().min(1).optional(),
+    category: z.enum(['all', 'current', 'attention', 'upcoming', 'past']).default('all'),
+    sort: z.enum(['start', 'title']).default('start'),
   })
   .strict();
 const examSelect = `SELECT es.id AS session_id, es.exam_id, es.preparation_visible_at,
@@ -145,17 +150,37 @@ export class PreparationService {
         throw DomainException.validationError('Malformed cursor');
       }
       const cursor = parsePreparationInput(cursorSchema, decoded);
-      if (cursor.schoolId !== school.id || cursor.studentId !== student.id) {
+      if (
+        cursor.schoolId !== school.id ||
+        cursor.studentId !== student.id ||
+        (cursor.category ?? 'all') !== query.category ||
+        (cursor.sort ?? 'start') !== query.sort
+      ) {
         throw DomainException.validationError('Cursor does not belong to this list');
       }
-      params.push(cursor.startsAt, cursor.sessionId);
-      filter = 'AND (es.starts_at, es.id) > ($3, $4)';
+      if (query.sort === 'title' && cursor.title === undefined)
+        throw DomainException.validationError('Missing title cursor');
+      params.push(query.sort === 'title' ? cursor.title : cursor.startsAt, cursor.sessionId);
+      filter =
+        query.sort === 'title'
+          ? 'AND (lower(e.title), es.id) > (lower($3), $4::uuid)'
+          : 'AND (es.starts_at, es.id) > ($3, $4)';
+    }
+    if (query.category !== 'all') {
+      params.push(this.clock.now());
+      const time = '$' + params.length;
+      const category = `CASE WHEN a.state IN ('submitted','invalidated') THEN 'past'
+        WHEN a.state IN ('awaiting_upload','recovery_pending') OR (a.id IS NOT NULL AND ${time} >= COALESCE(a.deadline_at,es.ends_at+make_interval(mins=>sr.extra_time_minutes))) THEN 'attention'
+        WHEN ${time} < es.preparation_visible_at THEN 'upcoming'
+        WHEN ${time} < COALESCE(a.deadline_at,es.ends_at+make_interval(mins=>sr.extra_time_minutes)) THEN 'current' ELSE 'past' END`;
+      params.push(query.category);
+      filter += ` AND (${category}) = $${params.length}`;
     }
     params.push(limit + 1);
     return this.db.withTenantTransaction(school.id, async (client) => {
       const now = this.clock.now();
       const result = await client.query<ExamRecord>(
-        `${examSelect} ${filter} ORDER BY es.starts_at ASC, es.id ASC LIMIT $${params.length}`,
+        `${examSelect} ${filter} ORDER BY ${query.sort === 'title' ? 'lower(e.title)' : 'es.starts_at'} ASC, es.id ASC LIMIT $${params.length}`,
         params,
       );
       const rows = result.rows.slice(0, limit);
@@ -167,6 +192,9 @@ export class PreparationService {
                 schoolId: school.id,
                 studentId: student.id,
                 startsAt: last.starts_at.toISOString(),
+                title: last.title,
+                category: query.category,
+                sort: query.sort,
                 sessionId: last.session_id,
               }),
             ).toString('base64url')
