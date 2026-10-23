@@ -6,7 +6,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useApiClient } from '@/lib/ApiProvider';
 import { eatTime } from '@/features/exams/ExamsPage';
 import { RunnerEngine } from './engine';
-import { ExamPrivacyShield } from './ExamPrivacyShield';
+import { ExamSecurityShield } from './ExamSecurityShield';
 import { ExamQuestionSurface } from './ExamQuestionSurface';
 import { QuestionNavigator } from './QuestionNavigator';
 import { StudentAssistance } from '@/features/assistance/StudentAssistance';
@@ -37,6 +37,7 @@ function RunnerSession({
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     const instance = new RunnerEngine(client, { schoolId, userId }, attemptId);
+    instance.useExternalSecurityShield();
     setEngine(instance);
     void instance.start();
     return () => instance.dispose();
@@ -48,7 +49,6 @@ function RunnerSession({
   );
 }
 function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => void }) {
-  const [fullscreenError, setFullscreenError] = useState('');
   const view = useSyncExternalStore(engine.subscribe, engine.snapshot);
   const [index, setIndex] = useState(0);
   const [review, setReview] = useState(false);
@@ -142,7 +142,11 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
         </div>
       ) : null}
       {active && view.paper && item ? (
-        <ExamPrivacyShield>
+        <ExamSecurityShield
+          engine={engine}
+          attemptId={view.row?.attempt.attemptId ?? 'Unavailable'}
+          examTitle={view.paper.title}
+        >
           <details className="text-sm">
             <summary className="min-h-11 cursor-pointer py-3 font-medium">
               Instructions and browser controls
@@ -151,29 +155,9 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
               <p>{view.paper.instructions}</p>
               <p>
                 Browser interruptions are recorded for school review, not automatic penalties. The
-                timer continues while you are away. Fullscreen is optional and cannot prevent
-                screenshots or switching apps.
+                timer continues while you are away. Fullscreen is required. Five interruptions lock
+                editing in this browser. Browser controls cannot guarantee screenshot prevention.
               </p>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setFullscreenError('');
-                  if (!document.documentElement.requestFullscreen) {
-                    setFullscreenError(
-                      'Fullscreen is unavailable in this browser. You can continue the exam.',
-                    );
-                    return;
-                  }
-                  void document.documentElement
-                    .requestFullscreen()
-                    .catch(() =>
-                      setFullscreenError('Fullscreen was not allowed. You can continue the exam.'),
-                    );
-                }}
-              >
-                Enter fullscreen
-              </Button>
-              {fullscreenError && <p role="status">{fullscreenError}</p>}
               <Link to="/student" className="ml-4 inline-flex min-h-11 items-center underline">
                 Back to my exams
               </Link>
@@ -307,7 +291,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
               </div>
             </section>
           ) : null}
-        </ExamPrivacyShield>
+        </ExamSecurityShield>
       ) : null}
       {view.status === 'pending' || view.status === 'finalizing' ? (
         <section className="space-y-4 rounded-xl border-2 border-amber-500 bg-background p-5">
