@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { localTestSettings } from './local-test-config.ts';
@@ -7,7 +7,7 @@ import { localTestSettings } from './local-test-config.ts';
 const root = resolve(import.meta.dirname, '..');
 const lab = resolve(root, '../.local-test');
 const command = process.argv[2];
-const automated = command === 'test';
+const automated = command === 'test' || command === 'migrate-test';
 const settings = localTestSettings(
   JSON.parse(readFileSync(resolve(lab, 'config.json'), 'utf8')),
   automated,
@@ -19,7 +19,21 @@ let cwd = root;
 switch (command) {
   case 'db':
     executable = resolve(lab, 'pgsql/bin/pg_ctl.exe');
+    if (
+      spawnSync(executable, ['status', '-D', resolve(lab, 'data')], {
+        windowsHide: true,
+        stdio: 'ignore',
+      }).status === 0
+    ) {
+      process.stdout.write('Local PostgreSQL is already running.\n');
+      process.exit(0);
+    }
     args = ['start', '-D', resolve(lab, 'data'), '-l', resolve(lab, 'postgres.log'), '-w'];
+    break;
+  case 'migrate':
+  case 'migrate-test':
+    cwd = resolve(root, 'nexora-backend');
+    args = ['node_modules/tsx/dist/cli.mjs', 'scripts/migrate.ts'];
     break;
   case 'backend':
   case 'platform':
@@ -61,7 +75,7 @@ switch (command) {
     break;
   default:
     throw new Error(
-      'Choose db, backend, platform, frontend, worker or test. Test uses only the disposable database and reserves port 5184.',
+      'Choose db, migrate, migrate-test, backend, platform, frontend, worker or test. Migrate updates only the manual local database; migrate-test and test use the disposable database.',
     );
 }
 const child = spawn(executable, args, { cwd, env, stdio: 'inherit', windowsHide: true });
