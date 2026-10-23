@@ -1,5 +1,7 @@
 # Backend handoff
 
+24 October 2026: [Account IDs and passwords](account-ids-and-passwords.md) introduces migration 028, stable numeric school IDs, student Ethiopian-year suffixes, teacher counters and eight-character credential generation. Existing login IDs remain unchanged. Apply 028 before using new account creation on a target database.
+
 24 October 2026: [Organized exam portals](organized-exam-portals.md) adds server-side list categories, title sorting, teacher conclusion metadata, pending-approval FIFO and grade/class search filters. No new migration. Real PostgreSQL acceptance remains required; see the guide for exact query and pagination contracts.
 
 23 October 2026: [Scheduled results and grouped history](automatic-results-and-grouped-history.md) supersedes manual publication approval in the portal, adds release-date edits before the cutoff and zero-minute preparation. Migration 027 requires disposable-database validation.
