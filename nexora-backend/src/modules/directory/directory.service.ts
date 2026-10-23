@@ -59,7 +59,7 @@ type Account = {
   id: string;
   display_name: string;
   login_id: string;
-  role: 'student' | 'teacher';
+  role: 'student' | 'teacher' | 'invigilator';
   student_ref: string | null;
   class_id: string | null;
   status: 'active' | 'inactive';
@@ -114,7 +114,14 @@ export class DirectoryService {
   }
   async list(
     req: Request,
-    kind: 'classes' | 'subjects' | 'students' | 'teachers' | 'teacher-assignments' | 'audit',
+    kind:
+      | 'classes'
+      | 'subjects'
+      | 'students'
+      | 'teachers'
+      | 'invigilators'
+      | 'teacher-assignments'
+      | 'audit',
     input: unknown,
   ) {
     const { school } = identity(req, 'school_admin'),
@@ -143,9 +150,9 @@ export class DirectoryService {
           sql = `SELECT id "classId",name,grade,section,code_or_year "academicYear",revision,active,(SELECT count(*)::int FROM users u WHERE u.school_id=classes.school_id AND u.role='student' AND (SELECT e.class_id FROM enrollments e WHERE e.school_id=u.school_id AND e.student_id=u.id ORDER BY e.created_at DESC,e.id LIMIT 1)=classes.id) "studentCount" FROM classes WHERE school_id=$1 AND active AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`;
         if (kind === 'subjects')
           sql = `SELECT id "subjectId",name,grade,code,revision,active FROM subjects WHERE school_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`;
-        if (kind === 'students' || kind === 'teachers') {
+        if (kind === 'students' || kind === 'teachers' || kind === 'invigilators') {
           params.push(
-            kind === 'students' ? 'student' : 'teacher',
+            kind === 'students' ? 'student' : kind === 'teachers' ? 'teacher' : 'invigilator',
             (q.search ?? '').replace(/[\\%_]/g, '\\$&'),
             q.classId ?? null,
           );
@@ -166,7 +173,7 @@ export class DirectoryService {
         const rows = (await c.query(sql, params)).rows;
         const selected = rows.slice(0, limit);
         const items =
-          kind === 'students' || kind === 'teachers'
+          kind === 'students' || kind === 'teachers' || kind === 'invigilators'
             ? selected.map((r) => account(r as Account))
             : selected.map((r) => (kind === 'audit' ? { ...r, at: r.at.toISOString() } : r));
         const last = selected.at(-1);
@@ -316,13 +323,20 @@ export class DirectoryService {
   async remove(req: Request, kindInput: string, id: string, input: unknown, key: unknown) {
     const { school, user } = identity(req, 'school_admin');
     const kind = parse(
-      z.enum(['classes', 'subjects', 'students', 'teachers', 'teacher-assignments']),
+      z.enum([
+        'classes',
+        'subjects',
+        'students',
+        'teachers',
+        'invigilators',
+        'teacher-assignments',
+      ]),
       kindInput,
     );
     parse(uuid, id);
     const body = parse(z.object({ revision, reason, confirmed: z.literal(true) }).strict(), input);
     const table =
-      kind === 'students' || kind === 'teachers'
+      kind === 'students' || kind === 'teachers' || kind === 'invigilators'
         ? 'users'
         : kind === 'teacher-assignments'
           ? 'teacher_assignments'
@@ -337,7 +351,8 @@ export class DirectoryService {
         key,
         body,
         async () => {
-          const role = kind === 'students' ? 'student' : 'teacher';
+          const role =
+            kind === 'students' ? 'student' : kind === 'teachers' ? 'teacher' : 'invigilator';
           const row = (
             await c.query<{ revision: number; name?: string; login_id?: string }>(
               `SELECT * FROM ${table} WHERE school_id=$1 AND id=$2 ${table === 'users' ? 'AND role=$3' : ''} FOR UPDATE`,
@@ -397,7 +412,7 @@ export class DirectoryService {
   }
   async editAccount(
     req: Request,
-    role: 'student' | 'teacher',
+    role: 'student' | 'teacher' | 'invigilator',
     id: string,
     input: unknown,
     key: unknown,
@@ -432,8 +447,8 @@ export class DirectoryService {
         if (!current) throw DomainException.notFound();
         if (current.revision !== body.revision)
           throw DomainException.conflict('REVISION_CONFLICT', 'Refresh account');
-        if (role === 'teacher' && body.classId !== null)
-          throw DomainException.validationError('Teachers do not have a student class');
+        if (role !== 'student' && body.classId !== null)
+          throw DomainException.validationError('Staff do not have a student class');
         if (role === 'student') {
           if (!body.classId) throw DomainException.validationError('Student class is required');
           const cls = (
@@ -484,7 +499,7 @@ export class DirectoryService {
   }
   async credentials(
     req: Request,
-    role: 'student' | 'teacher',
+    role: 'student' | 'teacher' | 'invigilator',
     id: string | undefined,
     input: unknown,
     key: unknown,
@@ -536,7 +551,7 @@ export class DirectoryService {
         c,
         school.id,
         user.id,
-        create ? 'teacher:create' : `${role}:${id ?? 'batch'}:credentials`,
+        create ? `${role}:create` : `${role}:${id ?? 'batch'}:credentials`,
         key,
         body,
         async () => {
@@ -549,10 +564,10 @@ export class DirectoryService {
             const login = `${slug
               .toUpperCase()
               .replace(/[^A-Z0-9]/g, '')
-              .slice(0, 12)}-T-${newId}`;
+              .slice(0, 12)}-${role === 'invigilator' ? 'INV' : 'T'}-${newId}`;
             await c.query(
-              "INSERT INTO users(id,school_id,login_id,display_name,role,password_hash,credentials_issued) VALUES($1,$2,$3,$4,'teacher',NULL,false)",
-              [newId, school.id, login, body.displayName],
+              'INSERT INTO users(id,school_id,login_id,display_name,role,password_hash,credentials_issued) VALUES($1,$2,$3,$4,$5,NULL,false)',
+              [newId, school.id, login, body.displayName, role],
             );
             await c.query(
               'UPDATE users SET first_name=$1,father_name=$2,grandfather_name=$3 WHERE school_id=$4 AND id=$5',

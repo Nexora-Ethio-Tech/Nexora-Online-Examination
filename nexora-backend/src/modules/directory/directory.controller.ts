@@ -47,6 +47,38 @@ export class DirectoryController {
   students(@Req() req: Request, @Query() query: unknown) {
     return this.directory.list(req, 'students', query);
   }
+  @Get('invigilators')
+  invigilators(@Req() req: Request, @Query() query: unknown) {
+    return this.directory.list(req, 'invigilators', query);
+  }
+  @Post('invigilators')
+  @HttpCode(200)
+  createInvigilator(
+    @Req() req: Request,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: unknown,
+  ) {
+    return this.directory.credentials(req, 'invigilator', undefined, body, key, true);
+  }
+  @Patch('invigilators/:id')
+  editInvigilator(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: unknown,
+  ) {
+    return this.directory.editAccount(req, 'invigilator', id, body, key);
+  }
+  @Post('invigilators/:id/reset-password')
+  @HttpCode(200)
+  resetInvigilator(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: unknown,
+  ) {
+    return this.directory.credentials(req, 'invigilator', id, body, key);
+  }
   @Get('teachers')
   teachers(@Req() req: Request, @Query() query: unknown) {
     return this.directory.list(req, 'teachers', query);
