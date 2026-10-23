@@ -1,3 +1,4 @@
+import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { ExamBadge } from '@/components/shared/ExamBadge';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -147,14 +148,16 @@ export function TeacherPage() {
   const scope = useTeacherScope();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [category, setCategory] = useState('active');
+  const [status, setStatus] = useState('');
   const [creating, setCreating] = useState(false);
   const retained = useRef<{ json: string; key: string } | null>(null);
   const assignments = useAssignments();
   const list = useInfiniteQuery({
-    queryKey: ['teacher-exams', ...scope],
+    queryKey: ['teacher-exams', ...scope, category, status],
     initialPageParam: null,
     queryFn: ({ pageParam, signal }: { pageParam: string | null; signal: AbortSignal }) =>
-      api.list(pageParam, signal),
+      api.list(pageParam, signal, category, status),
     getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
   const create = useMutation({
@@ -177,6 +180,36 @@ export function TeacherPage() {
         <Button className="min-h-11" onClick={() => setCreating(!creating)}>
           {creating ? 'Close new draft' : 'New exam'}
         </Button>
+      </div>
+      <div className="flex flex-wrap items-center gap-3" aria-label="Paper categories">
+        {(['active', 'past'] as const).map((value) => (
+          <Button
+            key={value}
+            variant={category === value ? 'default' : 'outline'}
+            aria-pressed={category === value}
+            onClick={() => {
+              setCategory(value);
+              setStatus('');
+            }}
+          >
+            {value === 'active' ? 'Active & upcoming' : 'Past papers'}
+          </Button>
+        ))}
+        {category === 'active' && (
+          <label>
+            Paper status{' '}
+            <select className={control} value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="">All statuses</option>
+              <option value="draft">Draft</option>
+              <option value="returned">Returned</option>
+              <option value="in_review">Pending approval</option>
+              <option value="approved">Approved</option>
+            </select>
+          </label>
+        )}
+        <p className="text-sm text-muted-foreground">
+          Newest created first. Past papers have no remaining scheduled submission windows.
+        </p>
       </div>
       {creating && (
         <section className={panel}>
@@ -211,14 +244,14 @@ export function TeacherPage() {
       {list.error && <Button onClick={() => void list.refetch()}>Retry exam list</Button>}
       {list.data?.pages.every((p) => p.items.length === 0) && (
         <section className={panel}>
-          <h2 className="text-lg font-semibold">Your first paper starts here</h2>
+          <h2 className="text-lg font-semibold">No papers match this view</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Create a draft, upload a question template or generate with AI when enabled, then review
             the explanations and answer keys.
           </p>
         </section>
       )}
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
         {list.data?.pages
           .flatMap((p) => p.items)
           .map((d) => (
@@ -230,6 +263,12 @@ export function TeacherPage() {
               <p className="my-3 text-sm text-muted-foreground">
                 {d.itemCount} questions · {d.totalMarks} marks · {d.reviewedCount} reviewed ·{' '}
                 {d.durationMinutes} minutes
+              </p>
+              <p className="mb-3 text-sm text-muted-foreground">
+                {d.createdAt
+                  ? 'Created ' + formatEatDateTime(d.createdAt)
+                  : 'Creation time unavailable'}
+                {d.concluded ? ' · Exam sittings ended; results release separately' : ''}
               </p>
               <Button variant="outline" asChild>
                 <Link to={`/teacher/exams/${d.examId}`}>Open paper</Link>

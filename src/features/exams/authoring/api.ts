@@ -42,9 +42,9 @@ export function authoringApi(client: ApiClient) {
         assignmentsSchema,
         { signal },
       ),
-    list: (cursor: string | null, signal?: AbortSignal) =>
+    list: (cursor: string | null, signal?: AbortSignal, category = 'all', status = '') =>
       client.request(
-        `/exams?limit=25${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+        `/exams?limit=25&category=${category}${status ? `&status=${status}` : ''}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
         draftsSchema,
         { signal },
       ),

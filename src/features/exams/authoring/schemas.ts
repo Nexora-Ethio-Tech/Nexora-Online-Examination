@@ -62,6 +62,8 @@ export const itemSchema = z
   });
 export const draftSchema = metadataSchema.extend({
   examId: text,
+  createdAt: z.string().optional(),
+  concluded: z.boolean().optional(),
   revision,
   status: z.enum(['draft', 'in_review', 'approved', 'returned']),
   totalMarks: z.number().int().nonnegative(),
