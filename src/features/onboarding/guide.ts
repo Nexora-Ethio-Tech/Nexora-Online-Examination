@@ -32,7 +32,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Support active exams',
-      body: 'Use Live exams and Exam assistance to supervise students. Review browser incident descriptions as device reports, not proof that a screenshot was captured. Activity summary groups window changes, screen protection, watermark integrity and returns. Open a category for details; advanced analysis remains available. Staff approval never extends the original deadline.',
+      body: 'Use Live exams and Exam assistance to supervise students. Review browser incident descriptions as device reports, not proof that a screenshot was captured. Activity summary groups window changes, screen protection, watermark integrity and returns. Open a category for details; advanced analysis offers event-type colors and factual counts, with no risk score or disciplinary recommendation. Capture reports do not prove a screenshot was taken. Staff approval never extends the original deadline.',
       path: '/admin/assistance',
     },
     {

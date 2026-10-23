@@ -417,6 +417,12 @@ test('administrator navigation, recovery and monitor screens are accessible', as
   await expect(activity.locator('details')).toHaveCount(4);
   await activity.locator('summary').first().click();
   await expect(activity.locator('details').first()).toHaveAttribute('open', '');
+  await page.getByText('Advanced incident analysis', { exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Inspection / print action', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/recommended/i)).toHaveCount(0);
+  await accessible(page);
   await page.getByLabel('Reason for supervision decision').fill('Verify the student in person.');
   await page.getByRole('button', { name: 'Suspend exam attempt', exact: true }).click();
   await expect(
