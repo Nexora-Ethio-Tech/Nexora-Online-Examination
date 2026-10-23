@@ -36,9 +36,11 @@ it('reports interruptions, preserves the answer through resume and locks at five
   vi.spyOn(document.documentElement, 'requestFullscreen').mockResolvedValue();
   vi.spyOn(document, 'hasFocus').mockReturnValue(true);
   const report = vi.fn();
+  const requestHelp = vi.fn().mockResolvedValue(undefined);
   const { unmount } = render(
     <ExamSecurityShield
       engine={{ reportSecurityEvent: report }}
+      onRequestAssistance={requestHelp}
       attemptId="attempt"
       examTitle="Exam"
     >
@@ -63,6 +65,11 @@ it('reports interruptions, preserves the answer through resume and locks at five
     }
   }
   expect(screen.getByRole('heading', { name: 'Exam Locked' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Resume/ })).not.toBeInTheDocument();
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Request invigilator help' }));
+  });
+  expect(requestHelp).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole('button', { name: /Resume/ })).not.toBeInTheDocument();
   unmount();
   expect(document.documentElement).not.toHaveClass('nexora-screen-blackout');

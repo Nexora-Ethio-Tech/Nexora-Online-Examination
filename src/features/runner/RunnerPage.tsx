@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/api-client';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link, useBlocker, useParams } from 'react-router';
 import { CircleCheck, Flag } from 'lucide-react';
@@ -53,6 +54,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
   const [index, setIndex] = useState(0);
   const [review, setReview] = useState(false);
   const [reason, setReason] = useState('');
+  const [assistanceError, setAssistanceError] = useState('');
   const [online, setOnline] = useState(navigator.onLine);
   const active = view.status === 'active';
   const unresolved = !!view.row && !view.row.receipt;
@@ -127,6 +129,9 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
           saving={view.saving}
         />
       )}
+      {assistanceError && (
+        <p role="alert">{assistanceError} Use Pause and request assistance to retry.</p>
+      )}
       {view.status === 'blocked' ? (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Editing is paused</h2>
@@ -146,6 +151,15 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
           engine={engine}
           attemptId={view.row?.attempt.attemptId ?? 'Unavailable'}
           examTitle={view.paper.title}
+          onRequestAssistance={async () => {
+            setAssistanceError('');
+            try {
+              await engine.requestAssistance(crypto.randomUUID());
+            } catch (failure) {
+              setAssistanceError(errorMessage(failure));
+              throw failure;
+            }
+          }}
         >
           <details className="text-sm">
             <summary className="min-h-11 cursor-pointer py-3 font-medium">

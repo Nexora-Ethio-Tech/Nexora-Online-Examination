@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ShieldAlert, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ export interface AntiScreenshotOverlayProps {
   limitReached?: boolean;
   /** Shown as "Incident #n of max" when provided. */
   maxIncidents?: number;
+  assistanceAction?: ReactNode;
 }
 
 export function AntiScreenshotOverlay({
@@ -24,6 +25,7 @@ export function AntiScreenshotOverlay({
   resumeLocked = false,
   limitReached = false,
   maxIncidents,
+  assistanceAction,
 }: AntiScreenshotOverlayProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -106,6 +108,7 @@ export function AntiScreenshotOverlay({
           timer continues running.
         </div>
 
+        {limitReached && assistanceAction}
         {!limitReached && (
           <div className="pt-2">
             <Button

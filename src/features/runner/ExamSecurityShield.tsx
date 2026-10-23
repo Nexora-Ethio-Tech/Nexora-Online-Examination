@@ -13,16 +13,19 @@ export function ExamSecurityShield({
   attemptId,
   examTitle,
   children,
+  onRequestAssistance,
 }: {
   engine: Pick<RunnerEngine, 'reportSecurityEvent'>;
   attemptId: string;
   examTitle: string;
   children: ReactNode;
+  onRequestAssistance?: () => Promise<void>;
 }) {
   const { session } = useAuth();
   const [entered, setEntered] = useState(false);
   const [locked, setLocked] = useState(false);
   const [error, setError] = useState('');
+  const [requesting, setRequesting] = useState(false);
   const shield = useAntiScreenshot({
     active: entered,
     strict: true,
@@ -87,6 +90,26 @@ export function ExamSecurityShield({
         resumeLocked={shield.resumeLocked}
         limitReached={locked || shield.limitReached}
         maxIncidents={5}
+        assistanceAction={
+          onRequestAssistance && (
+            <div className="space-y-2">
+              <Button
+                disabled={requesting}
+                onClick={() => {
+                  setRequesting(true);
+                  void onRequestAssistance()
+                    .catch(() =>
+                      setError('Request could not be sent. Ask your invigilator for help.'),
+                    )
+                    .finally(() => setRequesting(false));
+                }}
+              >
+                Request invigilator help
+              </Button>
+              {error && <p role="alert">{error}</p>}
+            </div>
+          )
+        }
       />
     </div>
   );
