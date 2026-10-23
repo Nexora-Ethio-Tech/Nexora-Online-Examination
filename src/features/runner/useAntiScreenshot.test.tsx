@@ -56,3 +56,22 @@ it('blacks out when the pointer leaves a desktop window', () => {
   expect(result.current.isBlackedOut).toBe(true);
   unmount();
 });
+
+it('requests clipboard clearing on PrintScreen without claiming permission success', async () => {
+  const writeText = vi.fn().mockRejectedValue(new Error('Permission denied'));
+  const previous = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  try {
+    const { result, unmount } = renderHook(() => useAntiScreenshot({ active: true }));
+    fireEvent.keyDown(window, { key: 'PrintScreen' });
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(writeText).toHaveBeenCalledWith('');
+    expect(result.current.isBlackedOut).toBe(true);
+    unmount();
+  } finally {
+    if (previous) Object.defineProperty(navigator, 'clipboard', previous);
+    else Reflect.deleteProperty(navigator, 'clipboard');
+  }
+});

@@ -12,6 +12,7 @@ test('a failed feature download shows recoverable guidance', async ({ page, cont
   await accessible(page);
   await context.unroute('**/assets/RunnerPage-*.js');
   await page.getByRole('button', { name: 'Reload this page' }).click();
+  await page.getByRole('button', { name: 'Start exam', exact: true }).click();
   await expect(page.getByRole('radio').first()).toBeVisible();
 });
 
@@ -21,6 +22,7 @@ test('lost final response retains the exact submission across a production reloa
 }) => {
   const fixture = await submissionFixture(context);
   await page.goto(`/student/attempts/${fixture.attemptId}`);
+  await page.getByRole('button', { name: 'Start exam', exact: true }).click();
   await page.getByRole('radio', { name: '4', exact: true }).click();
   await expect(page.getByRole('radio', { name: '4', exact: true })).toBeChecked();
   await page.getByRole('button', { name: 'Review and submit', exact: true }).click();
@@ -140,6 +142,7 @@ test('production role guard and expired session return the student to sign-in', 
   await expect(page.getByRole('heading', { name: 'My exams', exact: true })).toBeVisible();
   expect(requested.some((path) => path.includes('/admin/'))).toBe(false);
   await expect(page.getByRole('link', { name: 'School setup', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close guide' }).click();
   expired = true;
   await navigateWorkspace(page, 'Official results');
   await expect(page).toHaveURL(/\/login$/);

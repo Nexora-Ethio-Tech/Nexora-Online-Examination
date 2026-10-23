@@ -170,11 +170,12 @@ test('student answers offline, navigates questions and receives a confirmed subm
     .filter({ has: page.getByRole('heading', { name: 'English · current window' }) });
   await card.getByRole('link').click();
   await page.getByRole('button', { name: 'Download exam' }).click();
+  await page.getByRole('button', { name: 'Start exam', exact: true }).click();
   await expect(page.getByRole('radio').first()).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Workspace' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Open account menu' })).toHaveCount(0);
-  await expect(page.getByLabel('Exam watermark')).toContainText('Nexora');
-  await expect(page.getByLabel('Exam watermark')).not.toContainText('DEMO-STUDENT');
+  await expect(page.getByTestId('exam-watermark')).toContainText('NEXORA');
+  await expect(page.getByTestId('exam-watermark')).toContainText('DEMO-STUDENT');
   await context.setOffline(true);
   await page.getByRole('radio').first().click();
   await expect(page.getByRole('radio').first()).toBeChecked();
@@ -183,7 +184,7 @@ test('student answers offline, navigates questions and receives a confirmed subm
   await expect(page.locator('fieldset')).toBeHidden();
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(page.locator('fieldset')).toBeHidden();
-  await page.getByRole('button', { name: 'Resume exam' }).click();
+  await page.getByRole('button', { name: 'Acknowledge & Resume Exam' }).click();
   await expect(page.getByRole('radio').first()).toBeChecked();
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('#root')).toBeHidden();
@@ -200,15 +201,15 @@ test('student answers offline, navigates questions and receives a confirmed subm
   expect(numberBox && questionBox && numberBox.y < questionBox.y).toBeTruthy();
   await page.screenshot({ path: test.info().outputPath('active-exam.png'), fullPage: true });
   await expect(page.locator('.exam-question-text').first()).toHaveCSS('user-select', 'none');
-  await expect(page.locator('.exam-watermark-tiles')).toHaveCSS('pointer-events', 'none');
+  await expect(page.getByTestId('exam-watermark')).toHaveCSS('pointer-events', 'none');
   const surfaceBox = await page.locator('.exam-question-surface').boundingBox();
-  const watermarkBox = await page.locator('.exam-watermark-tiles').boundingBox();
+  const watermarkBox = await page.getByTestId('exam-watermark').boundingBox();
   expect(
-    surfaceBox && watermarkBox && Math.abs(surfaceBox.height - watermarkBox.height) < 3,
+    surfaceBox && watermarkBox && watermarkBox.height >= (page.viewportSize()?.height ?? 0),
   ).toBeTruthy();
   await page.emulateMedia({ forcedColors: 'active' });
-  await expect(page.locator('.exam-watermark-tiles')).toBeHidden();
-  await expect(page.getByLabel('Exam watermark')).toBeVisible();
+  await expect(page.getByTestId('exam-watermark').locator('pattern')).toHaveCount(2);
+  await expect(page.getByTestId('exam-watermark')).toBeVisible();
   await page.emulateMedia({ forcedColors: 'none' });
   await expect(page.getByRole('button', { name: 'Hide question numbers' })).toHaveAttribute(
     'aria-expanded',
@@ -487,4 +488,67 @@ test('school admin enables AI exam drafts and teachers retain upload and review 
       'I checked the question, answer key, topic and explanation, and resolved any flags.',
     ),
   ).not.toBeChecked();
+});
+
+// Browser-dispatched events verify the DOM shield, not OS capture prevention.
+test('strict shield restores a deleted watermark and locks after five interruptions', async ({
+  page,
+}) => {
+  await login(page, 'STUDENT');
+  const card = page
+    .locator('article')
+    .filter({ has: page.getByRole('heading', { name: 'English · current window' }) });
+  await card.getByRole('link').click();
+  await page.getByRole('button', { name: 'Download exam' }).click();
+  await page.getByRole('button', { name: 'Start exam', exact: true }).click();
+  await expect(page.getByRole('radio').first()).toBeVisible();
+  await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+  await page.waitForTimeout(1200); // Let the supplied detector retain the original node.
+  await page.getByTestId('exam-watermark').evaluate((el) => el.remove());
+  await expect(page.getByTestId('exam-watermark')).toHaveCount(1);
+  await expect
+    .poll(() => page.locator('.exam-runner-protected').getAttribute('data-tamper-count'))
+    .not.toBe('0');
+  for (const key of ['Meta', 'Alt', 'PrintScreen', 'F12']) {
+    await page.evaluate((key) => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+    }, key);
+    await expect(page.getByTestId('anti-screenshot-overlay')).toHaveCSS(
+      'background-color',
+      'rgb(0, 0, 0)',
+    );
+    await expect(page.locator('fieldset')).toBeHidden();
+    await page.getByRole('button', { name: 'Acknowledge & Resume Exam' }).click();
+    await expect(page.getByRole('radio').first()).toBeVisible();
+  }
+  await page.evaluate(() => document.exitFullscreen());
+  await expect(page.getByRole('heading', { name: 'Exam Locked' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Resume/ })).toHaveCount(0);
+  await expect(page.locator('fieldset')).toBeHidden();
+});
+
+test('fullscreen resume and pointer blackout preserve the active exam', async ({ page }) => {
+  await login(page, 'STUDENT');
+  const card = page
+    .locator('article')
+    .filter({ has: page.getByRole('heading', { name: 'English · current window' }) });
+  await card.getByRole('link').click();
+  await page.getByRole('button', { name: 'Download exam' }).click();
+  await page.getByRole('button', { name: 'Start exam', exact: true }).click();
+  await page.getByRole('radio').first().click();
+  await expect(page.getByRole('radio').first()).toBeChecked();
+  await page.evaluate(() => document.exitFullscreen());
+  await expect(page.getByRole('heading', { name: 'Fullscreen Mode Exited' })).toBeVisible();
+  await page.getByRole('button', { name: 'Return to Fullscreen & Resume' }).click();
+  await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+  await expect(page.getByRole('radio').first()).toBeChecked();
+  await page.evaluate(() => {
+    if (matchMedia('(pointer: coarse)').matches) window.dispatchEvent(new Event('blur'));
+    else document.documentElement.dispatchEvent(new MouseEvent('mouseleave'));
+  });
+  await expect(page.locator('fieldset')).toBeHidden();
+  await page.getByRole('button', { name: 'Acknowledge & Resume Exam' }).click();
+  await expect(page.getByRole('radio').first()).toBeChecked();
+  await expect(page.locator('.exam-runner-protected')).toHaveAttribute('data-tamper-count', '0');
 });
