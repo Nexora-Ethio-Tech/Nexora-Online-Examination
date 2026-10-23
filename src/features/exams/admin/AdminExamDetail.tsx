@@ -165,35 +165,37 @@ export function ScheduleForm({
       >
         Refresh server time
       </Button>
-      <fieldset disabled={pending} className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-2">
-          Preparation duration (minutes)
-          <input
-            className={control}
-            type="number"
-            min={1}
-            max={120}
-            step={1}
-            value={Number.isNaN(preparationMinutes) ? '' : preparationMinutes}
-            onChange={(event) => {
-              setPreparationMinutes(event.target.valueAsNumber);
+      <fieldset disabled={pending} className="grid items-start gap-4 xl:grid-cols-2">
+        <div className="min-w-0 space-y-3">
+          <EthiopianDateTimeField
+            label="Preparation date and time (EAT)"
+            error={prepError}
+            value={prep}
+            onChange={(value) => {
+              setPrep(value);
               setConfirmed(false);
             }}
-            aria-invalid={!validPreparation}
           />
-          {!validPreparation && (
-            <span role="alert">Choose a whole number from 1 to 120 minutes.</span>
-          )}
-        </label>
-        <EthiopianDateTimeField
-          label="Preparation date and time (EAT)"
-          error={prepError}
-          value={prep}
-          onChange={(value) => {
-            setPrep(value);
-            setConfirmed(false);
-          }}
-        />
+          <label className="block space-y-2">
+            Preparation duration (minutes)
+            <input
+              className={control}
+              type="number"
+              min={1}
+              max={120}
+              step={1}
+              value={Number.isNaN(preparationMinutes) ? '' : preparationMinutes}
+              onChange={(event) => {
+                setPreparationMinutes(event.target.valueAsNumber);
+                setConfirmed(false);
+              }}
+              aria-invalid={!validPreparation}
+            />
+            {!validPreparation && (
+              <span role="alert">Choose a whole number from 1 to 120 minutes.</span>
+            )}
+          </label>
+        </div>
         <EthiopianDateTimeField
           label="Planned results date and time (EAT)"
           error={releaseError}
@@ -204,7 +206,7 @@ export function ScheduleForm({
           }}
         />
         {initial && (
-          <label className="space-y-2 sm:col-span-2">
+          <label className="space-y-2 xl:col-span-2">
             Reason for changing the schedule
             <textarea
               className={control}
