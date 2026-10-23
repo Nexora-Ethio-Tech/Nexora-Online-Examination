@@ -126,3 +126,26 @@ it('shows a retryable error when the assignment service fails', async () => {
     await screen.findByRole('heading', { name: 'Mathematics · preparation' }),
   ).toBeInTheDocument();
 });
+
+it('filters upcoming exams without confusing submission and result publication', async () => {
+  const user = setup();
+  await user.click(await screen.findByRole('button', { name: 'Upcoming exams' }));
+  expect(screen.getByRole('heading', { name: 'Physics · tomorrow' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Chemistry · completed' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Past exams' }));
+  expect(screen.getByRole('heading', { name: 'Chemistry · completed' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Physics · tomorrow' })).not.toBeInTheDocument();
+});
+it('keeps past exams visible when result lookup fails instead of inventing grade status', async () => {
+  const demo = createDemoTransport('student');
+  const user = setup('/student', (url, init) =>
+    url.includes('/me/results?')
+      ? Promise.resolve(new Response('', { status: 503 }))
+      : demo(url, init),
+  );
+  await screen.findByText(/Result status could not be checked/);
+  await user.click(screen.getByRole('button', { name: 'Past exams' }));
+  expect(screen.getByRole('heading', { name: 'Chemistry · completed' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Graded' })).toBeDisabled();
+  expect(screen.getAllByText('Result status not confirmed').length).toBeGreaterThan(0);
+});

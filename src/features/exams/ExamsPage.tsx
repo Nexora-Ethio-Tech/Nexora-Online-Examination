@@ -1,7 +1,9 @@
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { ScheduleCountdown } from '@/components/shared/ScheduleCountdown';
 import { RefreshControl } from '@/components/shared/RefreshControl';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { examGroup, examGroups, studentGradeStatuses, type GradeStatus } from './exam-groups';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { CalendarDays, ArrowRight, CircleCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,18 +32,6 @@ export function examStatus(exam: Exam) {
         ended: 'Exam ended',
       }[exam.phase];
 }
-export function examGroup(exam: Pick<Exam, 'phase' | 'attemptState'>) {
-  if (exam.attemptState === 'submitted' || exam.attemptState === 'invalidated') return 'Past exams';
-  if (
-    exam.attemptState === 'awaiting_upload' ||
-    exam.attemptState === 'recovery_pending' ||
-    (exam.phase === 'ended' && exam.attemptState)
-  )
-    return 'Needs attention';
-  if (exam.phase === 'scheduled') return 'Upcoming';
-  if (exam.phase === 'preparing' || exam.phase === 'open') return 'Preparing and open';
-  return 'Past exams';
-}
 export function ExamsPage() {
   const client = useApiClient();
   const { session } = useAuth();
@@ -62,6 +52,33 @@ export function ExamsPage() {
     query.data?.pages.flatMap((page) =>
       page.items.map((item) => ({ ...item, clock: page.clock })),
     ) ?? [];
+  const [filter, setFilter] = useState<'All exams' | (typeof examGroups)[number]>('All exams');
+  const [gradeFilter, setGradeFilter] = useState<'All past exams' | GradeStatus>('All past exams');
+  const hasPast = exams.some((exam) => examGroup(exam) === 'Past exams');
+  const grades = useQuery({
+    queryKey: ['exam-grade-statuses', session?.school.id, session?.user.id],
+    queryFn: ({ signal }) => studentGradeStatuses(client, signal),
+    enabled: hasPast,
+    refetchInterval: 30_000,
+  });
+  const gradeStatus = (exam: Exam) =>
+    grades.data && !grades.isError
+      ? (grades.data[exam.sessionId] ?? 'Awaiting results')
+      : undefined;
+  const groups = examGroups
+    .map((title) => ({
+      title,
+      items: exams.filter(
+        (exam) =>
+          examGroup(exam) === title &&
+          (title !== 'Past exams' ||
+            gradeFilter === 'All past exams' ||
+            !grades.data ||
+            grades.isError ||
+            gradeStatus(exam) === gradeFilter),
+      ),
+    }))
+    .filter((group) => (filter === 'All exams' || filter === group.title) && group.items.length);
   return (
     <div className="space-y-6">
       <div className="page-intro">
@@ -77,9 +94,15 @@ export function ExamsPage() {
       </div>
       <RefreshControl
         label="Refresh exams"
-        busy={query.isFetching}
+        busy={query.isFetching || grades.isFetching}
         updatedAt={query.dataUpdatedAt}
-        refresh={() => query.refetch()}
+        refresh={async () => {
+          const refreshed = await Promise.all([
+            query.refetch(),
+            ...(hasPast ? [grades.refetch()] : []),
+          ]);
+          return { error: refreshed.find((result) => result.error)?.error ?? null };
+        }}
       />
       {query.isPending ? <p role="status">Loading your exams…</p> : null}
       {query.error ? (
@@ -98,43 +121,108 @@ export function ExamsPage() {
           </p>
         </div>
       ) : null}
-      {['Preparing and open', 'Needs attention', 'Upcoming', 'Past exams']
-        .map((title) => ({ title, items: exams.filter((exam) => examGroup(exam) === title) }))
-        .filter((group) => group.items.length)
-        .map((group) => (
-          <section key={group.title} className="space-y-4" aria-label={group.title}>
-            <h2 className="text-xl font-semibold">{group.title}</h2>
-            <div className="grid gap-4 xl:grid-cols-2">
-              {group.items.map((exam) => (
-                <article
-                  key={exam.sessionId}
-                  className="nexora-surface rounded-xl border bg-background p-5 sm:p-6"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {exam.subjectName} · {exam.className}
-                    </span>
-                    <span
-                      className={
-                        exam.attemptState === 'submitted'
-                          ? 'inline-flex items-center gap-2 py-1 text-xs font-medium text-primary'
-                          : 'py-1 text-xs font-medium'
-                      }
-                    >
-                      {exam.attemptState === 'submitted' && (
-                        <CircleCheck className="size-4" aria-hidden="true" />
-                      )}
-                      {examStatus(exam)}
-                    </span>
-                  </div>
-                  <h3 className="mt-3 text-xl font-semibold">{exam.title}</h3>
-                  <p className="mt-3 flex items-start gap-2 text-sm">
-                    <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
-                    {eatTime(exam.startsAt)}
+      {!!exams.length && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter exams">
+            {(['All exams', ...examGroups] as const).map((name) => (
+              <Button
+                key={name}
+                variant={filter === name ? 'default' : 'outline'}
+                aria-pressed={filter === name}
+                onClick={() => {
+                  setFilter(name);
+                  setGradeFilter('All past exams');
+                }}
+              >
+                {name}
+              </Button>
+            ))}
+          </div>
+          {(filter === 'Past exams' || filter === 'All exams') && hasPast && (
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label="Filter past exam results"
+            >
+              {(['All past exams', 'Graded', 'Awaiting results', 'No grade'] as const).map(
+                (name) => (
+                  <Button
+                    key={name}
+                    variant={gradeFilter === name ? 'default' : 'outline'}
+                    aria-pressed={gradeFilter === name}
+                    disabled={name !== 'All past exams' && (!grades.data || grades.isError)}
+                    onClick={() => {
+                      setFilter('Past exams');
+                      setGradeFilter(name);
+                    }}
+                  >
+                    {name}
+                  </Button>
+                ),
+              )}
+            </div>
+          )}
+          {hasPast && (
+            <p className="text-xs text-muted-foreground">
+              Graded means your school has published your mark. Awaiting results does not mean your
+              paper has not been marked.
+            </p>
+          )}
+          {grades.isFetching && hasPast && <p role="status">Checking published results…</p>}
+          {grades.error && (
+            <p role="alert">
+              Result status could not be checked. Use Refresh exams to retry; your exams are still
+              listed.
+            </p>
+          )}
+          {query.hasNextPage && (
+            <p className="text-xs text-muted-foreground">
+              Filters apply to loaded exams. Use Load more exams to include older or later sittings.
+            </p>
+          )}
+          {!groups.length && <p role="status">No loaded exams match this filter.</p>}
+        </div>
+      )}
+      {groups.map((group) => (
+        <section key={group.title} className="space-y-4" aria-label={group.title}>
+          <h2 className="text-xl font-semibold">{group.title}</h2>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {group.items.map((exam) => (
+              <article
+                key={exam.sessionId}
+                className="nexora-surface rounded-xl border bg-background p-5 sm:p-6"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {exam.subjectName} · {exam.className}
+                  </span>
+                  <span
+                    className={
+                      exam.attemptState === 'submitted'
+                        ? 'inline-flex items-center gap-2 py-1 text-xs font-medium text-primary'
+                        : 'py-1 text-xs font-medium'
+                    }
+                  >
+                    {exam.attemptState === 'submitted' && (
+                      <CircleCheck className="size-4" aria-hidden="true" />
+                    )}
+                    {examStatus(exam)}
+                  </span>
+                </div>
+                <h3 className="mt-3 text-xl font-semibold">{exam.title}</h3>
+                <p className="mt-3 flex items-start gap-2 text-sm">
+                  <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
+                  {eatTime(exam.startsAt)}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {exam.durationMinutes} minutes · Your deadline: {eatTime(exam.deadlineAt)}
+                </p>
+                {examGroup(exam) === 'Past exams' && (
+                  <p className="mt-2 text-sm font-medium">
+                    {gradeStatus(exam) ?? 'Result status not confirmed'}
                   </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {exam.durationMinutes} minutes · Your deadline: {eatTime(exam.deadlineAt)}
-                  </p>
+                )}
+                {examGroup(exam) !== 'Past exams' && (
                   <ScheduleCountdown
                     sample={exam.clock}
                     target={
@@ -152,17 +240,23 @@ export function ExamsPage() {
                           : 'your deadline'
                     }
                   />
-                  <Button asChild variant="outline" className="mt-5 min-h-11">
-                    <Link to={`/student/exams/${encodeURIComponent(exam.sessionId)}`}>
-                      View schedule and preparation
-                      <ArrowRight aria-hidden="true" />
-                    </Link>
+                )}
+                <Button asChild variant="outline" className="mt-5 min-h-11">
+                  <Link to={`/student/exams/${encodeURIComponent(exam.sessionId)}`}>
+                    View schedule and preparation
+                    <ArrowRight aria-hidden="true" />
+                  </Link>
+                </Button>
+                {examGroup(exam) === 'Past exams' && gradeStatus(exam) === 'Graded' && (
+                  <Button asChild variant="ghost" className="mt-2">
+                    <Link to="/student/results">View results</Link>
                   </Button>
-                </article>
-              ))}
-            </div>
-          </section>
-        ))}
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      ))}
       {query.hasNextPage ? (
         <Button
           variant="outline"
