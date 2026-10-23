@@ -27,7 +27,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Approve and schedule exams',
-      body: 'Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Use the month, day and year controls or open the seven-day calendar. The date summary also shows the Gregorian equivalent. Preparation and results are side by side on wider screens. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Choose 0–120 preparation minutes (10 by default). Check the exam start, end and results dates before confirming. Then assign invigilators under the saved sitting dates and check their authenticator readiness.',
+      body: 'Pending approval shows the oldest submission first; resubmitted papers rejoin the queue. Use Approved & scheduled or Returned to browse by grade and class. Search by paper, teacher, subject or subject code. Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Use the month, day and year controls or open the seven-day calendar. The date summary also shows the Gregorian equivalent. Preparation and results are side by side on wider screens. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Choose 0–120 preparation minutes (10 by default). Check the exam start, end and results dates before confirming. Then assign invigilators under the saved sitting dates and check their authenticator readiness.',
       path: '/admin',
     },
     {
@@ -44,7 +44,7 @@ export const guides: Record<Role, GuideStep[]> = {
   teacher: [
     {
       title: 'Create a paper',
-      body: 'Choose your assigned class and subject, then enter exam details. Date forms offer Ethiopian and Gregorian calendars; times use AM/PM in EAT.',
+      body: 'Active & upcoming shows drafts, returned papers, pending approvals and approved papers, newest first. Past papers contains papers whose scheduled sittings have all ended. Approval without a schedule stays active. Filter by status, or choose your assigned class and subject to create a paper. Date forms offer Ethiopian and Gregorian calendars; times use AM/PM in EAT.',
       path: '/teacher',
     },
     {
@@ -71,7 +71,7 @@ export const guides: Record<Role, GuideStep[]> = {
   student: [
     {
       title: 'Prepare for your exam',
-      body: 'Use Current exams, Upcoming exams and Past exams in My exams. Past exams can be filtered by published grades, awaiting results, or no grade. Needs attention keeps unfinished submissions visible. Check the Ethiopian calendar date. Times use AM/PM in EAT, even if your device uses another timezone. Choose Download exam when preparation opens. Follow the download progress, keep this page open and stay connected until the exam starts.',
+      body: 'Use Current exams, Upcoming exams and Past exams in My exams. Exams are ordered A–Z within each category; use Load more for further papers. Past exams can be filtered by published grades, awaiting results, or no grade. Needs attention keeps unfinished submissions visible. Check the Ethiopian calendar date. Times use AM/PM in EAT, even if your device uses another timezone. Choose Download exam when preparation opens. Follow the download progress, keep this page open and stay connected until the exam starts.',
       path: '/student',
     },
     {
