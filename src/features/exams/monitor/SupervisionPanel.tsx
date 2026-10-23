@@ -1,7 +1,7 @@
 import { SecurityIncidentsPanel } from '@/features/runner/SecurityIncidentsPanel';
 import { useState } from 'react';
 import { RefreshControl } from '@/components/shared/RefreshControl';
-import { InterruptionRecord } from './InterruptionRecord';
+import { InterruptionGroups } from './InterruptionGroups';
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -129,24 +129,21 @@ export function SupervisionPanel({
               Clear decision form and refresh
             </Button>
           )}
-          <SecurityIncidentsPanel
-            incidents={d.events.map((e) => ({
-              ...e,
-              attemptId,
-              studentLoginId,
-              studentName,
-              examTitle,
-            }))}
-          />
-          <h3 className="font-semibold">Recent interruptions (up to 100 recent records)</h3>
-          {!d.events.length && (
-            <p>No received interruption reports. This does not prove uninterrupted attendance.</p>
-          )}
-          <ul>
-            {d.events.map((e) => (
-              <InterruptionRecord key={e.id} event={e} />
-            ))}
-          </ul>
+          <InterruptionGroups events={d.events} />
+          <details className="rounded border p-4">
+            <summary className="min-h-11 cursor-pointer font-medium">
+              Advanced incident analysis
+            </summary>
+            <SecurityIncidentsPanel
+              incidents={d.events.map((e) => ({
+                ...e,
+                attemptId,
+                studentLoginId,
+                studentName,
+                examTitle,
+              }))}
+            />
+          </details>
           <h3 className="font-semibold">Recent administrator decisions</h3>
           <ul>
             {d.history.map((h) => (
