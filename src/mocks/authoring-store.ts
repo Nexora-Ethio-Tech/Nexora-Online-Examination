@@ -19,6 +19,8 @@ export type DemoSitting = {
 export function createAuthoringStore() {
   return {
     directory: createDirectoryStore(),
+    invigilation: new Map<string, { active: boolean; revision: number }>(),
+    staffAliases: new Map<string, string>(),
     draftOwners: new Map<string, string>(),
     drafts: new Map<string, Draft>(),
     papers: new Map<string, Item[]>(),

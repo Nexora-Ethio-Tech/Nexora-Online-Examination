@@ -1,3 +1,5 @@
+import { StaffAuthenticator } from './StaffAuthenticator';
+import { InvigilatorAssignments } from './InvigilatorAssignments';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -17,12 +19,13 @@ export function AssistancePage() {
     queryFn: ({ signal }) => assistanceApi(client).sessions(signal),
   });
   return (
-    <main className="space-y-5">
+    <div className="space-y-5">
       <h1 className="text-2xl font-semibold">Exam assistance</h1>
       <p>
         Review help requests on your own device. Approving lets the student open the exam again and
         continue; it does not extend the deadline or lift an administrative suspension.
       </p>
+      <StaffAuthenticator />
       <label className="block">
         Exam sitting
         <select
@@ -46,7 +49,7 @@ export function AssistancePage() {
       {selected && (
         <Sitting key={selected} id={selected} admin={session?.user.role === 'school_admin'} />
       )}
-    </main>
+    </div>
   );
 }
 function Sitting({ id, admin }: { id: string; admin: boolean }) {
@@ -75,7 +78,7 @@ function Sitting({ id, admin }: { id: string; admin: boolean }) {
       {inbox.data?.requests.map((request) => (
         <Decision key={request.id} request={request} refresh={() => void inbox.refetch()} />
       ))}
-      {admin && <Assignments id={id} />}
+      {admin && <InvigilatorAssignments id={id} />}
     </div>
   );
 }
@@ -161,70 +164,6 @@ function Decision({
           Reject request
         </Button>
       </div>
-      {message && <p role="status">{message}</p>}
-    </section>
-  );
-}
-function Assignments({ id }: { id: string }) {
-  const client = useApiClient();
-  const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const staff = useQuery({
-    queryKey: ['assistance', 'staff', id],
-    queryFn: ({ signal }) => assistanceApi(client).staff(id, signal),
-  });
-  async function assign(staffId: string, active: boolean, expectedRevision: number) {
-    setBusy(true);
-    setMessage('');
-    try {
-      await assistanceApi(client).assign(id, { staffId, active, expectedRevision, reason });
-      setMessage('Staff assignment saved.');
-    } catch (failure) {
-      setMessage(errorMessage(failure));
-    } finally {
-      await staff.refetch();
-      setBusy(false);
-    }
-  }
-  return (
-    <section className="space-y-3 rounded-xl border p-4">
-      <h2 className="text-lg font-semibold">Assign teachers to this sitting</h2>
-      <p className="text-sm">
-        Teachers need confirmed MFA enrollment through the protected operator tool before
-        assignment. School administrators already have school-wide assistance access.
-      </p>
-      <label className="block">
-        Assignment change reason
-        <input
-          className="mt-1 min-h-11 w-full rounded border bg-background p-2"
-          value={reason}
-          maxLength={500}
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </label>
-      {staff.isPending && <p role="status">Loading staff…</p>}
-      {staff.error && <p role="alert">{errorMessage(staff.error)}</p>}
-      {staff.data?.staff
-        .filter((s) => s.role === 'teacher')
-        .map((s) => (
-          <div
-            key={s.id}
-            className="flex flex-wrap items-center justify-between gap-3 border-t py-3"
-          >
-            <p>
-              {s.displayName} · {s.active ? 'Assigned' : 'Not assigned'} ·{' '}
-              {s.mfaEnrolled ? 'MFA confirmed' : 'MFA required'}
-            </p>
-            <Button
-              variant="outline"
-              disabled={busy || !reason.trim() || (!s.active && !s.mfaEnrolled)}
-              onClick={() => void assign(s.id, !s.active, s.revision)}
-            >
-              {s.active ? 'Revoke assignment' : 'Assign teacher'}
-            </Button>
-          </div>
-        ))}
       {message && <p role="status">{message}</p>}
     </section>
   );

@@ -1,3 +1,4 @@
+import { InvigilatorAssignments } from '@/features/assistance/InvigilatorAssignments';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { EthiopianDateTimeField } from '@/components/shared/EthiopianDateTimeField';
 import { useEffect, useRef, useState } from 'react';
@@ -556,6 +557,7 @@ export function AdminExamDetail() {
               <dd>{eatTime(s.resultsReleaseAt)}</dd>
             </div>
           </dl>
+          <InvigilatorAssignments id={s.sessionId} />
           <p className="mt-3 text-xs text-muted-foreground">
             Schedule revision {s.scheduleRevision} · Approved version {s.approvedVersion}
           </p>

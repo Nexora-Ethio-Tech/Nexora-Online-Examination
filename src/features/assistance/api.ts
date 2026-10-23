@@ -14,7 +14,7 @@ const staffSchema = z.object({
     z.object({
       id: z.string().uuid(),
       displayName: z.string(),
-      role: z.enum(['teacher', 'school_admin']),
+      role: z.enum(['teacher', 'school_admin', 'invigilator']),
       mfaEnrolled: z.boolean(),
       active: z.boolean(),
       revision: z.number().int(),

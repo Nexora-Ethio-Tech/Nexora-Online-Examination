@@ -183,7 +183,9 @@ export function createDemoTransport(
       );
     }
     if (
-      /^\/(classes|subjects|teachers|students|teacher-assignments|directory)(\/|$)/.test(apiPath) ||
+      /^\/(classes|subjects|teachers|invigilators|students|teacher-assignments|directory)(\/|$)/.test(
+        apiPath,
+      ) ||
       apiPath === '/admin/directory-audit' ||
       apiPath === '/school/ai-exam-settings'
     ) {
@@ -269,6 +271,68 @@ export function createDemoTransport(
         method,
         body,
         new Headers(init.headers),
+      );
+    }
+    if (apiPath.startsWith('/assistance/')) {
+      if (!role || role === 'student') return error(403, 'FORBIDDEN', 'Staff access required.');
+      if (apiPath === '/assistance/authenticator' && method === 'GET')
+        return json({ enrolled: true, selfSetupAllowed: false });
+      if (apiPath === '/assistance/sessions')
+        return json({
+          sessions: [...store.sessions.values()]
+            .filter(
+              (s) =>
+                role === 'school_admin' ||
+                store.invigilation.get(s.session.sessionId + '/' + actorId)?.active,
+            )
+            .map((s) => ({
+              id: s.session.sessionId,
+              title: s.title,
+              startsAt: s.session.startsAt,
+            })),
+        });
+      const staffMatch = /^\/assistance\/sessions\/([^/]+)\/staff$/.exec(apiPath);
+      if (staffMatch) {
+        if (role !== 'school_admin')
+          return error(403, 'FORBIDDEN', 'Administrator access required.');
+        const sitting = staffMatch[1];
+        const people = [...store.directory.accounts.values()].filter(
+          (a) => a.role !== 'student' && a.status === 'active',
+        );
+        for (const a of people)
+          if (!store.staffAliases.has(a.userId))
+            store.staffAliases.set(a.userId, crypto.randomUUID());
+        if (method === 'POST') {
+          const b = body as {
+            staffId?: string;
+            active?: boolean;
+            expectedRevision?: number;
+            reason?: string;
+          };
+          const target = people.find((a) => store.staffAliases.get(a.userId) === b.staffId);
+          if (!target || typeof b.active !== 'boolean' || !b.reason?.trim())
+            return error(422, 'VALIDATION_ERROR', 'Choose staff and enter a reason.');
+          const k = sitting + '/' + target.userId;
+          const old = store.invigilation.get(k);
+          if ((old?.revision ?? 0) !== b.expectedRevision)
+            return error(409, 'REVISION_CONFLICT', 'Refresh staff assignments.');
+          store.invigilation.set(k, { active: b.active, revision: (old?.revision ?? 0) + 1 });
+        }
+        return json({
+          staff: people.map((a) => ({
+            id: store.staffAliases.get(a.userId),
+            displayName: a.displayName,
+            role: a.role,
+            mfaEnrolled: true,
+            ...(store.invigilation.get(sitting + '/' + a.userId) ?? { active: false, revision: 0 }),
+          })),
+        });
+      }
+      if (apiPath.endsWith('/requests') && method === 'GET') return json({ requests: [] });
+      return error(
+        422,
+        'VALIDATION_ERROR',
+        'Use the integrated test backend to test authenticator enrollment and assistance decisions.',
       );
     }
     if (
