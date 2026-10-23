@@ -290,6 +290,11 @@ test('teacher import and review through admin approval, scheduling and extra tim
   await fillEatDateTime(page, 'Planned results date and time (EAT)', originalRelease);
   await page.getByRole('checkbox', { name: /I checked the EAT/ }).check();
   await page.getByRole('button', { name: 'Confirm schedule', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Assign invigilators' })).toBeVisible();
+  await page.getByLabel('Assignment change reason').fill('Assigned to supervise this sitting.');
+  await page.getByRole('button', { name: 'Assign invigilator', exact: true }).first().click();
+  await expect(page.getByText('Staff assignment saved.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Revoke assignment' })).toBeVisible();
   await page.getByRole('link', { name: 'Manage extra time' }).click();
   await page.getByRole('button', { name: 'Edit extra time for Samira' }).click();
   await page.getByLabel(/Extra minutes/).fill('15');

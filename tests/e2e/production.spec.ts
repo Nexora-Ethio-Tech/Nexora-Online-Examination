@@ -171,3 +171,65 @@ test('production auth failures show retry guidance without demo credentials', as
   await expect(page.getByText(/Development demo/)).toHaveCount(0);
   await accessible(page);
 });
+
+test('limited invigilator privately enrolls an authenticator on mobile', async ({
+  page,
+  context,
+}) => {
+  let enrolled = false;
+  await context.route('**/api/v1/**', async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const serverNow = new Date().toISOString();
+    let body: unknown;
+    if (path.endsWith('/auth/csrf')) body = { csrfToken: 'test-csrf', serverNow };
+    else if (path.endsWith('/auth/me'))
+      body = {
+        user: {
+          id: 'test-invigilator',
+          loginId: 'TEST-INV',
+          displayName: 'Test Invigilator',
+          role: 'invigilator',
+        },
+        school: { id: 'test-school', name: 'Test School', timezone: 'Africa/Addis_Ababa' },
+        csrfToken: 'test-csrf',
+        serverNow,
+      };
+    else if (path.endsWith('/assistance/sessions')) body = { sessions: [] };
+    else if (path.endsWith('/assistance/authenticator'))
+      body = { enrolled, selfSetupAllowed: !enrolled };
+    else if (path.endsWith('/authenticator/setup')) {
+      expect(route.request().postDataJSON()).toEqual({ password: 'test-password' });
+      body = {
+        secret: 'JBSWY3DPEHPK3PXP',
+        otpauthUri: 'otpauth://totp/Nexora:TEST?secret=JBSWY3DPEHPK3PXP&issuer=Nexora',
+        expiresAt: new Date(Date.now() + 300000).toISOString(),
+      };
+    } else if (path.endsWith('/authenticator/confirm')) {
+      expect(route.request().postDataJSON()).toEqual({ code: '123456' });
+      enrolled = true;
+      body = { enrolled, selfSetupAllowed: false };
+    } else
+      return route.fulfill({
+        status: 404,
+        json: { code: 'NOT_FOUND', message: 'Unknown test route' },
+      });
+    await route.fulfill({ json: body });
+  });
+  await page.goto('/teacher');
+  await expect(page).toHaveURL(/\/invigilator$/);
+  await page.getByRole('button', { name: 'Close guide' }).click();
+  await page.getByLabel('Confirm your password').fill('test-password');
+  await page.getByRole('button', { name: 'Set up authenticator', exact: true }).click();
+  const qr = page.getByAltText('Your private Nexora authenticator setup QR code');
+  await expect(qr).toBeVisible();
+  await expect(qr).toHaveAttribute('src', /^data:image\/png;base64,/);
+  await accessible(page);
+  await page.getByLabel('Authenticator setup code').fill('123456');
+  await page.getByRole('button', { name: 'Confirm authenticator', exact: true }).click();
+  await expect(qr).toHaveCount(0);
+  await expect(
+    page.getByText('No assigned sittings are available. Ask your school administrator.'),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'School setup' })).toHaveCount(0);
+  await accessible(page);
+});

@@ -5,7 +5,7 @@ import { databasePoolConfig } from '../src/common/db/database-config';
 import { allocateStudentNumbers, studentLoginId } from '../src/modules/directory/student-numbering';
 
 describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
-  'migrations 024 and 025 on isolated PostgreSQL',
+  'migrations 024 through 026 on isolated PostgreSQL',
   () => {
     let admin: Pool;
     let runtime: Pool;
@@ -94,6 +94,26 @@ describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
           )
         ).rows[0],
       ).toEqual({ relrowsecurity: true, relforcerowsecurity: true });
+    });
+    it('accepts limited invigilators after migration 026', async () => {
+      expect(
+        (
+          await admin.query(
+            "SELECT version FROM schema_migrations WHERE version='026_invigilator_role.sql'",
+          )
+        ).rowCount,
+      ).toBe(1);
+      await transaction(async (c) => {
+        const id = randomUUID();
+        await c.query(
+          "INSERT INTO users(id,school_id,login_id,display_name,role,password_hash) VALUES($1::uuid,$2::uuid,$1::text,'Invigilator','invigilator','unused')",
+          [id, school],
+        );
+        expect(
+          (await c.query('SELECT role FROM users WHERE school_id=$1 AND id=$2', [school, id]))
+            .rows[0].role,
+        ).toBe('invigilator');
+      }, true);
     });
     it('continues after both legacy and year-suffixed student IDs without renaming them', async () => {
       await transaction(async (c) => {

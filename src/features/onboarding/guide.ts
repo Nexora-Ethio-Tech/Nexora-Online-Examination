@@ -2,10 +2,22 @@ import type { Role } from '@/features/auth/schemas';
 export type GuideStep = { title: string; body: string; path: string };
 /** Update this manifest with every user-facing feature addition/removal. Content changes reopen the guide. */
 export const guides: Record<Role, GuideStep[]> = {
+  invigilator: [
+    {
+      title: 'Set up your authenticator',
+      body: 'In Exam assistance, set up your authenticator on your own device before supervising. Keep the setup key private.',
+      path: '/invigilator',
+    },
+    {
+      title: 'Support assigned exams',
+      body: 'Choose an assigned sitting. Verify the student, then approve a help request with a fresh authenticator code on your own device. The original deadline continues.',
+      path: '/invigilator',
+    },
+  ],
   school_admin: [
     {
       title: 'Set up your school',
-      body: 'Create classes using Grade and Section, then create subjects for each grade and assign teachers. Find assignments by grade, class, subject or teacher. Delete class removes it from current use while previous exam results remain.',
+      body: 'Create classes using Grade and Section, then create subjects for each grade and assign teachers. Find assignments by grade, class, subject or teacher. Use Accounts → Invigilators to create limited accounts for non-teaching staff. Delete class removes it from current use while previous exam results remain.',
       path: '/admin/school?tab=classes',
     },
     {
@@ -15,7 +27,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Approve and schedule exams',
-      body: 'Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Choose 1–120 preparation minutes (10 by default). Check the exam start, end and results dates before confirming.',
+      body: 'Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Choose 1–120 preparation minutes (10 by default). Check the exam start, end and results dates before confirming. Then assign invigilators under the saved sitting dates and check their authenticator readiness.',
       path: '/admin',
     },
     {
@@ -52,7 +64,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Provide exam assistance',
-      body: 'Assigned staff can approve a student assistance request with a fresh authenticator code on their own device.',
+      body: 'Open Exam assistance to set up your authenticator with a private QR code and confirmation. Assigned staff approve student requests with a fresh code on their own device; no staff codes are entered on student screens.',
       path: '/teacher/assistance',
     },
   ],
