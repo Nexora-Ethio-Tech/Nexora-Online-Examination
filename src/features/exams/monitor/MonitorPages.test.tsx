@@ -120,7 +120,7 @@ describe('administrator monitor screen', () => {
     await c.monitor.transfer(c.attempt.attemptId, c.body, crypto.randomUUID());
     await user.click(screen.getByRole('button', { name: 'Refresh monitor' }));
     await screen.findByText('Generation 1 → 2 · Hana');
-    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /I verified this student/ })).not.toBeChecked();
     expect(screen.getByRole('button', { name: 'Approve device replacement' })).toBeDisabled();
   });
   it('disables a previously valid form when its server-sampled deadline passes without a new response', async () => {

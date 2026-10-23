@@ -1,3 +1,4 @@
+import { SecurityIncidentsPanel } from '@/features/runner/SecurityIncidentsPanel';
 import { useState } from 'react';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { InterruptionRecord } from './InterruptionRecord';
@@ -7,7 +8,17 @@ import { Button } from '@/components/ui/button';
 import { useApiClient } from '@/lib/ApiProvider';
 import { supervisionApi } from '@/features/runner/supervision';
 import { useAuth } from '@/features/auth/AuthProvider';
-export function SupervisionPanel({ attemptId }: { attemptId: string }) {
+export function SupervisionPanel({
+  attemptId,
+  studentLoginId = 'Unavailable',
+  studentName,
+  examTitle,
+}: {
+  attemptId: string;
+  studentLoginId?: string;
+  studentName?: string;
+  examTitle?: string;
+}) {
   const client = useApiClient();
   const { session } = useAuth();
   const api = supervisionApi(client);
@@ -118,6 +129,15 @@ export function SupervisionPanel({ attemptId }: { attemptId: string }) {
               Clear decision form and refresh
             </Button>
           )}
+          <SecurityIncidentsPanel
+            incidents={d.events.map((e) => ({
+              ...e,
+              attemptId,
+              studentLoginId,
+              studentName,
+              examTitle,
+            }))}
+          />
           <h3 className="font-semibold">Recent interruptions (up to 100 recent records)</h3>
           {!d.events.length && (
             <p>No received interruption reports. This does not prove uninterrupted attendance.</p>

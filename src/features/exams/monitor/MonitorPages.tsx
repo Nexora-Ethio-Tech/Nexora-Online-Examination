@@ -376,7 +376,12 @@ function MonitorAttemptContent({ attemptId }: { attemptId: string }) {
         Back to sitting monitor
       </Link>
       <h1 className="text-3xl font-semibold">Device replacement</h1>
-      <SupervisionPanel attemptId={attemptId} />
+      <SupervisionPanel
+        attemptId={attemptId}
+        studentLoginId={d?.student.loginId}
+        studentName={d?.student.studentName}
+        examTitle={d?.sitting.title}
+      />
       <Refresh
         at={d?.serverNow}
         fresh={fresh}
