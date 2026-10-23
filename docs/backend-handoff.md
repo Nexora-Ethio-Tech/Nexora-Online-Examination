@@ -119,3 +119,7 @@ Created separate persistent manual and disposable PostgreSQL databases without m
 Fixed worker school discovery under restricted runtime RLS by using explicit operator scope and tenant transactions. Local worker restarted with the test school configured. Added Groq primary/Gemini fallback, bounded attempts and token reservations, actual successful-model recording, and a synthetic provider diagnostic. Private credentials remain outside Git. See [architecture, setup and acceptance guide](import-worker-recovery-and-ai-testing.md).
 
 Validation: 168 backend unit tests, 18 real local integration cases, 229 frontend tests and 14 release/config checks passed; backend/frontend builds and frontend check passed. Live synthetic Groq response passed; Gemini returned HTTP 503 and remains unverified. Prior cancelled imports were not resurrected. No hosted database, push or deployment was involved.
+
+## 23 October 2026 — supplied shield activated
+
+The missing geometry and incidents panel were supplied. Official RunnerPage now mounts the strict/fullscreen shield with a five-episode UI lock, a user-gesture Start exam, one watermark and one overlay. New callback kinds use the existing interruption endpoint and offline queue; no automatic server penalties were introduced. Administrator attempt monitoring includes the supplied grouped panel, with display-only review recommendations. See [architecture and testing](supplied-security-shield-integration.md) for integration details, limitations and acceptance steps. This supersedes the earlier incomplete-integration status.
