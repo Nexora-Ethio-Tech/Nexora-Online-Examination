@@ -71,7 +71,7 @@ export function ScheduleForm({
       : 10,
   );
   const validPreparation =
-    Number.isInteger(preparationMinutes) && preparationMinutes >= 1 && preparationMinutes <= 120;
+    Number.isInteger(preparationMinutes) && preparationMinutes >= 0 && preparationMinutes <= 120;
   const [reason, setReason] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState('');
@@ -176,12 +176,14 @@ export function ScheduleForm({
               setConfirmed(false);
             }}
           />
-          <label className="block space-y-2">
-            Preparation duration (minutes)
+          <div className="block space-y-2">
+            <label htmlFor="preparation-duration">Preparation duration (minutes)</label>
             <input
               className={control}
               type="number"
-              min={1}
+              id="preparation-duration"
+              aria-describedby="preparation-duration-help"
+              min={0}
               max={120}
               step={1}
               value={Number.isNaN(preparationMinutes) ? '' : preparationMinutes}
@@ -191,10 +193,14 @@ export function ScheduleForm({
               }}
               aria-invalid={!validPreparation}
             />
+            <span id="preparation-duration-help" className="block text-xs text-muted-foreground">
+              Default: 10 minutes. Set 0 to open downloads and start the exam at the same scheduled
+              time; downloading still takes time.
+            </span>
             {!validPreparation && (
-              <span role="alert">Choose a whole number from 1 to 120 minutes.</span>
+              <span role="alert">Choose a whole number from 0 to 120 minutes.</span>
             )}
-          </label>
+          </div>
         </div>
         <EthiopianDateTimeField
           label="Planned results date and time (EAT)"
@@ -235,8 +241,8 @@ export function ScheduleForm({
         </div>
       )}
       <p className="text-sm text-muted-foreground">
-        Scheduling saves the list of eligible students in {detail.className}. Planned results stay
-        hidden until separately approved for publication. Practice stays disabled.
+        Scheduling saves the list of eligible students in {detail.className}. Results release
+        automatically at the planned time after submission windows close. Practice stays disabled.
       </p>
       <label className="flex min-h-11 items-start gap-3 text-sm">
         <input

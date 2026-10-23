@@ -18,7 +18,7 @@ it('requires reconfirmation after changing preparation duration and rejects inva
   fireEvent.click(screen.getByRole('button', { name: 'Confirm schedule' }));
   expect(save).toHaveBeenLastCalledWith(expect.any(String), expect.any(String), '', 25);
   save.mockClear();
-  fireEvent.change(duration, { target: { value: '0' } });
+  fireEvent.change(duration, { target: { value: '-1' } });
   fireEvent.click(screen.getByRole('checkbox'));
   fireEvent.click(screen.getByRole('button', { name: 'Confirm schedule' }));
   expect(save).not.toHaveBeenCalled();
@@ -175,4 +175,16 @@ it('includes approved extra time in rescheduling preview and planned-results val
   fireEvent.click(screen.getByRole('checkbox'));
   fireEvent.click(screen.getByRole('button', { name: 'Save schedule change' }));
   expect(save).not.toHaveBeenCalled();
+});
+
+it('accepts zero minutes with the same scheduled download and start time', () => {
+  vi.spyOn(performance, 'now').mockReturnValue(0);
+  const save = vi.fn();
+  render(<ScheduleForm detail={detail} pending={false} onRefresh={vi.fn()} onSave={save} />);
+  fireEvent.change(screen.getByRole('spinbutton', { name: /Preparation duration/ }), {
+    target: { value: '0' },
+  });
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm schedule' }));
+  expect(save).toHaveBeenCalledWith(expect.any(String), expect.any(String), '', 0);
 });
