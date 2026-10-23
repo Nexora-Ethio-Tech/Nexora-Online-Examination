@@ -232,7 +232,7 @@ test('student answers offline, navigates questions and receives a confirmed subm
 
 test('teacher import and review through admin approval, scheduling and extra time', async ({
   page,
-}) => {
+}, testInfo) => {
   await login(page, 'TEACHER');
   await page.getByRole('button', { name: 'New exam', exact: true }).click();
   await page.getByLabel('Exam title', { exact: true }).fill('Browser algebra');
@@ -276,6 +276,29 @@ test('teacher import and review through admin approval, scheduling and extra tim
   });
   const originalPrep = await readEatDateTime(page, 'Preparation date and time (EAT)');
   const originalRelease = await readEatDateTime(page, 'Planned results date and time (EAT)');
+  for (const field of [prep, release]) {
+    const toggle = field.getByRole('button', { name: /Close calendar/ });
+    if (await toggle.isVisible()) await toggle.click();
+    await expect(field.getByRole('combobox', { name: 'Day', exact: true })).toBeVisible();
+    await expect(field.getByText(/Gregorian equivalent:/)).toBeVisible();
+  }
+  const prepBox = await prep.boundingBox();
+  const releaseBox = await release.boundingBox();
+  const durationBox = await page
+    .getByLabel('Preparation duration (minutes)', { exact: true })
+    .boundingBox();
+  if (!prepBox || !releaseBox || !durationBox) throw new Error('Schedule fields missing');
+  if ((page.viewportSize()?.width ?? 0) >= 1280) {
+    expect(Math.abs(prepBox.y - releaseBox.y)).toBeLessThan(5);
+    expect(releaseBox.x).toBeGreaterThan(prepBox.x + prepBox.width);
+  } else {
+    expect(releaseBox.y).toBeGreaterThan(durationBox.y + durationBox.height);
+    expect(releaseBox.y - durationBox.y - durationBox.height).toBeLessThan(45);
+  }
+  await prep
+    .locator('..')
+    .locator('..')
+    .screenshot({ path: testInfo.outputPath('compact-schedule.png') });
   await expect(prep).toContainText('Ethiopian calendar');
   await expect(prep).toContainText('AM/PM');
   await accessible(page);
@@ -556,4 +579,26 @@ test('fullscreen resume and pointer blackout preserve the active exam', async ({
   await page.getByRole('button', { name: 'Acknowledge & Resume Exam' }).click();
   await expect(page.getByRole('radio').first()).toBeChecked();
   await expect(page.locator('.exam-runner-protected')).toHaveAttribute('data-tamper-count', '0');
+});
+
+test('student exam categories stay usable on every screen size', async ({ page }, testInfo) => {
+  await login(page, 'STUDENT');
+  await page.getByRole('button', { name: 'Upcoming exams', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Physics · tomorrow' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Chemistry · completed' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Past exams', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Chemistry · completed' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Graded', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Graded', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Graded', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.getByRole('button', { name: 'All exams', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Current exams', exact: true })).toBeVisible();
+  await accessible(page);
+  await page.screenshot({
+    path: testInfo.outputPath('student-exam-categories.png'),
+    fullPage: true,
+  });
 });
