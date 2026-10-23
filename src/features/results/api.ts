@@ -28,6 +28,16 @@ export function resultsApi(client: ApiClient) {
         analyticsSchema,
         { signal },
       ),
+    scheduleRelease: (
+      id: string,
+      body: { expectedReleaseAt: string; releaseAt: string },
+      key: string,
+    ) =>
+      client.request(
+        `/sessions/${encodeURIComponent(id)}/results-release-schedule`,
+        summarySchema,
+        { method: 'POST', body, idempotencyKey: key },
+      ),
     publish: (id: string, body: PublishRequest, key: string) =>
       client.request(`/sessions/${encodeURIComponent(id)}/results-publication`, summarySchema, {
         method: 'POST',

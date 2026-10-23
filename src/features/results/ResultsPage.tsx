@@ -1,7 +1,7 @@
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { EthiopianDateTimeField } from '@/components/shared/EthiopianDateTimeField';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -9,10 +9,10 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { roleHome } from '@/features/auth/role-home';
 import { eatTime } from '@/features/exams/ExamsPage';
 import { parseEatInput, toEatInput } from '@/features/exams/admin/schemas';
-import { control, Failure, panel, useTeacherScope } from '@/features/exams/authoring/TeacherPage';
+import { Failure, panel, useTeacherScope } from '@/features/exams/authoring/TeacherPage';
 import { useApiClient } from '@/lib/ApiProvider';
 import { resultsApi } from './api';
-import type { PublishRequest, Report, ResultRow } from './schemas';
+import type { Report, ResultRow } from './schemas';
 
 const statusText = (status: ResultRow['status']) =>
   ({
@@ -65,10 +65,10 @@ export function ResultsPage() {
       <h1 className="text-3xl font-semibold">Official results</h1>
       <p className="text-muted-foreground">
         {student
-          ? 'Your official marks appear after administrator approval and the release time.'
+          ? 'Your official marks appear automatically at the scheduled release time.'
           : session?.user.role === 'teacher'
-            ? 'Results for your assigned classes and subjects. Publication is managed by your administrator.'
-            : 'Review school results and approve each sitting for publication.'}
+            ? 'Results for your assigned classes and subjects. Results release automatically at the scheduled time.'
+            : 'Review school results and manage release dates before they arrive.'}
       </p>
       <div className="flex flex-wrap gap-3">
         <RefreshControl
@@ -185,143 +185,74 @@ function PublicationForm({ report }: { report: Report }) {
   const api = resultsApi(useApiClient());
   const cache = useQueryClient();
   const [release, setRelease] = useState(toEatInput(report.summary.plannedReleaseAt));
-  const [reason, setReason] = useState('');
-  const [confirmed, setConfirmed] = useState(false);
-  const [exclusions, setExclusions] = useState<Record<string, string>>({});
+  const [now, setNow] = useState(Date.parse(report.serverNow));
+  useEffect(() => {
+    const received = performance.now(),
+      epoch = Date.parse(report.serverNow);
+    const timer = setInterval(() => setNow(epoch + performance.now() - received), 1000);
+    return () => clearInterval(timer);
+  }, [report.serverNow]);
   const retained = useRef<{ payload: string; key: string } | null>(null);
   const mutation = useMutation({
-    mutationFn: (body: PublishRequest) => {
+    mutationFn: (releaseAt: string) => {
+      const body = { expectedReleaseAt: report.summary.plannedReleaseAt, releaseAt };
       const payload = JSON.stringify(body);
       if (retained.current?.payload !== payload)
         retained.current = { payload, key: crypto.randomUUID() };
-      return api.publish(report.summary.sessionId, body, retained.current.key);
+      return api.scheduleRelease(report.summary.sessionId, body, retained.current.key);
     },
     onSuccess: () => {
       void cache.invalidateQueries({
-        predicate: (q) =>
-          q.queryKey[0] === 'result-detail' ||
-          q.queryKey[0] === 'result-report' ||
-          q.queryKey[0] === 'result-sessions',
+        predicate: (q) => String(q.queryKey[0]).startsWith('result-'),
       });
     },
   });
-  const pending = report.rows.filter(
-    (r) => r.status === 'awaiting_upload' || r.status === 'recovery_pending',
-  );
   const releaseAt = parseEatInput(release);
-  const closed = Date.parse(report.serverNow) > Date.parse(report.summary.publishableAfter);
+  const locked = now >= Date.parse(report.summary.plannedReleaseAt);
   const valid =
-    closed &&
-    confirmed &&
-    reason.trim() &&
+    !locked &&
     releaseAt &&
-    Date.parse(releaseAt) >= Date.parse(report.summary.publishableAfter) &&
-    pending.every((r) => r.attemptId && exclusions[r.attemptId]?.trim());
-  if (report.summary.publication?.revision === report.summary.revision)
-    return (
-      <section className={`${panel} print:hidden`}>
-        <h2 className="text-xl font-semibold">Publication approved</h2>
-        <p className="mt-2">
-          Revision {report.summary.revision} becomes visible at{' '}
-          {eatTime(report.summary.publication.releaseAt)}.
-        </p>
-        <p className="mt-2">
-          Approved by {report.summary.publication.approvedBy}: {report.summary.publication.reason}
-        </p>
-      </section>
-    );
+    Date.parse(releaseAt) > now &&
+    Date.parse(releaseAt) >= Date.parse(report.summary.publishableAfter);
   return (
-    <form
-      className={`${panel} space-y-4 print:hidden`}
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (valid && releaseAt)
-          mutation.mutate({
-            revision: report.summary.revision,
-            releaseAt,
-            reason: reason.trim(),
-            exclusions: pending.map((r) => ({
-              attemptId: r.attemptId ?? '',
-              reason: exclusions[r.attemptId ?? '']?.trim() ?? '',
-            })),
-          });
-      }}
-    >
-      <h2 className="text-xl font-semibold">Approve result publication</h2>
-      <p>Students cannot see this revision until you approve it and its release time arrives.</p>
-      {!closed && (
-        <p role="status">
-          Publication is available after {boundaryTime(report.summary.publishableAfter)}, when all
-          submission windows have closed.
-        </p>
-      )}
-      <EthiopianDateTimeField
-        label="Results release date and time (EAT)"
-        value={release}
-        disabled={mutation.isPending}
-        onChange={setRelease}
-      />
-      {(!releaseAt || Date.parse(releaseAt) < Date.parse(report.summary.publishableAfter)) && (
-        <p className="text-destructive">
-          Choose a valid release time after all submission windows close.
-        </p>
-      )}
-      <label className="block">
-        Publication reason
-        <textarea
-          className={control}
-          maxLength={2000}
-          value={reason}
-          disabled={mutation.isPending}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Explain your review and decision."
-        />
-      </label>
-      {pending.length > 0 && (
-        <p>
-          These attempts are unresolved. Resolve them through{' '}
-          <Link className="underline" to="/admin/recovery">
-            recovery review
-          </Link>
-          , or explicitly exclude each from this publication. Exclusion does not reject or delete
-          the retained upload.
-        </p>
-      )}
-      {pending.map((row) => (
-        <label className="block" key={row.studentId}>
-          Exclusion reason for {row.studentName} ({statusText(row.status)})
-          <textarea
-            className={control}
-            maxLength={2000}
+    <section className={`${panel} space-y-4 print:hidden`}>
+      <h2 className="text-xl font-semibold">Automatic result release</h2>
+      <p>
+        Results become available to students at {eatTime(report.summary.plannedReleaseAt)}, after
+        all submission windows close. No publication approval is needed.
+      </p>
+      <p className="text-sm">
+        Pending uploads and recovery cases stay pending, with no invented marks. Accepted
+        corrections update automatically. Practice remains a separate decision.
+      </p>
+      {locked ? (
+        <p role="status">The release time has arrived. This date can no longer be changed.</p>
+      ) : (
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (valid && releaseAt) mutation.mutate(releaseAt);
+          }}
+        >
+          <EthiopianDateTimeField
+            label="Results release date and time (EAT)"
+            value={release}
+            onChange={setRelease}
             disabled={mutation.isPending}
-            value={exclusions[row.attemptId ?? ''] ?? ''}
-            onChange={(e) =>
-              setExclusions({ ...exclusions, [row.attemptId ?? '']: e.target.value })
-            }
           />
-        </label>
-      ))}
-      <label className="flex gap-3">
-        <input
-          type="checkbox"
-          checked={confirmed}
-          disabled={mutation.isPending}
-          onChange={(e) => setConfirmed(e.target.checked)}
-        />
-        I reviewed the marks, ranks, exclusions and release time for revision{' '}
-        {report.summary.revision}.
-      </label>
-      <Failure error={mutation.error} />
-      {mutation.isSuccess && <p role="status">Publication approval saved.</p>}
-      <Button disabled={!valid || mutation.isPending}>
-        {mutation.isPending ? 'Saving approval…' : 'Approve publication'}
-      </Button>
-      {!confirmed && (
-        <p className="text-sm text-muted-foreground">
-          Complete the reason and review confirmation to enable approval.
-        </p>
+          <p className="text-sm">
+            You can change this date only before the existing release time. The new time must follow{' '}
+            {boundaryTime(report.summary.publishableAfter)}.
+          </p>
+          <Button disabled={!valid || mutation.isPending}>
+            {mutation.isPending ? 'Saving…' : 'Save release date'}
+          </Button>
+        </form>
       )}
-    </form>
+      <Failure error={mutation.error} />
+      {mutation.isSuccess && <p role="status">Release date updated.</p>}
+    </section>
   );
 }
 

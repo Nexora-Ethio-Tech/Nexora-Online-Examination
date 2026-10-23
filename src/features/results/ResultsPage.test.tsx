@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
@@ -41,29 +41,13 @@ function setup(role: Role, pending = false) {
   return { ...fixture, user: userEvent.setup() };
 }
 describe('results screens', () => {
-  it('requires a reason, review confirmation and an explicit recovery exclusion before approval', async () => {
-    const { user, store } = setup('school_admin', true);
-    await screen.findByRole('heading', { name: 'Approve result publication' });
-    expect(screen.getByRole('button', { name: 'Approve publication' })).toBeDisabled();
-    await user.type(
-      screen.getByLabelText('Publication reason'),
-      'Reviewed marks and pending case.',
-    );
-    await user.click(screen.getByRole('checkbox', { name: /I reviewed the marks/ }));
-    expect(screen.getByRole('button', { name: 'Approve publication' })).toBeDisabled();
-    await user.type(
-      screen.getByLabelText(/Exclusion reason for Samira/),
-      'Evidence under investigation.',
-    );
-    await user.click(screen.getByRole('button', { name: 'Approve publication' }));
-    await screen.findByRole('heading', { name: 'Publication approved' });
-    await waitFor(() =>
-      expect(store.publications.get('sitting')?.[0]?.rows[0]).toMatchObject({
-        status: 'excluded',
-        score: null,
-        exclusionReason: 'Evidence under investigation.',
-      }),
-    );
+  it('replaces publication approval with a release-date editor and preserves pending cases', async () => {
+    const { store } = setup('school_admin', true);
+    await screen.findByRole('heading', { name: 'Automatic result release' });
+    expect(screen.queryByRole('button', { name: 'Approve publication' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save release date' })).toBeEnabled();
+    expect(store.resultAttempts.get('sitting')?.attempt.state).toBe('recovery_pending');
+    expect(screen.getByText(/Pending uploads and recovery cases stay pending/)).toBeInTheDocument();
   });
   it('shows teacher marks and charts with exports but no publication controls', async () => {
     setup('teacher');
