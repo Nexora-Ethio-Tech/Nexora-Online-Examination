@@ -28,6 +28,58 @@ export function CalendarGrid({
   const offset = (firstWeekday(value.year, value.month) + 6) % 7;
   return (
     <div className="min-w-0 space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        <label className="min-w-0 text-xs">
+          Month
+          <select
+            aria-label="Month"
+            className={style}
+            value={value.month}
+            onChange={(e) => change(value.year, Number(e.target.value))}
+          >
+            {months.map((m, i) => (
+              <option key={m} value={i + 1}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="min-w-0 text-xs">
+          Day
+          <select
+            aria-label="Day"
+            className={style}
+            value={value.day}
+            onChange={(e) => onChange({ ...value, day: Number(e.target.value) })}
+          >
+            {Array.from({ length: daysInMonth(value.year, value.month) }, (_, i) => i + 1).map(
+              (day) => (
+                <option key={day} value={day}>
+                  {day}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+        <label className="min-w-0 text-xs">
+          Year
+          <input
+            aria-label="Year"
+            className={style}
+            type="number"
+            min={minYear}
+            max={maxYear}
+            key={value.year}
+            defaultValue={value.year}
+            onBlur={(e) => {
+              const year = Number(e.target.value);
+              if (Number.isInteger(year) && year >= minYear && year <= maxYear)
+                change(year, value.month);
+              else e.target.value = String(value.year);
+            }}
+          />
+        </label>
+      </div>
       <Button
         type="button"
         variant="outline"
@@ -43,41 +95,6 @@ export function CalendarGrid({
           className="max-h-[60dvh] space-y-3 overflow-y-auto rounded border p-2"
           aria-label="Calendar"
         >
-          <div className="grid grid-cols-2 gap-2">
-            <label className="min-w-0 text-xs">
-              Month
-              <select
-                aria-label="Month"
-                className={style}
-                value={value.month}
-                onChange={(e) => change(value.year, Number(e.target.value))}
-              >
-                {months.map((m, i) => (
-                  <option key={m} value={i + 1}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="min-w-0 text-xs">
-              Year
-              <input
-                aria-label="Year"
-                className={style}
-                type="number"
-                min={minYear}
-                max={maxYear}
-                key={value.year}
-                defaultValue={value.year}
-                onBlur={(e) => {
-                  const year = Number(e.target.value);
-                  if (Number.isInteger(year) && year >= minYear && year <= maxYear)
-                    change(year, value.month);
-                  else e.target.value = String(value.year);
-                }}
-              />
-            </label>
-          </div>
           <div className="flex justify-between gap-2">
             <Button
               type="button"
