@@ -59,6 +59,45 @@ async function answer(engine: RunnerEngine, itemId = 'q1', value = 'true') {
 }
 
 describe('privacy interruption integrity', () => {
+  it('queues shield evidence offline and reports it after reconnecting without changing answers', async () => {
+    let offline = true;
+    const sent: unknown[] = [];
+    const { make } = await setup(async (url, init, next) => {
+      if (url.endsWith('/interruptions')) {
+        if (offline) throw new TypeError('Network unavailable');
+        if (typeof init.body === 'string') sent.push(JSON.parse(init.body));
+      }
+      return next(url, init);
+    });
+    const engine = make();
+    await engine.start();
+    await answer(engine);
+    const before = engine.snapshot().row;
+    if (!before) throw new Error('Missing attempt');
+    engine.reportSecurityEvent('watermark_tamper', 'Watermark removed');
+    await vi.waitFor(async () => {
+      const stored = await store.readRecord(before.key);
+      expect(stored?.interruptions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: 'watermark_tamper', reason: 'Watermark removed' }),
+        ]),
+      );
+    });
+    offline = false;
+    await vi.waitFor(async () => {
+      await engine.checkSupervision();
+      expect(sent).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            events: expect.arrayContaining([expect.objectContaining({ kind: 'watermark_tamper' })]),
+          }),
+        ]),
+      );
+    });
+    expect(engine.snapshot().row?.answers).toEqual(before.answers);
+    expect(engine.snapshot().row?.attempt.deadlineAt).toBe(before.attempt.deadlineAt);
+    expect(engine.snapshot().status).toBe('active');
+  });
   it('records focus loss without changing answers, deadline or active authorization', async () => {
     const { make } = await setup();
     const engine = make();

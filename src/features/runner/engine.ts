@@ -214,7 +214,11 @@ export class RunnerEngine {
   private fullscreenChanged = () => {
     if (!document.fullscreenElement) this.interruption('fullscreen_exit');
   };
-  private interruption(kind: Interruption['kind']) {
+  reportSecurityEvent(kind: Interruption['kind'], reason: string) {
+    this.interruption(kind, reason);
+    void this.queue.then(() => this.checkSupervision());
+  }
+  private interruption(kind: Interruption['kind'], reason?: string) {
     if (this.view.status !== 'active' || !this.view.row) return;
     const row = this.view.row;
     const observedAt = new Date().toISOString();
@@ -223,6 +227,7 @@ export class RunnerEngine {
         await store.recordInterruption(row.key, {
           id: crypto.randomUUID(),
           kind,
+          ...(reason ? { reason: reason.slice(0, 500) } : {}),
           observedAt,
           deviceGeneration: row.attempt.deviceGeneration,
         });
