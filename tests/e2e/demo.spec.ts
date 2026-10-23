@@ -286,6 +286,7 @@ test('teacher import and review through admin approval, scheduling and extra tim
   const releaseBox = await release.boundingBox();
   const durationBox = await page
     .getByLabel('Preparation duration (minutes)', { exact: true })
+    .locator('..')
     .boundingBox();
   if (!prepBox || !releaseBox || !durationBox) throw new Error('Schedule fields missing');
   if ((page.viewportSize()?.width ?? 0) >= 1280) {
@@ -411,6 +412,11 @@ test('administrator navigation, recovery and monitor screens are accessible', as
     page.getByRole('heading', { name: 'Device replacement', exact: true }),
   ).toBeVisible();
   await accessible(page);
+  await expect(page.getByRole('heading', { name: 'Activity summary' })).toBeVisible();
+  const activity = page.getByRole('region', { name: 'Grouped browser activity' });
+  await expect(activity.locator('details')).toHaveCount(4);
+  await activity.locator('summary').first().click();
+  await expect(activity.locator('details').first()).toHaveAttribute('open', '');
   await page.getByLabel('Reason for supervision decision').fill('Verify the student in person.');
   await page.getByRole('button', { name: 'Suspend exam attempt', exact: true }).click();
   await expect(
@@ -428,6 +434,8 @@ test('administrator navigation, recovery and monitor screens are accessible', as
 test('synthetic recovery acceptance retains evidence and produces an exportable report', async ({
   page,
 }) => {
+  await page.clock.install();
+  await page.reload();
   await login(page, 'ADMIN');
   await navigateWorkspace(page, 'Recovery review');
   await page.getByRole('button', { name: 'Load synthetic recovery example' }).click();
@@ -436,6 +444,7 @@ test('synthetic recovery acceptance retains evidence and produces an exportable 
   await page.getByRole('checkbox', { name: /I reviewed the upload/ }).check();
   await accessible(page);
   await page.getByRole('button', { name: 'Confirm acceptance' }).click();
+  await page.clock.fastForward(120000);
   await page.getByRole('link', { name: 'Review sitting results' }).click();
   await expect(page.getByRole('button', { name: 'Download sitting CSV' })).toBeEnabled();
   await accessible(page);
@@ -447,11 +456,8 @@ test('synthetic recovery acceptance retains evidence and produces an exportable 
   await expect(page.locator('header')).toBeHidden();
   await page.emulateMedia({ media: 'screen' });
   const release = new Date(Date.now() + 3 * 3600000 - 60000).toISOString().slice(0, 16);
-  await fillEatDateTime(page, 'Results release date and time (EAT)', release);
-  await page.getByLabel('Publication reason').fill('Reviewed synthetic marks and recovery.');
-  await page.getByRole('checkbox', { name: /I reviewed the marks/ }).check();
-  await page.getByRole('button', { name: 'Approve publication' }).click();
-  await expect(page.getByRole('heading', { name: 'Publication approved' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Automatic result release' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve publication' })).toHaveCount(0);
   await navigateWorkspace(page, 'Practice release');
   await page.getByRole('checkbox', { name: 'Enable practice', exact: true }).check();
   await fillEatDateTime(page, 'Practice release date and time (EAT)', release);

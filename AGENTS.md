@@ -18,7 +18,7 @@ Contract v0.9 adds BE-08 school setup/accounts. Read docs/backend-school-task.md
 
 Contract v0.8 adds BE-07 practice. Read docs/backend-practice-task.md; executable DTOs are src/features/practice/schemas.ts. Enforce admin/time/publication/all-related-sitting gates, first-answer immutability, valid completed maximum scoring and separation from official marks. GET /me/results has additive practice metadata. BE-04 must prevent scheduling while practice is enabled and official reuse after release. Demo tests do not prove backend concurrency or isolation.
 
-Contract v0.7 adds BE-06 recovery review. Read docs/backend-recovery-task.md for case reads/decisions. Preserve immutable evidence and correlate accepted receipts to the recovery upload key; acceptance never automatically publishes a result. Demo-only example routes are not production contracts.
+Contract v0.7 adds BE-06 recovery review. Read docs/backend-recovery-task.md for case reads/decisions. Preserve immutable evidence and correlate accepted receipts to the recovery upload key; acceptance preserves evidence; after the scheduled release time, authorized result reads automatically publish corrected revisions. See docs/automatic-results-and-grouped-history.md. Demo-only example routes are not production contracts.
 
 Contract v0.6 additionally issues BE-05 official results/publication. Read docs/backend-results-task.md for results work; src/features/results/schemas.ts is the executable DTO source. Preserve immutable publication revisions and server-side release/assignment gates. Earlier v0.5, v0.4 and v0.3 interfaces remain unchanged.
 
@@ -34,9 +34,9 @@ Contract v0.6 additionally issues BE-05 official results/publication. Read docs/
 - Write portal text for students, teachers and school administrators. Describe what happened and what to do next; keep implementation terms out of routine workflows. Preserve the difference between device saves, answers received by the school, pending review and confirmed submission. Follow docs/portal-language-architecture-and-testing.md and update onboarding when visible labels change.
 
 - New backend authentication uses opaque HttpOnly cookie sessions, Origin checks and CSRF. No JWT refresh flow is assumed. Never persist credentials in browser storage.
-- Server session determines school and permissions. Teachers submit; admins approve, schedule, publish, enable practice and decide recovery. Frontend guards are usability aids only.
+- Server session determines school and permissions. Teachers submit; admins approve exams, schedule exams and result release, enable practice and decide recovery. Frontend guards are usability aids only.
 - Students use generated IDs/passwords without required email. Admin MFA precedes privileged access and live school data.
-- Store UTC; use src/lib/ethiopian-date.ts for Ethiopian calendar dates, Amharic month names, Latin digits and standard AM/PM clocks in Africa/Addis_Ababa (EAT), independent of browser timezone. Use EthiopianDateTimeField for date/time forms. Do not introduce Gregorian-only native date controls or the six-hour Ethiopian clock offset. Preparation defaults to ten minutes; admins may choose 1–120 whole minutes per sitting. Late joining never resets a deadline.
+- Store UTC; use src/lib/ethiopian-date.ts for Ethiopian calendar dates, Amharic month names, Latin digits and standard AM/PM clocks in Africa/Addis_Ababa (EAT), independent of browser timezone. Use EthiopianDateTimeField for date/time forms. Do not introduce Gregorian-only native date controls or the six-hour Ethiopian clock offset. Preparation defaults to ten minutes; admins may choose 0–120 whole minutes per sitting. Late joining never resets a deadline.
 - Official packages exclude answer keys and explanations. Decryption keys remain server-side until authorized common-start unlock.
 - Persist each answer and outbox entry atomically before showing device-save success. Show last server save and pending upload separately.
 - Submitted requires a committed receipt for the exact frozen snapshot. Preserve pending evidence across 401, reload, retries and updates. Recovery pending is not submitted.

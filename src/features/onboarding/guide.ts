@@ -27,17 +27,17 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Approve and schedule exams',
-      body: 'Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Use the month, day and year controls or open the seven-day calendar. The date summary also shows the Gregorian equivalent. Preparation and results are side by side on wider screens. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Choose 1–120 preparation minutes (10 by default). Check the exam start, end and results dates before confirming. Then assign invigilators under the saved sitting dates and check their authenticator readiness.',
+      body: 'Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Use the month, day and year controls or open the seven-day calendar. The date summary also shows the Gregorian equivalent. Preparation and results are side by side on wider screens. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Choose 0–120 preparation minutes (10 by default). Check the exam start, end and results dates before confirming. Then assign invigilators under the saved sitting dates and check their authenticator readiness.',
       path: '/admin',
     },
     {
       title: 'Support active exams',
-      body: 'Use Live exams and Exam assistance to supervise students. Review browser incident descriptions as device reports, not proof that a screenshot was captured. The incident panel groups received reports and offers filters and review recommendations, not automatic server penalties. Staff approval never extends the original deadline.',
+      body: 'Use Live exams and Exam assistance to supervise students. Review browser incident descriptions as device reports, not proof that a screenshot was captured. Activity summary groups window changes, screen protection, watermark integrity and returns. Open a category for details; advanced analysis remains available. Staff approval never extends the original deadline.',
       path: '/admin/assistance',
     },
     {
-      title: 'Publish results',
-      body: 'Check results and recovery cases before publishing. Practice is released separately from official marks.',
+      title: 'Scheduled results',
+      body: 'Results release automatically at the scheduled time. Change the release date only before that time arrives. Pending recovery remains pending; practice is released separately.',
       path: '/admin/results',
     },
   ],
