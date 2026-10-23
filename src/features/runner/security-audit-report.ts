@@ -7,6 +7,8 @@ export interface SecurityEventSummary {
   screenshots: number;
   blurs: number;
   fullscreenExits: number;
+  inspections: number;
+  tampering: number;
   other: number;
 }
 
@@ -24,16 +26,22 @@ export function summarizeSecurityEvents(events: SecurityEventItem[]): SecurityEv
     screenshots: 0,
     blurs: 0,
     fullscreenExits: 0,
+    inspections: 0,
+    tampering: 0,
     other: 0,
   };
 
   for (const ev of events) {
     if (ev.kind === 'screenshot_attempt') {
       summary.screenshots++;
-    } else if (ev.kind === 'window_blur') {
+    } else if (['window_blur', 'focus_lost', 'hidden', 'pagehide'].includes(ev.kind)) {
       summary.blurs++;
     } else if (ev.kind === 'fullscreen_exit') {
       summary.fullscreenExits++;
+    } else if (ev.kind === 'devtools') {
+      summary.inspections++;
+    } else if (ev.kind === 'watermark_tamper') {
+      summary.tampering++;
     } else {
       summary.other++;
     }
@@ -81,7 +89,8 @@ export function formatSecurityAuditCSV(
 
 /**
  * Detailed export for proctor review: adds ReceivedAt and DelaySeconds so
- * late-delivered events (a sign telemetry was blocked or the device went offline) stand out.
+ * device/server time differences remain visible. Clock differences and network delays
+ * can both affect this value; it is not evidence of deliberate blocking.
  */
 export function formatSecurityAuditCSVDetailed(
   attemptId: string,
@@ -133,38 +142,4 @@ export function findDelayedEvents(
       Number.isFinite(observed) && Number.isFinite(received) && received - observed > thresholdMs
     );
   });
-}
-
-export type RiskLevel = 'clear' | 'review' | 'high';
-
-export interface RiskAssessment {
-  level: RiskLevel;
-  score: number;
-  reasons: string[];
-}
-
-export interface RiskThresholds {
-  reviewAt?: number;
-  highAt?: number;
-}
-
-/**
- * Simple weighted score to help proctors triage attempts.
- * Screenshots weigh most; tamper and other events count as 2; blurs as 1.
- */
-export function assessAttemptRisk(
-  summary: SecurityEventSummary,
-  { reviewAt = 4, highAt = 10 }: RiskThresholds = {},
-): RiskAssessment {
-  const score =
-    summary.screenshots * 3 + summary.fullscreenExits * 2 + summary.other * 2 + summary.blurs * 1;
-
-  const reasons: string[] = [];
-  if (summary.screenshots > 0) reasons.push(`${summary.screenshots} screenshot attempt(s)`);
-  if (summary.fullscreenExits > 0) reasons.push(`${summary.fullscreenExits} fullscreen exit(s)`);
-  if (summary.other > 0) reasons.push(`${summary.other} other security event(s) (e.g. tampering)`);
-  if (summary.blurs > 0) reasons.push(`${summary.blurs} window focus loss(es)`);
-
-  const level: RiskLevel = score >= highAt ? 'high' : score >= reviewAt ? 'review' : 'clear';
-  return { level, score, reasons };
 }
