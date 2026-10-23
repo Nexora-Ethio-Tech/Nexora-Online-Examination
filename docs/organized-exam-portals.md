@@ -1,5 +1,7 @@
 # Organized exam portals: architecture and testing
 
+Current local status: see [24 October alignment and test results](local-release-readiness.md). Historical limitations below refer to the earlier run.
+
 Implemented locally on 24 October 2026. No deployment or production database changes.
 
 ## Behavior

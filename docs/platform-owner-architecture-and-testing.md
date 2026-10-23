@@ -1,5 +1,7 @@
 # Platform owner: architecture and testing guide
 
+Current local status: see [24 October alignment and test results](local-release-readiness.md). Historical limitations below refer to the earlier run.
+
 20 October 2026. Implemented locally on `feat/verified-platform-development`. No migration, owner account, cloud deployment or production setting has been changed by this implementation. Real database and deployment acceptance remains required.
 
 ## User-facing behavior

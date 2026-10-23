@@ -8,6 +8,8 @@ This setup uses the actual frontend, NestJS API and PostgreSQL, with mocks disab
 - `nexora_be02a_test`: disposable integration testing. Automated suites create and remove synthetic records here. Do not create accounts you want to retain in this database.
 - The `DEMO-*` frontend accounts still belong only to the in-memory demo transport. They are not imported into either PostgreSQL database.
 
+Latest alignment and testing order: [local release rehearsal](local-release-readiness.md).
+
 ## Launch
 
 Run commands from `C:\Users\kaleab\Desktop\Nexora_Exam_Platform\exam-frontend`.
@@ -16,6 +18,8 @@ Start PostgreSQL once (an already-running instance may report that it is running
 
 ```powershell
 node scripts/local-test.ts db
+node scripts/local-test.ts migrate
+npm --prefix nexora-backend run build
 ```
 
 In separate PowerShell terminals, keep these running:

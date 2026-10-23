@@ -1,5 +1,7 @@
 # Account IDs and eight-character passwords
 
+Current local status: see [24 October alignment and test results](local-release-readiness.md). Historical limitations below refer to the earlier run.
+
 ## What changed
 
 New students receive `STU/SID/NNNN/YY`, for example `STU/001/0001/19`. New teachers receive `TCH/SID/NNNN`, for example `TCH/001/0001`.
