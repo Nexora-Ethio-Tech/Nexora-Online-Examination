@@ -8,6 +8,7 @@ import {
   toEatInput,
   formatEthiopianDate,
   formatEatDateTime,
+  formatGregorianEatDate,
   parseEatInput,
 } from '@/lib/ethiopian-date';
 
@@ -51,7 +52,7 @@ export function EthiopianDateTimeField({
       disabled={disabled}
       aria-describedby={`${id}-hint${error ? ` ${id}-error` : ''}`}
       aria-invalid={!!error}
-      className="min-w-0 space-y-3 rounded-lg border p-3"
+      className="min-w-0 space-y-3 self-start rounded border bg-background p-4"
     >
       <legend className="px-1 text-sm font-medium">{label}</legend>
       <p id={`${id}-hint`} className="text-xs text-muted-foreground">
@@ -64,10 +65,14 @@ export function EthiopianDateTimeField({
         </Button>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2" aria-label="Calendar system">
+          <div
+            className="flex flex-wrap gap-1 rounded border bg-muted p-1"
+            aria-label="Calendar system"
+          >
             <Button
               type="button"
-              variant="outline"
+              className="flex-1 aria-pressed:bg-background aria-pressed:shadow-sm"
+              variant="ghost"
               aria-pressed={calendar === 'ethiopian'}
               onClick={() => setCalendar('ethiopian')}
             >
@@ -75,7 +80,8 @@ export function EthiopianDateTimeField({
             </Button>
             <Button
               type="button"
-              variant="outline"
+              className="flex-1 aria-pressed:bg-background aria-pressed:shadow-sm"
+              variant="ghost"
               aria-pressed={calendar === 'gregorian'}
               onClick={() => setCalendar('gregorian')}
             >
@@ -98,7 +104,7 @@ export function EthiopianDateTimeField({
             />
           )}
           {!dateOnly && (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 border-t pt-3">
               <label className="text-xs">
                 Hour
                 <select
@@ -143,13 +149,24 @@ export function EthiopianDateTimeField({
               </label>
             </div>
           )}
-          <p className="text-sm" aria-live="polite">
-            {dateOnly
-              ? `${formatEthiopianDate(current)} (EAT)`
-              : iso
-                ? formatEatDateTime(iso)
-                : 'Choose a valid date and time.'}
-          </p>
+          <div className="space-y-1 rounded border bg-muted p-3 text-sm" aria-live="polite">
+            <p className="font-medium">
+              {dateOnly
+                ? `${formatEthiopianDate(current)} (EAT)`
+                : iso
+                  ? formatEatDateTime(iso)
+                  : 'Choose a valid date and time.'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Gregorian equivalent:{' '}
+              {formatGregorianEatDate(
+                dateOnly
+                  ? current.slice(0, 10) + 'T12:00:00+03:00'
+                  : (iso ?? current + ':00+03:00'),
+              )}
+              {!dateOnly && ' · EAT'}
+            </p>
+          </div>
           {optional && (
             <Button type="button" variant="ghost" onClick={() => onChange('')}>
               Clear date
