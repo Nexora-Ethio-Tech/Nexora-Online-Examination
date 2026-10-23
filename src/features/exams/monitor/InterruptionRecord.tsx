@@ -1,20 +1,17 @@
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import type { Interruption } from '@/features/runner/supervision';
 
-const labels: Record<Interruption['kind'], string> = {
-  hidden: 'Exam tab hidden',
-  returned: 'Exam tab visible again',
-  pagehide: 'Exam page left',
-  fullscreen_exit: 'Full screen exited',
-  focus_lost: 'Exam window became inactive',
-  screenshot_attempt: 'Capture or inspection shortcut reported',
-  window_blur: 'Screen protection activated after a focus or system-key event',
-  watermark_tamper: 'Watermark integrity event reported',
-};
+import { incidentLabels, incidentBadgeClass } from '@/features/runner/incident-badges';
 export function InterruptionRecord({ event }: { event: Interruption & { receivedAt: string } }) {
   return (
     <li className="space-y-1 border-b py-3 text-sm">
-      <p className="font-medium">{labels[event.kind]}</p>
+      <p>
+        <span
+          className={`inline-block rounded px-2 py-1 font-medium ${incidentBadgeClass(event.kind)}`}
+        >
+          {incidentLabels[event.kind]}
+        </span>
+      </p>
       {event.reason && <p>{event.reason}</p>}
       <p>Device-reported time: {formatEatDateTime(event.observedAt, true)}</p>
       <p>School received report: {formatEatDateTime(event.receivedAt, true)}</p>
