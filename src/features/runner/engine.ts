@@ -209,10 +209,17 @@ export class RunnerEngine {
     void this.checkSupervision();
     void this.sync();
   };
-  private blurred = () => this.interruption('focus_lost');
+  private externalSecurityShield = false;
+  useExternalSecurityShield() {
+    this.externalSecurityShield = true;
+  }
+  private blurred = () => {
+    if (!this.externalSecurityShield) this.interruption('focus_lost');
+  };
   private pagehide = () => this.interruption('pagehide');
   private fullscreenChanged = () => {
-    if (!document.fullscreenElement) this.interruption('fullscreen_exit');
+    if (!this.externalSecurityShield && !document.fullscreenElement)
+      this.interruption('fullscreen_exit');
   };
   reportSecurityEvent(kind: Interruption['kind'], reason: string) {
     this.interruption(kind, reason);

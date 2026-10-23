@@ -747,3 +747,23 @@ it('finishes an already accepted local answer write before freezing submission',
     'true',
   );
 });
+
+it('delegates blur and fullscreen reports to the shield without duplicate legacy events', async () => {
+  let offline = false;
+  const { make } = await setup(async (url, init, next) => {
+    if (offline) throw new TypeError('Offline');
+    return next(url, init);
+  });
+  const engine = make();
+  engine.useExternalSecurityShield();
+  await engine.start();
+  offline = true;
+  window.dispatchEvent(new Event('blur'));
+  document.dispatchEvent(new Event('fullscreenchange'));
+  engine.reportSecurityEvent('window_blur', 'Screen protection triggered by blur');
+  await vi.waitFor(async () => {
+    const events = (await store.readRecord(requiredRow(engine).key))?.interruptions;
+    expect(events).toHaveLength(1);
+    expect(events?.[0]?.kind).toBe('window_blur');
+  });
+});
