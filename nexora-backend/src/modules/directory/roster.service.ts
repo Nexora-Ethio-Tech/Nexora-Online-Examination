@@ -204,9 +204,12 @@ export class RosterService {
             'REVISION_CONFLICT',
             'A student reference was added since preview',
           );
-        const slug = (
-          await c.query<{ slug: string }>('SELECT slug FROM schools WHERE id=$1', [school.id])
-        ).rows[0].slug;
+        const schoolNumber = (
+          await c.query<{ account_number: number }>(
+            'SELECT account_number FROM schools WHERE id=$1',
+            [school.id],
+          )
+        ).rows[0].account_number;
         const userIds: string[] = [];
         let studentNumber = await allocateStudentNumbers(c, school.id, preview.rows.length);
         for (const student of preview.rows) {
@@ -219,7 +222,7 @@ export class RosterService {
               school.id,
               student.displayName,
               student.studentRef,
-              studentLoginId(slug, studentNumber++, this.clock.now()),
+              studentLoginId(schoolNumber, studentNumber++, this.clock.now()),
             ],
           );
           await c.query(

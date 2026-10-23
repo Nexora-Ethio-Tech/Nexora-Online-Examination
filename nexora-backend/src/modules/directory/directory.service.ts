@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { Request } from 'express';
 import { PoolClient } from 'pg';
-import { randomUUID, randomBytes } from 'crypto';
+import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { DbService } from '../../common/db/db.service';
 import { ClockService } from '../../common/clock/clock.service';
 import { DomainException } from '../../common/errors/domain.exception';
 import { mutate } from '../../common/db/mutation';
+import { generateAccountPassword } from '../../common/crypto/account-password';
+import { allocateTeacherNumber, teacherLoginId } from './teacher-numbering';
 import { hashPassword } from '../../common/crypto/password';
 import { hasRetainedReferences } from './record-removal';
 import { identity } from '../delivery/operational.service';
@@ -427,7 +429,7 @@ export class DirectoryService {
           loginId: z
             .string()
             .trim()
-            .regex(/^[A-Za-z0-9_-]{1,160}$/)
+            .regex(/^[A-Za-z0-9_/-]{1,160}$/)
             .optional(),
           classId: uuid.nullable(),
           status: z.enum(['active', 'inactive']),
@@ -558,13 +560,22 @@ export class DirectoryService {
           let targets: { userId: string; revision: number }[] = [];
           if (create && 'displayName' in body) {
             const newId = randomUUID();
-            const slug = (
-              await c.query<{ slug: string }>('SELECT slug FROM schools WHERE id=$1', [school.id])
-            ).rows[0].slug;
-            const login = `${slug
-              .toUpperCase()
-              .replace(/[^A-Z0-9]/g, '')
-              .slice(0, 12)}-${role === 'invigilator' ? 'INV' : 'T'}-${newId}`;
+            const schoolConfig = (
+              await c.query<{ slug: string; account_number: number }>(
+                'SELECT slug,account_number FROM schools WHERE id=$1',
+                [school.id],
+              )
+            ).rows[0];
+            const login =
+              role === 'teacher'
+                ? teacherLoginId(
+                    schoolConfig.account_number,
+                    await allocateTeacherNumber(c, school.id),
+                  )
+                : `${schoolConfig.slug
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]/g, '')
+                    .slice(0, 12)}-${role === 'invigilator' ? 'INV' : 'T'}-${newId}`;
             await c.query(
               'INSERT INTO users(id,school_id,login_id,display_name,role,password_hash,credentials_issued) VALUES($1,$2,$3,$4,$5,NULL,false)',
               [newId, school.id, login, body.displayName, role],
@@ -606,7 +617,7 @@ export class DirectoryService {
           }
           const credentials = [];
           for (const row of accounts) {
-            const password = randomBytes(24).toString('base64url');
+            const password = generateAccountPassword();
             await c.query(
               'UPDATE users SET password_hash=$1,credentials_issued=true,revision=revision+1 WHERE school_id=$2 AND id=$3',
               [await hashPassword(password), school.id, row.id],
