@@ -60,3 +60,18 @@ it('switches calendars without changing the selected instant and starts weeks on
   fireEvent.click(screen.getByRole('button', { name: 'Ethiopian' }));
   expect(screen.getByLabelText('Wire value')).toHaveTextContent('2026-10-23T15:05');
 });
+
+it('offers direct date controls without opening the calendar and keeps Gregorian dates synchronized', () => {
+  render(<Form initial="2026-10-23T15:43" />);
+  expect(screen.getByRole('combobox', { name: 'Month' })).toBeVisible();
+  expect(screen.getByRole('combobox', { name: 'Day' })).toHaveValue('13');
+  expect(screen.getByRole('spinbutton', { name: 'Year' })).toHaveValue(2019);
+  expect(screen.queryByText('Mon')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Day' }), { target: { value: '14' } });
+  expect(screen.getByLabelText('Wire value')).toHaveTextContent('2026-10-24T15:43');
+  expect(screen.getByText(/Gregorian equivalent:/)).toHaveTextContent('24 Oct 2026');
+  fireEvent.click(screen.getByRole('button', { name: 'Gregorian' }));
+  expect(screen.getByRole('combobox', { name: 'Day' })).toHaveValue('24');
+  expect(screen.getByRole('spinbutton', { name: 'Year' })).toHaveValue(2026);
+  expect(screen.getByLabelText('Wire value')).toHaveTextContent('2026-10-24T15:43');
+});
