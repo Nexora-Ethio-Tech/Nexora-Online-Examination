@@ -20,7 +20,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Support active exams',
-      body: 'Use Live exams and Exam assistance to supervise students. Review browser incident descriptions as device reports, not proof that a screenshot was captured. Staff approval never extends the original deadline.',
+      body: 'Use Live exams and Exam assistance to supervise students. Review browser incident descriptions as device reports, not proof that a screenshot was captured. The incident panel groups received reports and offers filters and review recommendations, not automatic server penalties. Staff approval never extends the original deadline.',
       path: '/admin/assistance',
     },
     {
@@ -69,7 +69,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Privacy and help',
-      body: 'Leaving the window hides questions until Resume. The clock continues. Questions carry an attempt watermark and cannot be printed. Request assistance when you need staff approval; the guide never appears over an active exam.',
+      body: 'Choose Start exam to enter required fullscreen. Leaving the window, restricted shortcuts or moving the pointer outside hides questions. Resume becomes available after a short wait; five interruptions lock editing in this browser. The clock continues. Questions carry a student ID and attempt watermark and cannot be printed. Request assistance when you need staff approval; the guide never appears over an active exam.',
       path: '/student',
     },
     {
