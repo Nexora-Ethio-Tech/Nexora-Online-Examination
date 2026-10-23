@@ -1,5 +1,7 @@
 # Backend handoff
 
+23 October 2026: [Compact date controls, scheduling layout and student exam categories](compact-calendar-and-exam-categories.md) documents the latest UI and testing sequence. Existing UTC contracts and result-publication gates are unchanged.
+
 23 October 2026 update: see [Invigilator assignment and private MFA setup](invigilator-assignment-and-mfa-architecture-and-testing.md) for limited non-teaching accounts, assignment after scheduling, private first enrollment, and the strict-lock help action. Migration 026 requires isolated database validation.
 
 ## Supplied shield integration preparation — 23 October 2026

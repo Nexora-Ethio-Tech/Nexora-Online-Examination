@@ -1,0 +1,29 @@
+# Compact calendar scheduling and student exam categories
+
+Implemented 23 October 2026. The supplied screenshots informed this update; the other repository's prose was treated as a reference, not copied as executable code.
+
+## Changes and architecture
+
+1. **Direct date controls.** The shared Kewti-adapted CalendarGrid now shows Month, Day and Year immediately. Choose date still expands the Monday–Sunday calendar in normal page flow, with bounded height. Both Ethiopian and Gregorian calendars use these controls. Changing month/year clamps the day to that month's valid range, including Pagume.
+2. **Clear date summary.** EthiopianDateTimeField uses the existing emerald theme, grouped calendar switch buttons, separated time controls and a shaded summary showing Ethiopian date, standard AM/PM EAT time, and Gregorian equivalent. Ethiopian months remain Amharic; all numbers remain ordinary decimal digits. No six-hour Ethiopian clock offset was introduced. The existing Kenat conversion/round-trip verification remains authoritative. Gregorian display formatting explicitly uses Africa/Addis_Ababa.
+3. **Compact scheduling.** Preparation date/time and its duration share the left column. Planned results date/time occupies the right column at wide desktop widths (1280px and above). The two date boxes align at the top. Smaller screens stack the complete groups with a consistent gap, eliminating the empty grid cell seen in the screenshot. Duration still defaults to 10 and accepts 1–120 whole minutes. Shared controls also improve results/practice release and optional owner expiry forms.
+4. **Student categories.** My exams offers All exams, Current exams, Upcoming exams, Past exams and Needs attention. A submitted exam is past even when its time window remains open. Unresolved uploads/recovery remain in Needs attention. Past exams do not display misleading deadline countdowns.
+5. **Past result filters.** Graded means a finalized mark was actually published to this student. A published zero is graded. Awaiting results does not claim the paper is unmarked. No grade covers released non-scoring outcomes such as absence or exclusion. Students can open Official results from graded cards.
+6. **Failure and pagination behavior.** Result status comes from the existing authorized `/me/results` endpoint, with every result cursor followed and repeated cursors rejected. No new backend endpoint, migration or grading permission was added. Lookup failures display an explicit unconfirmed state and preserve the exam cards; Refresh exams retries both lists. Exam filters apply to loaded exams, with a visible reminder to Load more exams when additional pages exist. Query keys include school and user. Onboarding describes the new controls and filters.
+
+## Test in this order
+
+1. **Admin scheduling, desktop:** open an approved paper ready for scheduling at 1366px or wider. Preparation and results should be side by side, their date boxes aligned, with duration immediately beneath preparation. Change duration and verify the common start/end previews.
+2. **Calendar selection:** choose 13 ጥቅምት 2019 at 3:43 PM EAT. The Gregorian summary should show 23 Oct 2026. Switching calendars must preserve the selected date/time. Change the Gregorian day to 24 and switch back; the Ethiopian day should become 14. Use a future date to actually schedule an exam.
+3. **Calendar boundaries:** open the seven-column calendar; verify Monday through Sunday. Select leap Pagume day 6 then change to a non-leap year: clamp to day 5. Verify 12 AM/midnight and 12 PM/noon. The browser timezone must not affect the EAT selection or saved UTC instant.
+4. **Phone and landscape:** at 360px and 800×360, preparation, duration and results should stack without a large blank area. All date/time controls remain reachable with no horizontal page overflow. Expanded calendars must not extend above the viewport. Test keyboard access and disabled/optional date forms too.
+5. **Student categories:** My exams → Upcoming exams should hide completed papers. Current exams should show preparation/open exams. Past exams should show completed papers. All exams restores every loaded category. Needs attention must retain waiting uploads and pending school review.
+6. **Published grades:** verify a published finalized mark, including zero, appears under Graded; an unreleased result appears under Awaiting results; a published absence/exclusion appears under No grade. No unpublished mark or answer key should be disclosed. A submitted paper alone must not be labeled Graded.
+7. **Failure and more pages:** disconnect result lookup while leaving exam lookup available. The page must show Result status not confirmed rather than invented grades, retain cards, and allow retry. Load more exams and confirm older/newer pages are included without dropping the first page.
+8. **Guidance:** reopen Portal guide as admin and student. Verify scheduling and exam-category tips match the interface.
+
+Demo supports layout and navigation checks. Browser fixtures and frontend tests do not prove real backend publication or database behavior. Use the isolated backend to verify real published/unpublished/absent cases when PostgreSQL is available. Earlier migration-validation gates remain outstanding; this task adds no migration.
+
+## Verification
+
+Typecheck, ESLint, formatting, 262 frontend tests and 14 tooling checks passed. Production build passed with existing bundle-size and third-party annotation warnings. Six Chromium browser journeys passed across desktop, 360px mobile and landscape, including accessibility, exact desktop alignment, small-screen gap assertions and student filters. Desktop/mobile scheduling screenshots were inspected. Browser timezone was America/Los_Angeles while UI values remained EAT. Real backend/database publication cases were not run in this UI-only task.

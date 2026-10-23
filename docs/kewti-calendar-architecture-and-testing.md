@@ -1,5 +1,7 @@
 # Ethiopian calendar and EAT: architecture and testing
 
+23 October 2026: [Compact date controls, scheduling layout and student exam categories](compact-calendar-and-exam-categories.md) documents the latest UI and testing sequence. Existing UTC contracts and result-publication gates are unchanged.
+
 Implemented locally on 21 October 2026. The user chose standard AM/PM clock numbering (9:00 AM EAT stays 9:00 AM), Ethiopian calendar dates, Amharic month names and ordinary 0–9 digits. No Ge'ez numerals or six-hour clock offset is used.
 
 ## Kewti sources and integration
