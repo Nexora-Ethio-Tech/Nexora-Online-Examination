@@ -1,5 +1,9 @@
 # Backend handoff
 
+## Supplied shield integration preparation — 23 October 2026
+
+The interruptions DTO now accepts `screenshot_attempt`, `window_blur`, and `watermark_tamper`, with optional reason text limited to 500 characters. Existing fullscreen events remain supported. Reports remain telemetry only: no server penalties or deadline changes. The engine exposes `reportSecurityEvent` using the existing IndexedDB queue and authorized reporting endpoint. The replacement shield is not activated yet: the supplied watermark imports missing `watermark-geometry.ts`. See [integration status and tests](supplied-security-shield-integration.md).
+
 ## Adjustable preparation, download progress and spotlight tours — 22 October 2026
 
 Scheduling and rescheduling accept optional `preparationMinutes` (integer 1–120). Creation defaults to 10; omission on reschedule preserves the stored timestamp gap. Existing timestamp columns persist the setting, so no migration is required. Approved exam duration, frozen roster, allowances, overlap checks and cutoff/replay rules remain enforced. See [preparation duration](adjustable-preparation-architecture-and-testing.md), [student download](student-download-architecture-and-testing.md), and [spotlight tours](spotlight-tour-architecture-and-testing.md).
