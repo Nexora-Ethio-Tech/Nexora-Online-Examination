@@ -1,3 +1,4 @@
+import { demoStudentLogin } from '@/mocks/account-credentials';
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -32,16 +33,8 @@ describe('class-scoped account management', () => {
     const first = await api.accounts('student', '', null, undefined, 'demo-class-10a');
     const second = await api.accounts('student', '', null, undefined, cls.classId);
     expect(second.items).toHaveLength(1);
-    expect(second.items[0]?.loginId).toBe(
-      `DEMO-STU-0002-${new Intl.DateTimeFormat('en', { timeZone: 'Africa/Addis_Ababa', year: 'numeric' }).format(new Date())}`,
-    );
-    expect(
-      first.items.some(
-        (a) =>
-          a.loginId ===
-          `DEMO-STU-0001-${new Intl.DateTimeFormat('en', { timeZone: 'Africa/Addis_Ababa', year: 'numeric' }).format(new Date())}`,
-      ),
-    ).toBe(true);
+    expect(second.items[0]?.loginId).toBe(demoStudentLogin(2, new Date()));
+    expect(first.items.some((a) => a.loginId === demoStudentLogin(1, new Date()))).toBe(true);
     const created = second.items[0];
     if (!created) throw new Error('Missing fixture');
     await api.remove('students', created.userId, created.revision, 'Duplicate intake', key());
@@ -54,9 +47,7 @@ describe('class-scoped account management', () => {
     await api.commit(next.importId, next.revision, reason, key());
     expect(
       (await api.accounts('student', '', null, undefined, cls.classId)).items[0]?.loginId,
-    ).toBe(
-      `DEMO-STU-0003-${new Intl.DateTimeFormat('en', { timeZone: 'Africa/Addis_Ababa', year: 'numeric' }).format(new Date())}`,
-    );
+    ).toBe(demoStudentLogin(3, new Date()));
   });
 });
 async function setup(store = createAuthoringStore(), clock = Date.now) {
@@ -261,7 +252,11 @@ describe('school directory contract and demo', () => {
       issues: [...store.directory.issues.values()],
     });
     for (const c of issued.credentials ?? []) {
-      expect(c.password.length).toBeGreaterThanOrEqual(32);
+      expect(c.password).toHaveLength(8);
+      expect(c.password).toMatch(/[A-Z]/);
+      expect(c.password).toMatch(/[a-z]/);
+      expect(c.password).toMatch(/[0-9]/);
+      expect(c.password).toMatch(/[!#$%&*?]/);
       expect(retained).not.toContain(c.password);
       expect(await store.directory.passwords.get(c.userId)?.hash).not.toBe(c.password);
       const session = await login(store, c);
@@ -336,6 +331,8 @@ describe('school directory contract and demo', () => {
   it('gives generated teachers only their assigned classes and their own drafts', async () => {
     const { api, store } = await setup();
     const issue = await api.createTeacher('Teacher Example', reason, key());
+    expect(issue.credentials?.[0]?.loginId).toBe('TCH/001/0001');
+    expect(issue.credentials?.[0]?.password).toHaveLength(8);
     const c = issue.credentials?.[0];
     if (!c) throw new Error('Missing credentials');
     const { client } = await login(store, c);

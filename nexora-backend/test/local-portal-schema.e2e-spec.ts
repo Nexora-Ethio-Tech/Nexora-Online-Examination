@@ -3,9 +3,10 @@ import { Pool, type PoolClient } from 'pg';
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import { databasePoolConfig } from '../src/common/db/database-config';
 import { allocateStudentNumbers, studentLoginId } from '../src/modules/directory/student-numbering';
+import { allocateTeacherNumber } from '../src/modules/directory/teacher-numbering';
 
 describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
-  'migrations 024 through 027 on isolated PostgreSQL',
+  'migrations 024 through 028 on isolated PostgreSQL',
   () => {
     let admin: Pool;
     let runtime: Pool;
@@ -35,6 +36,9 @@ describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
     });
     afterAll(async () => {
       if (admin) {
+        await admin.query('DELETE FROM school_teacher_counters WHERE school_id=ANY($1::uuid[])', [
+          [school, foreign],
+        ]);
         await admin.query('DELETE FROM school_student_counters WHERE school_id=ANY($1::uuid[])', [
           [school, foreign],
         ]);
@@ -58,6 +62,39 @@ describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
         c.release();
       }
     }
+    it('allocates unique immutable school numbers and separate concurrent teacher numbers', async () => {
+      const rows = (
+        await admin.query('SELECT account_number FROM schools WHERE id=ANY($1::uuid[])', [
+          [school, foreign],
+        ])
+      ).rows;
+      expect(rows).toHaveLength(2);
+      expect(new Set(rows.map((r) => r.account_number)).size).toBe(2);
+      expect(rows.every((r) => r.account_number > 0)).toBe(true);
+      await expect(
+        admin.query('UPDATE schools SET account_number=account_number+100000 WHERE id=$1', [
+          school,
+        ]),
+      ).rejects.toThrow();
+      const numbers = await Promise.all(
+        Array.from({ length: 8 }, () => transaction((c) => allocateTeacherNumber(c, school))),
+      );
+      expect(numbers.sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+      expect(await transaction((c) => allocateStudentNumbers(c, school, 1))).toBe(1);
+      await transaction(async (c) => {
+        expect(
+          (await c.query('SELECT * FROM school_teacher_counters WHERE school_id=$1', [foreign]))
+            .rowCount,
+        ).toBe(0);
+      });
+      await expect(
+        transaction((c) =>
+          c.query('INSERT INTO school_teacher_counters(school_id,last_number) VALUES($1,1)', [
+            foreign,
+          ]),
+        ),
+      ).rejects.toThrow();
+    });
     it('has the migration ledger, archive column and forced row security', async () => {
       expect(
         (
@@ -169,8 +206,8 @@ describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
         school,
       ]);
       expect(
-        studentLoginId('local', await transaction((c) => allocateStudentNumbers(c, school, 1))),
-      ).toMatch(/^LOCAL-STU-10000-\d{4}$/);
+        studentLoginId(1, await transaction((c) => allocateStudentNumbers(c, school, 1))),
+      ).toMatch(/^STU\/001\/10000\/\d{2}$/);
     });
     it('denies foreign-school counter reads and writes through the restricted role', async () => {
       await admin.query('INSERT INTO school_student_counters(school_id,last_number) VALUES($1,9)', [

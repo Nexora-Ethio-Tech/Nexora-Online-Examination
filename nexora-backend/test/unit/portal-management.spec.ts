@@ -222,15 +222,9 @@ describe('import cancellation and stale workers', () => {
 });
 describe('school-wide numbering', () => {
   it('formats minimum four digits, keeps school prefix and never wraps after 9999', () => {
-    expect(studentLoginId('nexora-school', 1, new Date('2026-12-31T21:00:00Z'))).toBe(
-      'NEXORA-SCHOOL-STU-0001-2027',
-    );
-    expect(studentLoginId('nexora-school', 1001, new Date('2026-12-31T21:00:00Z'))).toBe(
-      'NEXORA-SCHOOL-STU-1001-2027',
-    );
-    expect(studentLoginId('nexora-school', 10000, new Date('2026-12-31T21:00:00Z'))).toBe(
-      'NEXORA-SCHOOL-STU-10000-2027',
-    );
+    expect(studentLoginId(1, 1, new Date('2026-12-31T21:00:00Z'))).toBe('STU/001/0001/19');
+    expect(studentLoginId(1, 1001, new Date('2026-12-31T21:00:00Z'))).toBe('STU/001/1001/19');
+    expect(studentLoginId(1, 10000, new Date('2026-12-31T21:00:00Z'))).toBe('STU/001/10000/19');
   });
   it('allocates after existing IDs and retains the high-water mark across batches', async () => {
     let counter = 1000;

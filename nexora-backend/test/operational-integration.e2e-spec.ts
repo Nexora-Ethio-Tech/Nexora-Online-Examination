@@ -19,7 +19,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { ClockService } from '../src/common/clock/clock.service';
 import { databasePoolConfig } from '../src/common/db/database-config';
-import { hashPassword, hashSha256 } from '../src/common/crypto/password';
+import { hashPassword, hashSha256, verifyPassword } from '../src/common/crypto/password';
 import { encryptExamPackage } from '../src/common/crypto/package-cipher';
 import { responseCookie } from './http-helpers';
 
@@ -237,6 +237,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
           for (const table of [
             'directory_imports',
             'school_student_counters',
+            'school_teacher_counters',
             'device_transfer_events',
             'attempt_supervision_events',
           ])
@@ -662,6 +663,25 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         before.body.items,
       );
     }, 120000);
+    it('issues sequential teacher IDs and eight-character credentials without replaying passwords', async () => {
+      const key = randomUUID();
+      const body = { displayName: 'Synthetic Teacher', reason: 'Credential format verification' };
+      const first = await post('/teachers', body, adminCookie, browser, key).expect(200);
+      const credential = first.body.credentials[0];
+      expect(credential.loginId).toMatch(/^TCH\/[0-9]{3,}\/0001$/);
+      expect(credential.password).toHaveLength(8);
+      for (const pattern of [/[A-Z]/, /[a-z]/, /[0-9]/, /[!#$%&*?]/])
+        expect(credential.password).toMatch(pattern);
+      expect(
+        (await post('/teachers', body, adminCookie, browser, key).expect(200)).body.credentials,
+      ).toBeNull();
+      const second = await post(
+        '/teachers',
+        { ...body, displayName: 'Second Teacher' },
+        adminCookie,
+      ).expect(200);
+      expect(second.body.credentials[0].loginId).toBe(credential.loginId.replace(/0001$/, '0002'));
+    });
     it('imports a roster atomically and returns passwords only once', async () => {
       if (!app || !pool) throw new Error('Not started');
       await read('/classes', studentCookie).expect(403);
@@ -707,6 +727,10 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         issueKey,
       ).expect(200);
       expect(first.body.credentials).toHaveLength(1);
+      expect(first.body.credentials[0].loginId).toMatch(/^STU\/[0-9]{3,}\/[0-9]{4,}\/[0-9]{2}$/);
+      expect(first.body.credentials[0].password).toHaveLength(8);
+      for (const pattern of [/[A-Z]/, /[a-z]/, /[0-9]/, /[!#$%&*?]/])
+        expect(first.body.credentials[0].password).toMatch(pattern);
       const second = await post(
         '/students/generate-credentials',
         target,
@@ -721,6 +745,9 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         [school, id],
       );
       expect(stored.rows[0].password_hash).toMatch(/^\$argon2id\$/);
+      expect(
+        await verifyPassword(stored.rows[0].password_hash, first.body.credentials[0].password),
+      ).toBe(true);
       expect(stored.rows[0].credentials_issued).toBe(true);
       const replay = await pool.query(
         'SELECT response_body FROM idempotency_keys WHERE school_id=$1 AND idempotency_key=$2',
