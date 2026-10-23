@@ -91,5 +91,6 @@ export function createDirectoryStore() {
     queue: Promise.resolve(),
     sequence: 1,
     studentSequence: 1,
+    teacherSequence: 1,
   };
 }

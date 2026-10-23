@@ -1,3 +1,4 @@
+import { demoStudentLogin, demoAccountPassword } from './account-credentials';
 import { aiExamSettingsInputSchema } from '@/features/exams/authoring/generation-schemas';
 import { z } from 'zod';
 import {
@@ -60,8 +61,10 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
     displayName,
     loginId:
       role === 'student'
-        ? `DEMO-STU-${String(d.studentSequence++).padStart(4, '0')}-${new Intl.DateTimeFormat('en', { timeZone: 'Africa/Addis_Ababa', year: 'numeric' }).format(new Date(now()))}`
-        : `DEMO-${role === 'invigilator' ? 'INV' : 'T'}${String(d.sequence++).padStart(6, '0')}`,
+        ? demoStudentLogin(d.studentSequence++, new Date(now()))
+        : role === 'teacher'
+          ? `TCH/001/${String(d.teacherSequence++).padStart(4, '0')}`
+          : `DEMO-INV${String(d.sequence++).padStart(6, '0')}`,
     role,
     classId,
     studentRef,
@@ -71,9 +74,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
   });
   function issue(accounts: Account[], reason: string): CredentialIssue {
     const credentials = accounts.map((a) => {
-      const password = Array.from(crypto.getRandomValues(new Uint8Array(24)), (n) =>
-        n.toString(16).padStart(2, '0'),
-      ).join('');
+      const password = demoAccountPassword();
       d.passwords.set(a.userId, {
         hash: demoPasswordHash(password),
         generation: (d.passwords.get(a.userId)?.generation ?? 0) + 1,
