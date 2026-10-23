@@ -1,22 +1,27 @@
 // Vercel evaluates this file before building. The target stays out of the Vite bundle.
-const target = process.env.API_PROXY_TARGET?.trim();
-if (!target) {
-  throw new Error('Set API_PROXY_TARGET in the frontend Vercel project environment.');
+function targetOrigin(name: string, required: boolean) {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    if (required) throw new Error(`Set ${name} in the frontend Vercel project environment.`);
+    return null;
+  }
+  const url = new URL(value);
+  if (
+    url.protocol !== 'https:' ||
+    url.username ||
+    url.password ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash
+  )
+    throw new Error(`${name} must be an HTTPS origin without credentials or an API path.`);
+  if ([process.env.VERCEL_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL].includes(url.host))
+    throw new Error(`${name} must point to the backend project, not the frontend.`);
+  return url.origin;
 }
-const backend = new URL(target);
-if (
-  backend.protocol !== 'https:' ||
-  backend.username ||
-  backend.password ||
-  backend.pathname !== '/' ||
-  backend.search ||
-  backend.hash
-) {
-  throw new Error('API_PROXY_TARGET must be an HTTPS origin without credentials or an API path.');
-}
-if ([process.env.VERCEL_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL].includes(backend.host)) {
-  throw new Error('API_PROXY_TARGET must point to the backend project, not the frontend.');
-}
+const ownerSurface = process.env.VITE_APP_SURFACE === 'platform';
+const backend = targetOrigin('API_PROXY_TARGET', !ownerSurface);
+const ownerBackend = targetOrigin('PLATFORM_API_PROXY_TARGET', ownerSurface);
 
 export const config = {
   framework: 'vite',
@@ -29,14 +34,27 @@ export const config = {
       headers: { 'Cache-Control': 'no-cache, max-age=0, must-revalidate' },
       continue: true,
     },
-    {
-      src: '^(/api/v1(?:/.*)?)$',
-      dest: `${backend.origin}$1`,
-      headers: { 'Cache-Control': 'private, no-store' },
-    },
+    ...(backend
+      ? [
+          {
+            src: '^(/api/v1(?:/.*)?)$',
+            dest: `${backend}$1`,
+            headers: { 'Cache-Control': 'private, no-store' },
+          },
+        ]
+      : []),
+    ...(ownerBackend
+      ? [
+          {
+            src: '^/platform-api/v1(/.*)?$',
+            dest: `${ownerBackend}/api/v1$1`,
+            headers: { 'Cache-Control': 'private, no-store' },
+          },
+        ]
+      : []),
     { handle: 'filesystem' },
     {
-      src: '^/(?:login|mfa|(?:student|teacher|admin)(?:/[^.]*)?)?/?$',
+      src: '^/(?:login|mfa|(?:student|teacher|admin|invigilator|platform)(?:/[^.]*)?)?/?$',
       dest: '/index.html',
     },
     { src: '^/.*$', status: 404 },

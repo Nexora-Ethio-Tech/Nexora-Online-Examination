@@ -14,7 +14,7 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run && node --test scripts/release-source.test.ts scripts/local-test-config.test.ts",
+    "test": "vitest run && node --test scripts/release-source.test.ts scripts/local-test-config.test.ts scripts/deployment-routing.test.ts",
     "test:watch": "vitest",
     "e2e": "playwright test",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run test",
