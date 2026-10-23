@@ -234,7 +234,7 @@ export class PlatformService {
     return this.db.transaction(async (c) => {
       const { owner } = await this.owner(c, req);
       const rows =
-        await c.query(`SELECT 'imports' AS queue,status,count(*)::int AS count FROM public.import_jobs GROUP BY status
+        await c.query(`SELECT 'imports' AS queue,state AS status,count(*)::int AS count FROM public.import_jobs GROUP BY state
         UNION ALL SELECT 'ai',status,count(*)::int FROM public.ai_jobs GROUP BY status
         UNION ALL SELECT 'packages',status,count(*)::int FROM public.package_jobs GROUP BY status`);
       await this.audit(c, owner.id, null, 'health_read', 'Viewed queue snapshot');
