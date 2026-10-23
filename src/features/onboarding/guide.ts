@@ -20,7 +20,7 @@ export const guides: Record<Role, GuideStep[]> = {
     },
     {
       title: 'Support active exams',
-      body: 'Use Live exams and Exam assistance to supervise students. Staff approval never extends the original deadline.',
+      body: 'Use Live exams and Exam assistance to supervise students. Review browser incident descriptions as device reports, not proof that a screenshot was captured. Staff approval never extends the original deadline.',
       path: '/admin/assistance',
     },
     {
