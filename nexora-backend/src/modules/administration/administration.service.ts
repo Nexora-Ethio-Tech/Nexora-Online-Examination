@@ -46,6 +46,8 @@ const page = z
       .pipe(z.number().int().min(1).max(100))
       .optional(),
     cursor: z.string().max(1200).optional(),
+    status: z.enum(['in_review', 'approved', 'returned']).optional(),
+    classId: uuid.optional(),
     search: z.string().max(160).optional(),
     grade: z.string().max(40).optional(),
     teacher: z.string().max(160).optional(),
@@ -218,7 +220,22 @@ export class AdministrationService {
     const { school } = identity(req, 'school_admin'),
       q = parse(page, input),
       limit = q.limit ?? 25;
-    const filterScope = JSON.stringify([q.search, q.grade, q.teacher, q.subject, q.from, q.to]);
+    const filterScope = JSON.stringify([
+      q.search,
+      q.grade,
+      q.teacher,
+      q.subject,
+      q.from,
+      q.to,
+      q.status,
+      q.classId,
+    ]);
+    const sort =
+      q.status === 'in_review'
+        ? "COALESCE(submission.submitted_at,'9999-01-01'::timestamptz)"
+        : 'e.created_at';
+    const direction = q.status === 'in_review' ? 'ASC' : 'DESC';
+    const operator = q.status === 'in_review' ? '>' : '<';
     let after: { id: string; at: string } | null = null;
     if (q.cursor) {
       try {
@@ -235,8 +252,8 @@ export class AdministrationService {
       school.id,
       async (c) => {
         const rows = (
-          await c.query<{ id: string; created_at: Date }>(
-            `SELECT e.id,e.created_at FROM exams e JOIN classes cl ON cl.id=e.class_id AND cl.school_id=e.school_id JOIN users u ON u.id=e.owner_id AND u.school_id=e.school_id JOIN subjects s ON s.id=e.subject_id AND s.school_id=e.school_id LEFT JOIN LATERAL (SELECT max(server_at) submitted_at FROM audit_events a WHERE a.school_id=e.school_id AND a.resource_id=e.id::text AND a.action='exam:submit') submission ON true WHERE e.school_id=$1 AND e.state<>'draft' AND e.archived_at IS NULL AND ($2::uuid IS NULL OR (e.created_at,e.id)<($3::timestamptz,$2::uuid)) AND ($5::text IS NULL OR COALESCE(cl.grade,'unclassified')=$5) AND u.display_name ILIKE '%'||$6||'%' AND s.name ILIKE '%'||$7||'%' AND (e.title ILIKE '%'||$8||'%' OR cl.name ILIKE '%'||$8||'%' OR u.display_name ILIKE '%'||$8||'%' OR s.name ILIKE '%'||$8||'%') AND ($9::timestamptz IS NULL OR submission.submitted_at >= $9) AND ($10::timestamptz IS NULL OR submission.submitted_at <= $10) ORDER BY e.created_at DESC,e.id DESC LIMIT $4`,
+          await c.query<{ id: string; created_at: Date; sort_at: Date }>(
+            `SELECT e.id,e.created_at,${sort} sort_at FROM exams e JOIN classes cl ON cl.id=e.class_id AND cl.school_id=e.school_id JOIN users u ON u.id=e.owner_id AND u.school_id=e.school_id JOIN subjects s ON s.id=e.subject_id AND s.school_id=e.school_id LEFT JOIN LATERAL (SELECT max(server_at) submitted_at FROM audit_events a WHERE a.school_id=e.school_id AND a.resource_id=e.id::text AND a.action='exam:submit') submission ON true WHERE e.school_id=$1 AND e.state<>'draft' AND e.archived_at IS NULL AND ($11::text IS NULL OR e.state=$11) AND ($12::uuid IS NULL OR e.class_id=$12) AND ($2::uuid IS NULL OR (${sort},e.id)${operator}($3::timestamptz,$2::uuid)) AND ($5::text IS NULL OR COALESCE(cl.grade,'unclassified')=$5) AND u.display_name ILIKE '%'||$6||'%' AND s.name ILIKE '%'||$7||'%' AND (e.title ILIKE '%'||$8||'%' OR cl.name ILIKE '%'||$8||'%' OR u.display_name ILIKE '%'||$8||'%' OR s.name ILIKE '%'||$8||'%' OR s.code ILIKE '%'||$8||'%') AND ($9::timestamptz IS NULL OR submission.submitted_at >= $9) AND ($10::timestamptz IS NULL OR submission.submitted_at <= $10) ORDER BY ${sort} ${direction},e.id ${direction} LIMIT $4`,
             [
               school.id,
               after?.id ?? null,
@@ -248,6 +265,8 @@ export class AdministrationService {
               (q.search ?? '').replace(/[\\%_]/g, '\\$&'),
               q.from ?? null,
               q.to ?? null,
+              q.status === 'in_review' ? 'pending_approval' : (q.status ?? null),
+              q.classId ?? null,
             ],
           )
         ).rows;
@@ -271,7 +290,7 @@ export class AdministrationService {
                     school: school.id,
                     filterScope,
                     id: last.id,
-                    at: last.created_at.toISOString(),
+                    at: last.sort_at.toISOString(),
                   }),
                 ).toString('base64url')
               : null,
