@@ -1,3 +1,4 @@
+import { formatSecurityAuditCSVDetailed } from '@/features/runner/security-audit-report';
 import { SecurityIncidentsPanel } from '@/features/runner/SecurityIncidentsPanel';
 import { useState } from 'react';
 import { RefreshControl } from '@/components/shared/RefreshControl';
@@ -129,6 +130,21 @@ export function SupervisionPanel({
               Clear decision form and refresh
             </Button>
           )}
+          <Button
+            variant="outline"
+            disabled={!d.events.length}
+            onClick={() => {
+              const csv = formatSecurityAuditCSVDetailed(attemptId, d.events, studentLoginId);
+              const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = 'nexora-received-activity.csv';
+              link.click();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }}
+          >
+            Export displayed activity (CSV)
+          </Button>
           <InterruptionGroups events={d.events} />
           <details className="rounded border p-4">
             <summary className="min-h-11 cursor-pointer font-medium">
