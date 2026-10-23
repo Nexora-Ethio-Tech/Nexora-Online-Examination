@@ -10,6 +10,7 @@ export const interruptionSchema = z
       'fullscreen_exit',
       'focus_lost',
       'screenshot_attempt',
+      'devtools',
       'window_blur',
       'watermark_tamper',
     ]),

@@ -147,6 +147,7 @@ describe('supervision service authorization, replay and deadlines (database doub
     'pagehide',
     'fullscreen_exit',
     'screenshot_attempt',
+    'devtools',
     'window_blur',
     'watermark_tamper',
   ])('deduplicates %s telemetry without suspending or changing exam state', async (kind) => {
