@@ -200,49 +200,51 @@ export const routes: RouteObject[] = [
       { index: true, element: <Home /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/mfa', element: <MfaPage /> },
-      ...(['student', 'teacher', 'school_admin'] as const).map((role) => ({
+      ...(['student', 'teacher', 'school_admin', 'invigilator'] as const).map((role) => ({
         element: <RequireRole role={role} />,
         children: [
           {
             path: roleHome[role],
             element: <DashboardLayout />,
             children:
-              role === 'student'
-                ? [
-                    { index: true, element: <ExamsPage /> },
-                    { path: 'device', element: <DevicePage /> },
-                    { path: 'results', element: <ResultsPage /> },
-                    { path: 'practice', element: <PracticePage /> },
-                    { path: 'practice/:practiceAttemptId', element: <PracticeRunnerPage /> },
-                    { path: 'exams/:sessionId', element: <PreparationPage /> },
-                    { path: 'attempts/:attemptId', element: <RunnerPage /> },
-                  ]
-                : role === 'teacher'
+              role === 'invigilator'
+                ? [{ index: true, element: <AssistancePage /> }]
+                : role === 'student'
                   ? [
-                      { index: true, element: <TeacherPage /> },
-                      { path: 'assistance', element: <AssistancePage /> },
+                      { index: true, element: <ExamsPage /> },
+                      { path: 'device', element: <DevicePage /> },
                       { path: 'results', element: <ResultsPage /> },
-                      { path: 'results/:sessionId', element: <ResultDetail /> },
-                      { path: 'exams/:examId', element: <TeacherDetail /> },
+                      { path: 'practice', element: <PracticePage /> },
+                      { path: 'practice/:practiceAttemptId', element: <PracticeRunnerPage /> },
+                      { path: 'exams/:sessionId', element: <PreparationPage /> },
+                      { path: 'attempts/:attemptId', element: <RunnerPage /> },
                     ]
-                  : [
-                      { index: true, element: <AdminExamsPage /> },
-                      { path: 'assistance', element: <AssistancePage /> },
-                      { path: 'monitor', element: <MonitorPage /> },
-                      { path: 'monitor/attempts/:attemptId', element: <MonitorAttemptPage /> },
-                      { path: 'monitor/:sessionId', element: <MonitorSittingPage /> },
-                      { path: 'school', element: <SchoolSetupPage /> },
-                      { path: 'practice', element: <AdminPracticePage /> },
-                      { path: 'recovery', element: <RecoveryPage /> },
-                      { path: 'recovery/:recoveryId', element: <RecoveryDetailPage /> },
-                      { path: 'results', element: <ResultsPage /> },
-                      { path: 'results/:sessionId', element: <ResultDetail /> },
-                      { path: 'exams/:examId', element: <AdminExamDetail /> },
-                      {
-                        path: 'sessions/:sessionId/accommodations',
-                        element: <AccommodationsPage />,
-                      },
-                    ],
+                  : role === 'teacher'
+                    ? [
+                        { index: true, element: <TeacherPage /> },
+                        { path: 'assistance', element: <AssistancePage /> },
+                        { path: 'results', element: <ResultsPage /> },
+                        { path: 'results/:sessionId', element: <ResultDetail /> },
+                        { path: 'exams/:examId', element: <TeacherDetail /> },
+                      ]
+                    : [
+                        { index: true, element: <AdminExamsPage /> },
+                        { path: 'assistance', element: <AssistancePage /> },
+                        { path: 'monitor', element: <MonitorPage /> },
+                        { path: 'monitor/attempts/:attemptId', element: <MonitorAttemptPage /> },
+                        { path: 'monitor/:sessionId', element: <MonitorSittingPage /> },
+                        { path: 'school', element: <SchoolSetupPage /> },
+                        { path: 'practice', element: <AdminPracticePage /> },
+                        { path: 'recovery', element: <RecoveryPage /> },
+                        { path: 'recovery/:recoveryId', element: <RecoveryDetailPage /> },
+                        { path: 'results', element: <ResultsPage /> },
+                        { path: 'results/:sessionId', element: <ResultDetail /> },
+                        { path: 'exams/:examId', element: <AdminExamDetail /> },
+                        {
+                          path: 'sessions/:sessionId/accommodations',
+                          element: <AccommodationsPage />,
+                        },
+                      ],
           },
         ],
       })),

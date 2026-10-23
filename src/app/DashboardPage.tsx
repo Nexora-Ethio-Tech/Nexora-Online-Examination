@@ -21,6 +21,11 @@ const content: Record<Role, { title: string; description: string; steps: string[
       'Send your paper to the school administrator for approval.',
     ],
   },
+  invigilator: {
+    title: 'Exam assistance',
+    description: 'Support your assigned sittings.',
+    steps: ['Set up your authenticator', 'Review assigned requests'],
+  },
   school_admin: {
     title: 'A clear view of your school.',
     description: 'Coordinate exam preparation, schedules and the release of results.',

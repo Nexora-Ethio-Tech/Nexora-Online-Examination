@@ -71,19 +71,23 @@ export function DashboardLayout() {
     {
       to: roleHome[user.role],
       label:
-        user.role === 'student'
-          ? 'My exams'
-          : user.role === 'teacher'
-            ? 'My exam papers'
-            : 'Exam approvals',
+        user.role === 'invigilator'
+          ? 'Exam assistance'
+          : user.role === 'student'
+            ? 'My exams'
+            : user.role === 'teacher'
+              ? 'My exam papers'
+              : 'Exam approvals',
       icon: LayoutDashboard,
       end: true,
     },
-    { to: `${roleHome[user.role]}/results`, label: 'Official results', icon: BarChart3 },
-    ...(user.role !== 'student'
+    ...(user.role !== 'invigilator'
+      ? [{ to: `${roleHome[user.role]}/results`, label: 'Official results', icon: BarChart3 }]
+      : []),
+    ...(user.role !== 'student' && user.role !== 'invigilator'
       ? [{ to: `${roleHome[user.role]}/assistance`, label: 'Exam assistance', icon: LifeBuoy }]
       : []),
-    ...(user.role !== 'teacher'
+    ...(user.role !== 'teacher' && user.role !== 'invigilator'
       ? [
           {
             to: `${roleHome[user.role]}/practice`,
