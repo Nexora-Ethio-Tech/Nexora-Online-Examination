@@ -37,7 +37,7 @@ export function AntiScreenshotOverlay({
   const getTitle = () => {
     switch (blackoutReason) {
       case 'screenshot':
-        return 'Screen Capture Intercepted';
+        return 'Screen Capture Shortcut Detected';
       case 'devtools':
         return 'Inspection Shortcuts Blocked';
       case 'fullscreen':
@@ -51,7 +51,7 @@ export function AntiScreenshotOverlay({
   const getDescription = () => {
     switch (blackoutReason) {
       case 'screenshot':
-        return 'Nexora security detected a screen-capture shortcut and shielded the exam behind a full black screen. Clipboard content has been wiped to maintain examination integrity.';
+        return 'Nexora security detected a screen-capture shortcut and shielded the exam behind a full black screen. Clipboard clearing was requested, but your browser may not allow it.';
       case 'devtools':
         return 'Developer tools, page inspection, and printing shortcuts are disabled during active exam sittings.';
       case 'fullscreen':
@@ -74,10 +74,10 @@ export function AntiScreenshotOverlay({
       aria-labelledby="security-blackout-title"
       aria-describedby="security-blackout-desc"
       data-testid="anti-screenshot-overlay"
-      className="fixed inset-0 z-[9999999] flex flex-col items-center justify-center bg-black p-6 text-center text-white outline-none select-none"
+      className="fixed inset-0 z-[9999999] flex flex-col items-center justify-start overflow-y-auto bg-black p-6 text-center text-white outline-none select-none"
       style={{ backgroundColor: '#000000', opacity: 1 }}
     >
-      <div className="mx-auto max-w-md space-y-5 rounded-2xl border border-red-500/40 bg-black p-6 sm:p-8 shadow-2xl shadow-red-950/80">
+      <div className="mx-auto my-auto shrink-0 max-w-md space-y-5 rounded-2xl border border-red-500/40 bg-black p-6 sm:p-8 shadow-2xl shadow-red-950/80">
         <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-red-950 text-red-400 ring-4 ring-red-500/30">
           <ShieldAlert className="size-8" aria-hidden="true" />
         </div>
@@ -96,14 +96,14 @@ export function AntiScreenshotOverlay({
           </h2>
           <p id="security-blackout-desc" className="text-sm leading-relaxed text-neutral-300">
             {limitReached
-              ? 'The maximum number of security incidents was reached. Your attempt has been flagged and locked. Please contact your proctor.'
+              ? 'The maximum number of security incidents was reached. Editing is locked in this browser. Your saved answers are preserved. Please contact your proctor.'
               : getDescription()}
           </p>
         </div>
 
         <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3 text-xs text-neutral-400">
-          All window focus losses, key combinations, and capture attempts are logged to the school
-          proctor audit trail. Your exam timer continues running.
+          Detected interruptions are queued for school review and sent when connected. Your exam
+          timer continues running.
         </div>
 
         {!limitReached && (
