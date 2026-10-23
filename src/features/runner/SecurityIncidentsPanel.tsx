@@ -15,7 +15,7 @@ import { findDelayedEvents, type SecurityEventItem } from './security-audit-repo
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
-export type IncidentGroup = 'tamper' | 'capture' | 'fullscreen' | 'switch' | 'other';
+export type IncidentGroup = 'tamper' | 'capture' | 'inspection' | 'fullscreen' | 'switch' | 'other';
 export type ReviewStatus = 'unreviewed' | 'confirmed' | 'dismissed';
 
 export interface IncidentRecord extends SecurityEventItem {
@@ -38,12 +38,11 @@ export interface SecurityIncidentsPanelProps {
 
 const GROUPS: Record<
   IncidentGroup,
-  { label: string; icon: typeof Camera; weight: number; chip: string; dot: string; card: string }
+  { label: string; icon: typeof Camera; chip: string; dot: string; card: string }
 > = {
   tamper: {
-    label: 'Tamper attempt',
+    label: 'Watermark integrity report',
     icon: ShieldX,
-    weight: 5,
     chip: 'bg-fuchsia-100 text-fuchsia-900 ring-fuchsia-300 dark:bg-fuchsia-950 dark:text-fuchsia-200 dark:ring-fuchsia-700',
     dot: 'bg-fuchsia-500',
     card: 'border-fuchsia-400',
@@ -51,23 +50,27 @@ const GROUPS: Record<
   capture: {
     label: 'Capture / inspection shortcut',
     icon: Camera,
-    weight: 4,
     chip: 'bg-red-100 text-red-900 ring-red-300 dark:bg-red-950 dark:text-red-200 dark:ring-red-700',
     dot: 'bg-red-500',
     card: 'border-red-400',
   },
+  inspection: {
+    label: 'Inspection / print action',
+    icon: AlertCircle,
+    chip: 'bg-blue-100 text-blue-900 ring-blue-300 dark:bg-blue-950 dark:text-blue-200 dark:ring-blue-700',
+    dot: 'bg-blue-500',
+    card: 'border-blue-400',
+  },
   fullscreen: {
     label: 'Fullscreen exit',
     icon: Minimize2,
-    weight: 3,
-    chip: 'bg-amber-100 text-amber-900 ring-amber-300 dark:bg-amber-950 dark:text-amber-200 dark:ring-amber-700',
-    dot: 'bg-amber-500',
-    card: 'border-amber-400',
+    chip: 'bg-purple-100 text-purple-900 ring-purple-300 dark:bg-purple-950 dark:text-purple-200 dark:ring-purple-700',
+    dot: 'bg-purple-500',
+    card: 'border-purple-400',
   },
   switch: {
     label: 'Tab / window switch',
     icon: ArrowRightLeft,
-    weight: 2,
     chip: 'bg-orange-100 text-orange-900 ring-orange-300 dark:bg-orange-950 dark:text-orange-200 dark:ring-orange-700',
     dot: 'bg-orange-500',
     card: 'border-orange-400',
@@ -75,25 +78,32 @@ const GROUPS: Record<
   other: {
     label: 'Other event',
     icon: AlertCircle,
-    weight: 2,
     chip: 'bg-slate-200 text-slate-900 ring-slate-400 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-500',
     dot: 'bg-slate-500',
     card: 'border-slate-400',
   },
 };
 
-const GROUP_ORDER: IncidentGroup[] = ['tamper', 'capture', 'fullscreen', 'switch', 'other'];
+const GROUP_ORDER: IncidentGroup[] = [
+  'tamper',
+  'capture',
+  'inspection',
+  'fullscreen',
+  'switch',
+  'other',
+];
 
 export function classifyIncident(kind: string): IncidentGroup {
   if (kind === 'screenshot_attempt') return 'capture';
-  if (kind === 'window_blur') return 'switch';
+  if (kind === 'devtools') return 'inspection';
+  if (['window_blur', 'focus_lost', 'hidden', 'pagehide'].includes(kind)) return 'switch';
   if (kind === 'fullscreen_exit') return 'fullscreen';
   if (/tamper|watermark/i.test(kind)) return 'tamper';
   return 'other';
 }
 
 /* ------------------------------------------------------------------ */
-/* Review recommendations only; no server penalty enforcement.     */
+/* Factual counts only; no scoring or disciplinary recommendations.     */
 /* ------------------------------------------------------------------ */
 
 type GroupCounts = Record<IncidentGroup, number>;
@@ -101,22 +111,11 @@ type GroupCounts = Record<IncidentGroup, number>;
 const emptyCounts = (): GroupCounts => ({
   tamper: 0,
   capture: 0,
+  inspection: 0,
   fullscreen: 0,
   switch: 0,
   other: 0,
 });
-
-function penaltyFor(c: GroupCounts): { label: string; tone: string } {
-  const total = GROUP_ORDER.reduce((n, g) => n + c[g], 0);
-  if (c.tamper > 0 || c.capture >= 2 || total >= 5) {
-    return { label: 'Urgent proctor review recommended', tone: 'bg-red-700 text-white' };
-  }
-  if (c.capture > 0 || total >= 3) {
-    return { label: 'Proctor review recommended', tone: 'bg-orange-600 text-white' };
-  }
-  if (total > 0) return { label: 'Warning recommended', tone: 'bg-amber-400 text-black' };
-  return { label: 'No reported incidents', tone: 'bg-emerald-600 text-white' };
-}
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -178,7 +177,7 @@ export function SecurityIncidentsPanel({ incidents, onReview }: SecurityIncident
     });
   }, [incidents, search, activeGroups, status, delayedOnly, delayedIds]);
 
-  // One row per attempt, worst first.
+  // One row per attempt, most recently received first.
   const attempts = useMemo(() => {
     const map = new Map<
       string,
@@ -189,7 +188,6 @@ export function SecurityIncidentsPanel({ incidents, onReview }: SecurityIncident
         examTitle?: string;
         events: IncidentRecord[];
         counts: GroupCounts;
-        score: number;
       }
     >();
     for (const i of filtered) {
@@ -202,21 +200,26 @@ export function SecurityIncidentsPanel({ incidents, onReview }: SecurityIncident
           examTitle: i.examTitle,
           events: [],
           counts: emptyCounts(),
-          score: 0,
         };
         map.set(i.attemptId, a);
       }
       const g = classifyIncident(i.kind);
       a.events.push(i);
       a.counts[g]++;
-      if (i.reviewStatus !== 'dismissed') a.score += GROUPS[g].weight;
     }
     return [...map.values()]
       .map((a) => ({
         ...a,
-        events: a.events.sort((x, y) => Date.parse(x.observedAt) - Date.parse(y.observedAt)),
+        events: a.events.sort(
+          (x, y) =>
+            Date.parse(y.receivedAt ?? y.observedAt) - Date.parse(x.receivedAt ?? x.observedAt),
+        ),
       }))
-      .sort((a, b) => b.score - a.score);
+      .sort(
+        (a, b) =>
+          Date.parse(b.events[0]?.receivedAt ?? b.events[0]?.observedAt ?? '') -
+          Date.parse(a.events[0]?.receivedAt ?? a.events[0]?.observedAt ?? ''),
+      );
   }, [filtered]);
 
   const toggleGroup = (g: IncidentGroup) =>
@@ -238,7 +241,7 @@ export function SecurityIncidentsPanel({ incidents, onReview }: SecurityIncident
   return (
     <section className="space-y-5" aria-label="Security incidents">
       {/* Summary cards: unfiltered totals per group */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-3">
         {GROUP_ORDER.map((g) => {
           const Icon = GROUPS[g].icon;
           return (
@@ -305,14 +308,14 @@ export function SecurityIncidentsPanel({ incidents, onReview }: SecurityIncident
 
       <p className="text-xs text-neutral-500">
         Showing {filtered.length} of {incidents.length} incidents across {attempts.length}{' '}
-        attempt(s). Recommendations use the visible reports only, not confirmed misconduct. No
-        automatic server penalties are applied; dismissed events stay visible but are not scored.
+        attempt(s). Sorted by latest received report. Counts describe browser reports, not confirmed
+        misconduct. No scores or disciplinary recommendations are assigned. Dismissed events remain
+        visible. Time differences may reflect device clocks or network delays.
       </p>
 
-      {/* Attempts, worst first */}
+      {/* Attempts, latest received first */}
       <ul className="space-y-3">
         {attempts.map((a) => {
-          const penalty = penaltyFor(a.counts);
           const open = expanded.has(a.attemptId);
           return (
             <li key={a.attemptId} className="rounded-xl border bg-white dark:bg-neutral-900">
@@ -341,9 +344,7 @@ export function SecurityIncidentsPanel({ incidents, onReview }: SecurityIncident
                     </span>
                   ))}
                 </div>
-                <span className={`rounded-md px-2.5 py-1 text-xs font-semibold ${penalty.tone}`}>
-                  {penalty.label}
-                </span>
+                <span className="text-xs">{a.events.length} reports</span>
               </button>
 
               {open && (
@@ -358,8 +359,11 @@ export function SecurityIncidentsPanel({ incidents, onReview }: SecurityIncident
                           aria-hidden="true"
                         />
                         <time className="w-52 shrink-0 text-xs text-neutral-500">
-                          {fmt(e.observedAt)}
+                          Device reported: {fmt(e.observedAt)}
                         </time>
+                        {e.receivedAt && (
+                          <span className="text-xs">School received: {fmt(e.receivedAt)}</span>
+                        )}
                         <GroupChip group={g} />
                         <code className="text-xs text-neutral-500">{e.kind}</code>
                         {delayedIds.has(e.id) && (
