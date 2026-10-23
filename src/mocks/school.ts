@@ -61,7 +61,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
     loginId:
       role === 'student'
         ? `DEMO-STU-${String(d.studentSequence++).padStart(4, '0')}-${new Intl.DateTimeFormat('en', { timeZone: 'Africa/Addis_Ababa', year: 'numeric' }).format(new Date(now()))}`
-        : `DEMO-T${String(d.sequence++).padStart(6, '0')}`,
+        : `DEMO-${role === 'invigilator' ? 'INV' : 'T'}${String(d.sequence++).padStart(6, '0')}`,
     role,
     classId,
     studentRef,
@@ -149,10 +149,15 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
                 )
               : path === '/admin/directory-audit'
                 ? d.audit
-                : path === '/students' || path === '/teachers'
+                : path === '/students' || path === '/teachers' || path === '/invigilators'
                   ? [...d.accounts.values()].filter(
                       (a) =>
-                        a.role === (path === '/students' ? 'student' : 'teacher') &&
+                        a.role ===
+                          (path === '/students'
+                            ? 'student'
+                            : path === '/teachers'
+                              ? 'teacher'
+                              : 'invigilator') &&
                         (!url.searchParams.get('classId') ||
                           (a.classId ?? 'unassigned') === url.searchParams.get('classId')) &&
                         [a.displayName, a.loginId, a.studentRef ?? ''].some((v) =>
@@ -219,7 +224,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
       return json(response);
     }
     const removal =
-      /^\/directory\/(classes|subjects|students|teachers|teacher-assignments)\/([^/]+)\/remove$/.exec(
+      /^\/directory\/(classes|subjects|students|teachers|invigilators|teacher-assignments)\/([^/]+)\/remove$/.exec(
         path,
       );
     if (removal && method === 'POST') {
@@ -473,7 +478,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
       audit('subject_saved', result.subjectId, fields.reason);
       return commit(result);
     }
-    if (path === '/teachers' && method === 'POST') {
+    if ((path === '/teachers' || path === '/invigilators') && method === 'POST') {
       const parsed = z
         .object({
           displayName: text,
@@ -485,7 +490,12 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         .strict()
         .safeParse(body);
       if (!parsed.success) return fail('Enter a teacher name and reason.', 'VALIDATION_ERROR', 422);
-      const account = makeAccount('teacher', parsed.data.displayName, null, null);
+      const account = makeAccount(
+        path === '/invigilators' ? 'invigilator' : 'teacher',
+        parsed.data.displayName,
+        null,
+        null,
+      );
       d.accounts.set(account.userId, account);
       audit('teacher_created', account.userId, parsed.data.reason);
       return commit(issue([account], parsed.data.reason), true);
@@ -523,10 +533,19 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         true,
       );
     }
-    const accountMatch = /^\/(students|teachers)\/([^/]+)(?:\/(reset-password))?$/.exec(path);
+    const accountMatch =
+      /^\/(students|teachers|invigilators)\/([^/]+)(?:\/(reset-password))?$/.exec(path);
     if (accountMatch) {
       const account = d.accounts.get(accountMatch[2] ?? '');
-      if (!account || account.role !== (accountMatch[1] === 'students' ? 'student' : 'teacher'))
+      if (
+        !account ||
+        account.role !==
+          (accountMatch[1] === 'students'
+            ? 'student'
+            : accountMatch[1] === 'teachers'
+              ? 'teacher'
+              : 'invigilator')
+      )
         return fail('Account not found.', 'NOT_FOUND', 404);
       const parsed = edit.safeParse(body);
       if (!parsed.success)
@@ -546,7 +565,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         if (!input.success)
           return fail('Check the name, class and status.', 'VALIDATION_ERROR', 422);
         if (
-          (account.role === 'teacher' && input.data.classId !== null) ||
+          (account.role !== 'student' && input.data.classId !== null) ||
           (account.role === 'student' &&
             (!input.data.classId || !d.classes.get(input.data.classId)?.active))
         )

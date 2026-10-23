@@ -28,7 +28,8 @@ export function schoolApi(client: ApiClient) {
   ) => client.request(path, schema, { method, body, idempotencyKey: key });
   return {
     remove: (
-      kind: 'classes' | 'subjects' | 'students' | 'teachers' | 'teacher-assignments',
+      kind:
+        'classes' | 'subjects' | 'students' | 'teachers' | 'invigilators' | 'teacher-assignments',
       id: string,
       revision: number,
       reason: string,
@@ -55,14 +56,14 @@ export function schoolApi(client: ApiClient) {
     subjects: (cursor: string | null, signal?: AbortSignal) =>
       client.request(`/subjects?${page(cursor)}`, pageSchema(subjectSchema), { signal }),
     accounts: (
-      role: 'student' | 'teacher',
+      role: 'student' | 'teacher' | 'invigilator',
       search: string,
       cursor: string | null,
       signal?: AbortSignal,
       classId?: string,
     ) =>
       client.request(
-        `/${role === 'teacher' ? 'teachers' : 'students'}?${page(cursor)}&search=${encodeURIComponent(search)}${classId ? `&classId=${encodeURIComponent(classId)}` : ''}`,
+        `/${role}s?${page(cursor)}&search=${encodeURIComponent(search)}${classId ? `&classId=${encodeURIComponent(classId)}` : ''}`,
         pageSchema(accountSchema),
         { signal },
       ),
@@ -96,20 +97,24 @@ export function schoolApi(client: ApiClient) {
         key,
         id ? 'PATCH' : 'POST',
       ),
+    createInvigilator: (
+      displayName: string,
+      reason: string,
+      key: string,
+      names?: { firstName: string; fatherName: string; grandfatherName: string },
+    ) => write('/invigilators', credentialIssueSchema, { displayName, reason, ...names }, key),
     createTeacher: (
       displayName: string,
       reason: string,
       key: string,
       names?: { firstName: string; fatherName: string; grandfatherName: string },
     ) => write('/teachers', credentialIssueSchema, { displayName, reason, ...names }, key),
-    editAccount: (role: 'student' | 'teacher', id: string, body: AccountEdit, key: string) =>
-      write(
-        `/${role === 'student' ? 'students' : 'teachers'}/${encodeURIComponent(id)}`,
-        accountSchema,
-        body,
-        key,
-        'PATCH',
-      ),
+    editAccount: (
+      role: 'student' | 'teacher' | 'invigilator',
+      id: string,
+      body: AccountEdit,
+      key: string,
+    ) => write(`/${role}s/${encodeURIComponent(id)}`, accountSchema, body, key, 'PATCH'),
     assign: (
       body: { teacherId: string; classId: string; subjectId: string; reason: string },
       key: string,
@@ -136,12 +141,12 @@ export function schoolApi(client: ApiClient) {
     generate: (targets: { userId: string; revision: number }[], reason: string, key: string) =>
       write('/students/generate-credentials', credentialIssueSchema, { targets, reason }, key),
     reset: (
-      account: { role: 'student' | 'teacher'; userId: string; revision: number },
+      account: { role: 'student' | 'teacher' | 'invigilator'; userId: string; revision: number },
       reason: string,
       key: string,
     ) =>
       write(
-        `/${account.role === 'student' ? 'students' : 'teachers'}/${encodeURIComponent(account.userId)}/reset-password`,
+        `/${account.role}s/${encodeURIComponent(account.userId)}/reset-password`,
         credentialIssueSchema,
         { revision: account.revision, reason },
         key,

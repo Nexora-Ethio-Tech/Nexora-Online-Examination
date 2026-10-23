@@ -379,3 +379,17 @@ describe('school directory contract and demo', () => {
     expect(csv.startsWith('\ufeff')).toBe(true);
   });
 });
+
+it('creates a separate invigilator account that cannot author or manage school accounts', async () => {
+  const { api, store } = await setup();
+  const issue = await api.createInvigilator('Staff Example Name', reason, key());
+  const credential = issue.credentials?.[0];
+  if (!credential) throw new Error('Missing test credential');
+  const { client } = await login(store, credential);
+  expect((await createAuthApi(client).session())?.user.role).toBe('invigilator');
+  await expect(authoringApi(client).list(null)).rejects.toMatchObject({ status: 403 });
+  await expect(schoolApi(client).accounts('teacher', '', null)).rejects.toMatchObject({
+    status: 403,
+  });
+  expect((await api.accounts('invigilator', '', null)).items[0]?.role).toBe('invigilator');
+});

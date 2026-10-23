@@ -433,13 +433,13 @@ function AccountsPage({
 }) {
   const api = schoolApi(useApiClient());
   const classes = useSchoolPage(['classes'], api.classes);
-  const [role, setRole] = useState<'student' | 'teacher'>('student');
+  const [role, setRole] = useState<'student' | 'teacher' | 'invigilator'>('student');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-3">
-        {(['student', 'teacher'] as const).map((value) => (
+        {(['student', 'teacher', 'invigilator'] as const).map((value) => (
           <Button
             key={value}
             variant={role === value ? 'default' : 'outline'}
@@ -450,7 +450,7 @@ function AccountsPage({
               setSearch('');
             }}
           >
-            {value === 'student' ? 'Students' : 'Teachers'}
+            {value === 'student' ? 'Students' : value === 'teacher' ? 'Teachers' : 'Invigilators'}
           </Button>
         ))}
       </div>
@@ -527,7 +527,7 @@ function AccountList({
   showIssue,
   classId,
 }: {
-  role: 'student' | 'teacher';
+  role: 'student' | 'teacher' | 'invigilator';
   search: string;
   classId?: string;
   showIssue: (v: CredentialIssue) => void;
@@ -554,20 +554,20 @@ function AccountList({
   };
   return (
     <>
-      {role === 'teacher' && !addingTeacher && (
+      {role !== 'student' && !addingTeacher && (
         <Button className="min-h-11" onClick={() => setAddingTeacher(true)}>
-          Add teacher
+          {role === 'invigilator' ? 'Add invigilator' : 'Add teacher'}
         </Button>
       )}
-      {role === 'teacher' && addingTeacher && (
+      {role !== 'student' && addingTeacher && (
         <form
           className={`${panel} space-y-4`}
           onSubmit={(e) => {
             e.preventDefault();
             void op.run(
-              JSON.stringify(['teacher', name, fatherName, grandfatherName, reason]),
+              JSON.stringify([role, name, fatherName, grandfatherName, reason]),
               (key) =>
-                api.createTeacher(
+                (role === 'invigilator' ? api.createInvigilator : api.createTeacher)(
                   [name, fatherName, grandfatherName].map((v) => v.trim()).join(' '),
                   reason.trim(),
                   key,
@@ -586,7 +586,9 @@ function AccountList({
             );
           }}
         >
-          <h2 className="text-xl font-semibold">Add teacher</h2>
+          <h2 className="text-xl font-semibold">
+            {role === 'invigilator' ? 'Add invigilator' : 'Add teacher'}
+          </h2>
           <fieldset disabled={op.pending} className="space-y-3">
             <Field label="First name">
               <input
@@ -622,7 +624,9 @@ function AccountList({
                 !name.trim() || !fatherName.trim() || !grandfatherName.trim() || !reason.trim()
               }
             >
-              Create teacher and login details
+              {role === 'invigilator'
+                ? 'Create invigilator and login details'
+                : 'Create teacher and login details'}
             </Button>
             <Button type="button" variant="outline" onClick={() => setAddingTeacher(false)}>
               Cancel adding
@@ -714,7 +718,9 @@ function AccountList({
               </Button>
 
               <RemoveRecord
-                kind={role === 'student' ? 'students' : 'teachers'}
+                kind={
+                  role === 'student' ? 'students' : role === 'teacher' ? 'teachers' : 'invigilators'
+                }
                 id={a.userId}
                 revision={a.revision}
                 label={a.displayName}

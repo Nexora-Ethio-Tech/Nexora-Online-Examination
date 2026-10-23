@@ -33,7 +33,7 @@ export const accountSchema = z.object({
   userId: id,
   displayName: name,
   loginId: id,
-  role: z.enum(['student', 'teacher']),
+  role: z.enum(['student', 'teacher', 'invigilator']),
   studentRef: id.nullable(),
   classId: id.nullable(),
   status: z.enum(['active', 'inactive']),

@@ -10,7 +10,7 @@ export function RemoveRecord({
   revision,
   label,
 }: {
-  kind: 'classes' | 'subjects' | 'students' | 'teachers' | 'teacher-assignments';
+  kind: 'classes' | 'subjects' | 'students' | 'teachers' | 'invigilators' | 'teacher-assignments';
   id: string;
   revision: number;
   label: string;
