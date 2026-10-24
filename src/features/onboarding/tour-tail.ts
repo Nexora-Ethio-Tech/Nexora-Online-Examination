@@ -1,35 +1,37 @@
-import { tourTailInset } from './tour-appearance';
+import { tourTailHalfWidth, tourTailInset } from './tour-appearance';
 import type { Rectangle } from './tour-position';
 
-/** A curved speech-bubble tail pointing at the nearest edge of the real target. */
+/** A broad, asymmetric horn joined inside the bubble border and aimed at the real control. */
 export function tourTail(target: Rectangle, bubble: Rectangle): string | null {
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
   const vertical = bubble.left >= target.right || bubble.right <= target.left;
+  let point: (distance: number, offset: number) => string;
+  let distance: number;
+  let offset: number;
   if (vertical) {
     if (bubble.bottom - bubble.top < tourTailInset * 2) return null;
     const right = bubble.left >= target.right;
     const edge = right ? bubble.left + 1 : bubble.right - 1;
-    const y = clamp(
-      (target.top + target.bottom) / 2,
-      bubble.top + tourTailInset,
-      bubble.bottom - tourTailInset,
-    );
+    const tipY = (target.top + target.bottom) / 2;
+    const y = clamp(tipY + 10, bubble.top + tourTailInset, bubble.bottom - tourTailInset);
     const tipX = right ? target.right + 4 : target.left - 4;
-    const tipY = clamp(y, target.top + 4, target.bottom - 4);
-    return `M ${edge} ${y - 10} Q ${edge} ${y} ${tipX} ${tipY} Q ${edge} ${y + 6} ${edge} ${y + 10}`;
-  }
-  if (bubble.top >= target.bottom || bubble.bottom <= target.top) {
+    distance = right ? edge - tipX : tipX - edge;
+    offset = tipY - y;
+    point = (d, v) => `${edge + (right ? -d : d)} ${y + v}`;
+  } else if (bubble.top >= target.bottom || bubble.bottom <= target.top) {
     if (bubble.right - bubble.left < tourTailInset * 2) return null;
     const below = bubble.top >= target.bottom;
     const edge = below ? bubble.top + 1 : bubble.bottom - 1;
-    const x = clamp(
-      (target.left + target.right) / 2,
-      bubble.left + tourTailInset,
-      bubble.right - tourTailInset,
-    );
+    const tipX = (target.left + target.right) / 2;
+    const x = clamp(tipX + 10, bubble.left + tourTailInset, bubble.right - tourTailInset);
     const tipY = below ? target.bottom + 4 : target.top - 4;
-    const tipX = clamp(x, target.left + 4, target.right - 4);
-    return `M ${x - 10} ${edge} Q ${x} ${edge} ${tipX} ${tipY} Q ${x + 6} ${edge} ${x + 10} ${edge}`;
+    distance = below ? edge - tipY : tipY - edge;
+    offset = tipX - x;
+    point = (d, v) => `${x + v} ${edge + (below ? -d : d)}`;
+  } else {
+    return null;
   }
-  return null;
+  if (distance <= 0) return null;
+  const half = tourTailHalfWidth;
+  return `M ${point(0, -half)} C ${point(distance * 0.2, -half + 2)} ${point(distance * 0.55, offset - 3)} ${point(distance, offset)} C ${point(distance * 0.82, offset + 8)} ${point(distance * 0.2, half)} ${point(0, half)}`;
 }
