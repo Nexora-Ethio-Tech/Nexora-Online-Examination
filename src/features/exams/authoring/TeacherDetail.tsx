@@ -441,10 +441,10 @@ export function TeacherDetail() {
           <TabsTrigger value="details" aria-label="Exam details">
             1 · Exam details
           </TabsTrigger>
-          <TabsTrigger value="import" aria-label="Import">
+          <TabsTrigger data-tour="questions-tab" value="import" aria-label="Import">
             2 · Questions
           </TabsTrigger>
-          <TabsTrigger value="review" aria-label="Review questions">
+          <TabsTrigger data-tour="review-tab" value="review" aria-label="Review questions">
             3 · Review questions
           </TabsTrigger>
         </TabsList>
@@ -505,6 +505,7 @@ export function TeacherDetail() {
             <label className="block text-sm">
               Question template
               <Input
+                data-tour="question-template"
                 className="mt-2"
                 type="file"
                 accept=".docx,.xlsx"
@@ -679,6 +680,7 @@ export function TeacherDetail() {
                     I checked the questions without warnings and their answer keys.
                   </label>
                   <Button
+                    data-tour="bulk-review"
                     disabled={disabled || dirty || !bulkConfirmed || !bulkEligible.length}
                     onClick={() =>
                       run(() =>
@@ -912,6 +914,7 @@ export function TeacherDetail() {
             </div>
           )}
           <Button
+            data-tour="submit-paper"
             className="min-h-11"
             disabled={!canSubmit || action.isPending}
             onClick={() => setSubmitConfirmation(true)}

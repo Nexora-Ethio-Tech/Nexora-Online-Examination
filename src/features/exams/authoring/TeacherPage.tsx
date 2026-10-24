@@ -177,7 +177,7 @@ export function TeacherPage() {
         <div>
           <h1 className="mt-2 text-3xl font-semibold">My exam papers</h1>
         </div>
-        <Button className="min-h-11" onClick={() => setCreating(!creating)}>
+        <Button data-tour="new-exam" className="min-h-11" onClick={() => setCreating(!creating)}>
           {creating ? 'Close new draft' : 'New exam'}
         </Button>
       </div>
