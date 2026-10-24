@@ -1,0 +1,20 @@
+# 7. Platform owner and school isolation
+
+[Testing home](README.md) · Next: [Technical and release checks](08-technical-and-release.md)
+
+Start the separate local owner API and open [Owner portal](http://127.0.0.1:5183/platform). Use the private local owner account and its own Authenticator entry. These checks cover the currently implemented owner portal, not every proposal in the large future super-admin brief.
+
+1. **Separate login.** Sign in with owner credentials and MFA. School-admin credentials/cookies must not confer owner access. Sign out and verify private owner pages require authentication again. Wrong/used codes must not authorize sensitive actions.
+2. **Owner guide.** Open Owner guide and follow each available section. Expect the same rounded bubble and target-facing tail, usable on phone and landscape. Explanations should describe school management plainly.
+3. **School directory.** List schools, use available pagination, select one and inspect administrators with a reason. Expect only the selected school's directory and an audit of the inspection, not exam answers or staff secrets.
+4. **Provisioning.** Create a uniquely named synthetic school and initial administrator with fresh MFA and a reason. Expect one school/admin and a private one-time credential response. Complete protected school-admin MFA enrollment through the documented operator process before expecting privileged school access. School and owner MFA keys are separate.
+5. **Additional admin/reset.** Create another administrator or reset a disposable one for the selected school. Expect the correct school/user scope, fresh MFA, session revocation as applicable and no later retrieval of plaintext credentials. The portal must not expose staff QR secrets. A lost one-time password response requires an explicit new reset.
+6. **Status and subscriptions.** On a school used only for this test, change status/entitlement with a reason and current revision. Expect persisted status and an audit. Conflicting stale edits must fail. Restricted/expired entitlement blocks new scheduling as specified; test active-exam behavior separately rather than assuming it erases results. School suspension is a separate disruptive action.
+7. **Queue health.** Open health/status and compare with known local queued/running/completed work. Expect bounded queue counts, including current import lifecycle states, not raw credentials or question contents. An empty queue is not proof that a worker is alive.
+8. **Audit.** Perform a harmless inspection/action, then inspect audit and older pages/export. Expect actor, action, reason and relevant timestamps without passwords, codes or keys. Clearly distinguish current-page exports from all-history exports.
+9. **Two-school isolation.** In separate school-admin sessions, create distinguishable classes/accounts in two synthetic schools. Neither school's lists or protected APIs may reveal the other's records. The owner has selected management privileges, not blanket access to school answers/password hashes. Verify database grants with the technical suite too.
+10. **Recovery/expiry.** With a spare disposable owner only, rehearse operator recovery/deactivation and expired sessions. Expect old sessions to stop working and recovery to require verified enrollment. Do not disable the only usable owner account during a casual UI test.
+
+When creating a new local school, update the private worker school scope through the documented local configuration process and restart the worker before testing its uploads. The doctor must report coverage. Do not put private configuration in Git.
+
+Details: [Owner architecture/testing](../platform-owner-architecture-and-testing.md), [owner guidance](../resumable-guides-and-owner-portal.md), [school provisioning](../chat-change-guides/01-school-provisioning.md), [deployment handoff](../deployment-developer-handoff.md). Older first-enrollment/deployment status paragraphs describe historical checkpoints; use the current local alignment record for local migration status.
