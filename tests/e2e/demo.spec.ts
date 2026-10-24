@@ -48,7 +48,7 @@ test('portal management: class cards, unused record deletion and reopenable onbo
   await expect(page.locator('[data-tour-tail]')).toBeVisible();
   await expect(page.locator('[data-tail-fill]')).toHaveAttribute('d', /^M .+ Z$/);
   await page.screenshot({
-    path: '../.local-test/tour-bubble-' + page.viewportSize()?.width + '.png',
+    path: test.info().outputPath('tour-bubble-' + page.viewportSize()?.width + '.png'),
   });
   if (await page.getByRole('button', { name: 'Navigation', exact: true }).isVisible()) {
     await page.getByRole('button', { name: 'Navigation', exact: true }).click();
@@ -59,6 +59,7 @@ test('portal management: class cards, unused record deletion and reopenable onbo
     .filter({ visible: true })
     .click();
   await expect(page.getByText('Import students into a class', { exact: true })).toBeVisible();
+  await expect(page.locator('.nexora-tour-target')).toHaveAttribute('data-tour', 'school-roster');
   await verifyPlacement();
   await accessible(page);
   await page.getByRole('button', { name: 'Close guide' }).click();
@@ -82,6 +83,42 @@ test('portal management: class cards, unused record deletion and reopenable onbo
   await expect(page.getByRole('heading', { name: 'Samira', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /Grade 10 A/ }).click();
   await expect(page.getByRole('heading', { name: 'Samira', exact: true })).toBeVisible();
+  await accessible(page);
+});
+
+test('speech bubble follows teacher controls as pages and tabs change', async ({ page }) => {
+  await login(page, 'TEACHER');
+  await page.getByRole('button', { name: 'Portal guide', exact: true }).click();
+  await expect(page.locator('.nexora-tour-target')).toHaveAttribute('data-tour', 'new-exam');
+  await page.getByRole('button', { name: 'Next tip' }).click();
+  const mobile = (page.viewportSize()?.width ?? 1366) < 1024;
+  await expect(page.locator('.nexora-tour-target')).toHaveAttribute(
+    mobile ? 'data-tour-navigation' : 'href',
+    mobile ? 'true' : '/teacher',
+  );
+  // Each isolated demo starts without teacher papers. Create the draft through the UI.
+  await page.getByRole('button', { name: 'Close guide' }).click();
+  await page.getByRole('button', { name: 'New exam', exact: true }).click();
+  await page.getByLabel('Exam title', { exact: true }).fill('Tour controls rehearsal');
+  await page.getByLabel('Class and subject').selectOption('demo-math-10a');
+  await page.getByRole('button', { name: 'Create draft' }).click();
+  await page.getByRole('button', { name: 'Portal guide', exact: true }).click();
+  await expect(page.locator('.nexora-tour-target')).toHaveAttribute(
+    'data-tour',
+    'question-template',
+  );
+  await page.getByRole('button', { name: 'Close guide' }).click();
+  await page.getByRole('tab', { name: 'Exam details', exact: true }).click();
+  await page.getByRole('button', { name: 'Portal guide', exact: true }).click();
+  await expect(page.locator('.nexora-tour-target')).toHaveAttribute('data-tour', 'questions-tab');
+  await page.getByRole('tab', { name: 'Import', exact: true }).click();
+  await expect(page.locator('.nexora-tour-target')).toHaveAttribute(
+    'data-tour',
+    'question-template',
+  );
+  await page.getByRole('button', { name: 'Next tip' }).click();
+  await expect(page.locator('.nexora-tour-target')).toHaveAttribute('data-tour', 'review-tab');
+  await page.screenshot({ path: test.info().outputPath('teacher-bubble.png') });
   await accessible(page);
 });
 
