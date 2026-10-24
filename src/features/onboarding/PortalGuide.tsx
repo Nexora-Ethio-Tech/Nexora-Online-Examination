@@ -16,7 +16,8 @@ export function PortalGuide({
       revision={guideRevision(role)}
       steps={guides[role].map((step) => ({
         ...step,
-        target: 'nav a[href="' + step.path.split('?')[0] + '"]',
+        target: step.targets ?? 'nav a[href="' + step.path.split('?')[0] + '"]',
+        fallbackTarget: 'nav a[href="' + step.path.split('?')[0] + '"]',
       }))}
     />
   );

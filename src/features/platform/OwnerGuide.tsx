@@ -1,4 +1,5 @@
 import { GuidedTour } from '@/features/onboarding/GuidedTour';
+import { tourPresentation } from '@/features/onboarding/tour-appearance';
 export const ownerSteps = [
   {
     title: 'Your schools',
@@ -30,7 +31,7 @@ export function OwnerGuide({ owner }: { owner: string }) {
   return (
     <GuidedTour
       storageKey={`nexora:owner-guide:${owner}`}
-      revision={JSON.stringify({ presentation: 'speech-bubble-rounded-v2', steps: ownerSteps })}
+      revision={JSON.stringify({ presentation: tourPresentation, steps: ownerSteps })}
       label="Owner guide"
       steps={ownerSteps}
     />

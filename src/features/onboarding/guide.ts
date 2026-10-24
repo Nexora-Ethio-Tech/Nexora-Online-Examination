@@ -1,15 +1,18 @@
 import type { Role } from '@/features/auth/schemas';
-export type GuideStep = { title: string; body: string; path: string };
+import { tourPresentation } from './tour-appearance';
+export type GuideStep = { title: string; body: string; path: string; targets?: string[] };
 /** Update this manifest with every user-facing feature addition/removal. Content changes reopen the guide. */
 export const guides: Record<Role, GuideStep[]> = {
   invigilator: [
     {
       title: 'Set up your authenticator',
+      targets: ['[data-tour="authenticator-setup"]', '[data-tour="authenticator-heading"]'],
       body: 'In Exam assistance, set up your authenticator on your own device before supervising. Keep the setup key private.',
       path: '/invigilator',
     },
     {
       title: 'Support assigned exams',
+      targets: ['[data-tour="assistance-sitting"]'],
       body: 'Choose an assigned sitting. Verify the student, then approve a help request with a fresh authenticator code on your own device. The original deadline continues.',
       path: '/invigilator',
     },
@@ -17,21 +20,25 @@ export const guides: Record<Role, GuideStep[]> = {
   school_admin: [
     {
       title: 'Set up your school',
+      targets: ['[data-tour="school-classes"]'],
       body: 'Create classes using Grade and Section, then create subjects for each grade and assign teachers. Find assignments by grade, class, subject or teacher. Use Accounts → Invigilators to create limited accounts for non-teaching staff. Delete class removes it from current use while previous exam results remain.',
       path: '/admin/school?tab=classes',
     },
     {
       title: 'Import students into a class',
+      targets: ['[data-tour="school-roster"]'],
       body: 'Choose a class in Roster import and preview your CSV. In Accounts, open the class card to find students and give students their login details. New student IDs look like STU/001/0001/19: school number, student number and Ethiopian creation year. Teacher IDs look like TCH/001/0001. Numbers continue across classes; existing IDs stay unchanged. Generated passwords have eight characters with uppercase and lowercase letters, numbers and symbols. Use Edit to change student details or reset a password.',
       path: '/admin/school?tab=roster',
     },
     {
       title: 'Approve and schedule exams',
+      targets: ['[data-tour="approval-in_review"]'],
       body: 'Pending approval shows the oldest submission first; resubmitted papers rejoin the queue. Use Approved & scheduled or Returned to browse by grade and class. Search by paper, teacher, subject or subject code. Review submitted papers, approve them and switch between Ethiopian and Gregorian calendar dates. Use the month, day and year controls or open the seven-day calendar. The date summary also shows the Gregorian equivalent. Preparation and results are side by side on wider screens. Ethiopian months are in Amharic. School time refreshes automatically. Times use AM/PM in EAT. Choose 0–120 preparation minutes (10 by default). Check the exam start, end and results dates before confirming. Then assign invigilators under the saved sitting dates and check their authenticator readiness.',
       path: '/admin',
     },
     {
       title: 'Support active exams',
+      targets: ['[data-tour="assistance-sitting"]'],
       body: 'Use Live exams and Exam assistance to supervise students. Review browser incident descriptions as device reports, not proof that a screenshot was captured. Activity summary groups window changes, screen protection, watermark integrity and returns. Open a category for details; advanced analysis offers event-type colors and factual counts, with no risk score or disciplinary recommendation. Capture reports do not prove a screenshot was taken. Staff approval never extends the original deadline.',
       path: '/admin/assistance',
     },
@@ -44,26 +51,31 @@ export const guides: Record<Role, GuideStep[]> = {
   teacher: [
     {
       title: 'Create a paper',
+      targets: ['[data-tour="new-exam"]'],
       body: 'Active & upcoming shows drafts, returned papers, pending approvals and approved papers, newest first. Past papers contains papers whose scheduled sittings have all ended. Approval without a schedule stays active. Filter by status, or choose your assigned class and subject to create a paper. Date forms offer Ethiopian and Gregorian calendars; times use AM/PM in EAT.',
       path: '/teacher',
     },
     {
       title: 'Upload and manage questions',
+      targets: ['[data-tour="question-template"]', '[data-tour="questions-tab"]'],
       body: 'Use a Word or Excel template with answer keys. File reading happens before AI suggestions. If a file stays waiting to be read, contact your administrator. A stuck import can be cancelled; questions already read stay in the draft. Unneeded drafts can be removed.',
       path: '/teacher',
     },
     {
       title: 'Review in one action',
+      targets: ['[data-tour="bulk-review"]', '[data-tour="review-tab"]'],
       body: 'Use Confirm all questions without warnings for complete questions. Questions with warnings need individual attention. On phones, open a question card to edit it, then use Previous question or Next question.',
       path: '/teacher',
     },
     {
       title: 'Submit for approval',
+      targets: ['[data-tour="submit-paper"]'],
       body: 'Submit the saved paper to your administrator. Approval and scheduling remain school-admin actions.',
       path: '/teacher',
     },
     {
       title: 'Provide exam assistance',
+      targets: ['[data-tour="authenticator-setup"]', '[data-tour="authenticator-heading"]'],
       body: 'Open Exam assistance to set up your authenticator with a private QR code and confirmation. Assigned staff approve student requests with a fresh code on their own device; no staff codes are entered on student screens.',
       path: '/teacher/assistance',
     },
@@ -71,6 +83,7 @@ export const guides: Record<Role, GuideStep[]> = {
   student: [
     {
       title: 'Prepare for your exam',
+      targets: ['[data-tour="download-exam"]', '[data-tour="exam-current"]'],
       body: 'Use Current exams, Upcoming exams and Past exams in My exams. Exams are ordered A–Z within each category; use Load more for further papers. Past exams can be filtered by published grades, awaiting results, or no grade. Needs attention keeps unfinished submissions visible. Check the Ethiopian calendar date. Times use AM/PM in EAT, even if your device uses another timezone. Choose Download exam when preparation opens. Follow the download progress, keep this page open and stay connected until the exam starts.',
       path: '/student',
     },
@@ -97,4 +110,4 @@ export const guides: Record<Role, GuideStep[]> = {
   ],
 };
 export const guideRevision = (role: Role) =>
-  JSON.stringify({ presentation: 'speech-bubble-rounded-v2', steps: guides[role] });
+  JSON.stringify({ presentation: tourPresentation, steps: guides[role] });
