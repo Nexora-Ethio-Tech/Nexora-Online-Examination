@@ -1,5 +1,7 @@
 # Changes made in this chat and how to test them
 
+**Current testing entry point:** [Complete local testing guide](../testing/README.md). This page retains historical milestone reports; use the current guide for the latest ID formats, automatic results, strict exam shield and local migration status.
+
 ## Latest: preparation, downloads and tours
 
 Verified locally on 22 October 2026: frontend check (241 tests plus 14 tooling checks), frontend/backend builds, 177 backend unit tests, 20 disposable PostgreSQL integration tests, and three spotlight browser journeys (desktop, mobile and landscape). No production database was used.

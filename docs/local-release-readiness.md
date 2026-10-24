@@ -1,5 +1,7 @@
 # Local release rehearsal and testing order
 
+For the complete manual checklist, start with [All-feature local testing](testing/README.md).
+
 24 October 2026. This is the current local alignment record; older guides retain their historical test results. Nothing has been pushed or deployed by this task.
 
 ## What is aligned
