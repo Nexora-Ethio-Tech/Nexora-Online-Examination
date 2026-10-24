@@ -29,6 +29,7 @@ export function AssistancePage() {
       <label className="block">
         Exam sitting
         <select
+          data-tour="assistance-sitting"
           className="mt-2 min-h-11 w-full rounded border bg-background p-2"
           value={selected}
           onChange={(e) => setSelected(e.target.value)}

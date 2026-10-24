@@ -80,7 +80,9 @@ export function StaffAuthenticator() {
   }
   return (
     <section aria-label="Your authenticator" className="space-y-3 rounded-xl border p-4">
-      <h2 className="text-lg font-semibold">Your authenticator</h2>
+      <h2 data-tour="authenticator-heading" className="text-lg font-semibold">
+        Your authenticator
+      </h2>
       <p>
         Get your six-digit code from the Nexora account in Microsoft or Google Authenticator on your
         phone. Enter it only on your own staff device. Codes work on the phone offline; approving a
@@ -121,7 +123,9 @@ export function StaffAuthenticator() {
               disabled={busy}
             />
           </label>
-          <Button disabled={busy || !password}>Set up authenticator</Button>
+          <Button data-tour="authenticator-setup" disabled={busy || !password}>
+            Set up authenticator
+          </Button>
         </form>
       )}
       {setup && (

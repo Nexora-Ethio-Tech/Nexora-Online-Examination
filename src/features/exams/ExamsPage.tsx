@@ -135,6 +135,7 @@ export function ExamsPage() {
             {(['All exams', ...examGroups] as const).map((name) => (
               <Button
                 key={name}
+                data-tour={name === 'Current exams' ? 'exam-current' : undefined}
                 variant={filter === name ? 'default' : 'outline'}
                 aria-pressed={filter === name}
                 onClick={() => {

@@ -1405,7 +1405,12 @@ export function SchoolSetupPage() {
               ['activity', 'Activity'],
               ['ai', 'AI settings'],
             ].map(([value, label]) => (
-              <TabsTrigger className="h-auto min-h-11" key={value} value={value ?? ''}>
+              <TabsTrigger
+                data-tour={`school-${value}`}
+                className="h-auto min-h-11"
+                key={value}
+                value={value ?? ''}
+              >
                 {label}
               </TabsTrigger>
             ))}

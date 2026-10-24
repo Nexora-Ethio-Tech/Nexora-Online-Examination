@@ -85,6 +85,7 @@ export function AdminExamsPage() {
         ].map(([value, label]) => (
           <Button
             key={value}
+            data-tour={`approval-${value}`}
             aria-pressed={status === value}
             variant={status === value ? 'default' : 'outline'}
             onClick={() => value && setStatus(value)}

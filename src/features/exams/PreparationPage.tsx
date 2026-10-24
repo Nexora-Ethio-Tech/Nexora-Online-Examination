@@ -178,6 +178,7 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
               <>
                 <Countdown sample={query.data.clock} target={exam.startsAt} />
                 <Button
+                  data-tour="download-exam"
                   className="mt-5 h-auto min-h-11 whitespace-normal py-3"
                   disabled={preparation.isPending || !!query.error}
                   onClick={() => preparation.mutate()}
