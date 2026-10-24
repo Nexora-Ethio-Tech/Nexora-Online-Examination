@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import { tourCornerRadius } from './tour-appearance';
 import { tourTail } from './tour-tail';
 import { tourPosition } from './tour-position';
+import { tourTarget, type TourTarget } from './tour-target';
 import { Button } from '@/components/ui/button';
 
-export type TourStep = { title: string; body: string; target: string };
+export type TourStep = { title: string; body: string } & TourTarget;
 type Progress = { revision: string; index: number; completed: boolean; paused: boolean };
 export function GuidedTour({
   storageKey,
@@ -49,7 +50,7 @@ export function GuidedTour({
   const shade = useRef<HTMLDivElement>(null);
   const tail = useRef<SVGSVGElement>(null);
   const [host, setHost] = useState<HTMLElement>(document.body);
-  const [menuTarget, setMenuTarget] = useState(false);
+  const [targetKind, setTargetKind] = useState<'feature' | 'navigation' | 'menu'>('feature');
   const [missingTarget, setMissingTarget] = useState(false);
   function update(next: Progress) {
     setProgress(next);
@@ -61,28 +62,32 @@ export function GuidedTour({
   }
   useEffect(() => {
     if (!open || !step) return;
+    // A new tip starts at its heading, even when the previous tip was scrolled.
+    box.current?.firstElementChild?.scrollTo?.({ top: 0 });
     let highlighted: HTMLElement | undefined;
     let frame = 0;
-    const visible = (el: HTMLElement) => {
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    };
+    const resize = new ResizeObserver(schedule);
     function place() {
-      const target =
-        [...document.querySelectorAll<HTMLElement>(step?.target ?? '[data-tour-navigation]')].find(
-          visible,
-        ) ?? [...document.querySelectorAll<HTMLElement>('[data-tour-navigation]')].find(visible);
+      // clientWidth excludes the page scrollbar, which can otherwise clip a rounded corner.
+      const viewport = {
+        width: document.documentElement.clientWidth || innerWidth,
+        height: document.documentElement.clientHeight || innerHeight,
+      };
+      const resolved = step ? tourTarget(step) : null;
+      const target = resolved?.element;
       const popup = box.current;
       if (!popup) return;
       const nextHost = target?.closest<HTMLElement>('[data-tour-menu]') ?? document.body;
       setHost((current) => (current === nextHost ? current : nextHost));
       setMissingTarget(!target);
-      setMenuTarget(!!target?.hasAttribute('data-tour-navigation'));
+      setTargetKind(resolved?.kind ?? 'feature');
       if (highlighted !== target) {
+        if (highlighted) resize.unobserve(highlighted);
         highlighted?.classList.remove('nexora-tour-target');
         highlighted = target;
         target?.classList.add('nexora-tour-target');
-        target?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+        if (target) resize.observe(target);
+        target?.scrollIntoView?.({ block: 'center', inline: 'nearest', behavior: 'instant' });
       }
       const r = target?.getBoundingClientRect();
       if (!r) {
@@ -91,24 +96,20 @@ export function GuidedTour({
         Object.assign(popup.style, {
           left: '8px',
           top: '8px',
-          width: Math.min(384, innerWidth - 16) + 'px',
-          maxHeight: innerHeight - 16 + 'px',
+          width: Math.min(384, viewport.width - 16) + 'px',
+          maxHeight: viewport.height - 16 + 'px',
         });
         return;
       }
-      const position = tourPosition(r, { width: innerWidth, height: innerHeight });
+      popup.style.width = Math.min(384, viewport.width - 16) + 'px';
+      const contentHeight = (popup.firstElementChild?.scrollHeight ?? 320) + 2;
+      const position = tourPosition(r, viewport, contentHeight);
       Object.assign(popup.style, {
         left: position.left + 'px',
         top: position.top + 'px',
         width: position.width + 'px',
         maxHeight: position.maxHeight + 'px',
       });
-      // Bring the bubble edge close to the target after measuring wrapped content.
-      const measured = popup.getBoundingClientRect();
-      if (measured.right <= r.left)
-        popup.style.left = Math.max(8, r.left - measured.width - 20) + 'px';
-      if (measured.bottom <= r.top)
-        popup.style.top = Math.max(8, r.top - measured.height - 20) + 'px';
       if (tail.current) {
         const shape = tourTail(r, popup.getBoundingClientRect());
         tail.current.style.display = shape ? 'block' : 'none';
@@ -119,9 +120,9 @@ export function GuidedTour({
       }
       if (shade.current) {
         const left = Math.max(0, r.left - 4),
-          right = Math.min(innerWidth, r.right + 4);
+          right = Math.min(viewport.width, r.right + 4);
         const top = Math.max(0, r.top - 4),
-          bottom = Math.min(innerHeight, r.bottom + 4);
+          bottom = Math.min(viewport.height, r.bottom + 4);
         Object.assign(shade.current.style, {
           display: 'block',
           clipPath:
@@ -149,15 +150,15 @@ export function GuidedTour({
         });
       }
     }
-    const schedule = () => {
+    function schedule() {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(place);
-    };
+    }
     place();
     const observer = new MutationObserver(schedule);
     observer.observe(document.body, { childList: true, subtree: true });
-    const resize = new ResizeObserver(schedule);
     if (box.current) resize.observe(box.current);
+    resize.observe(document.body);
     window.addEventListener('resize', schedule);
     window.addEventListener('scroll', schedule, true);
     return () => {
@@ -212,9 +213,11 @@ export function GuidedTour({
                 <p className="text-sm">
                   {missingTarget
                     ? 'This area is not visible on the current page. Return to the portal overview or continue to the next tip.'
-                    : menuTarget
+                    : targetKind === 'menu'
                       ? 'Open the highlighted Navigation button to find this area.'
-                      : 'Select the highlighted area when you want to explore it.'}
+                      : targetKind === 'navigation'
+                        ? 'Open the highlighted page to find these controls. The guide will point to them when they are visible.'
+                        : 'Select the highlighted area when you want to explore it.'}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
