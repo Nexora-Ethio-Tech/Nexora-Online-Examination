@@ -1,4 +1,11 @@
 import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -9,6 +16,12 @@ export function InvigilatorAssignments({ id }: { id: string }) {
   const client = useApiClient();
   const { session } = useAuth();
   const [reason, setReason] = useState('');
+  const [selected, setSelected] = useState<{
+    id: string;
+    displayName: string;
+    active: boolean;
+    revision: number;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const staff = useQuery({
@@ -23,6 +36,8 @@ export function InvigilatorAssignments({ id }: { id: string }) {
     try {
       await assistanceApi(client).assign(id, { staffId, active, expectedRevision, reason });
       setMessage('Staff assignment saved.');
+      setSelected(null);
+      setReason('');
     } catch (failure) {
       setMessage(errorMessage(failure));
     } finally {
@@ -38,15 +53,6 @@ export function InvigilatorAssignments({ id }: { id: string }) {
         can be assigned now, but must confirm their authenticator before approving requests.
         Administrators retain school-wide assistance access.
       </p>
-      <label className="block">
-        Assignment change reason
-        <input
-          className="mt-1 min-h-11 w-full rounded border bg-background p-2"
-          value={reason}
-          maxLength={500}
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </label>
       <Button type="button" variant="outline" onClick={() => void staff.refetch()}>
         Refresh invigilators
       </Button>
@@ -63,14 +69,54 @@ export function InvigilatorAssignments({ id }: { id: string }) {
           </p>
           <Button
             variant="outline"
-            disabled={busy || !reason.trim()}
-            onClick={() => void assign(s.id, !s.active, s.revision)}
+            disabled={busy}
+            onClick={() => {
+              setSelected(s);
+              setReason('');
+              setMessage('');
+            }}
           >
             {s.active ? 'Revoke assignment' : 'Assign invigilator'}
           </Button>
         </div>
       ))}
-      {message && <p role="status">{message}</p>}
+      <Dialog
+        open={!!selected}
+        onOpenChange={(open) => {
+          if (!open && !busy) setSelected(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {selected?.active ? 'Remove invigilator assignment' : 'Assign invigilator'}
+            </DialogTitle>
+            <DialogDescription>
+              {selected?.displayName}. Enter a reason before confirming this change.
+            </DialogDescription>
+          </DialogHeader>
+          <label>
+            Assignment change reason
+            <input
+              className="mt-1 min-h-11 w-full rounded border bg-background p-2"
+              value={reason}
+              maxLength={500}
+              disabled={busy}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </label>
+          <Button
+            disabled={busy || !reason.trim()}
+            onClick={() =>
+              selected && void assign(selected.id, !selected.active, selected.revision)
+            }
+          >
+            Confirm assignment change
+          </Button>
+          {message && <p role="status">{message}</p>}
+        </DialogContent>
+      </Dialog>
+      {!selected && message && <p role="status">{message}</p>}
     </section>
   );
 }
