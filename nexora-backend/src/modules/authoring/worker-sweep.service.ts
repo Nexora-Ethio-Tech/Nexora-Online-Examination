@@ -4,7 +4,6 @@ import { DbService } from '../../common/db/db.service';
 import { parsePreparationInput } from '../delivery/preparation-schemas';
 import { ImportWorkerService } from './import-worker.service';
 import { PackageWorkerService } from './package-worker.service';
-import { workerSchoolIds } from './worker-scope';
 
 const sweepSchema = z
   .object({
@@ -30,7 +29,11 @@ export class WorkerSweepService {
     const options = parsePreparationInput(sweepSchema, input ?? {});
     const candidates = options.schoolId
       ? [options.schoolId]
-      : workerSchoolIds().filter((id) => !options.afterSchoolId || id > options.afterSchoolId);
+      : (
+          await this.db.query<{ id: string }>('SELECT id FROM public.nexora_worker_schools($1)', [
+            options.afterSchoolId ?? null,
+          ])
+        ).rows.map((row) => row.id);
     const selected = candidates[0];
     if (!selected)
       return { parsed: false, aiProcessed: 0, packageProcessed: false, nextCursor: null };

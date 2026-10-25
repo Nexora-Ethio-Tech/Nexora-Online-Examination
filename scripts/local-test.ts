@@ -53,10 +53,6 @@ switch (command) {
     ];
     break;
   case 'worker':
-    if (!settings.WORKER_SCHOOL_IDS?.trim())
-      throw new Error(
-        'Add WORKER_SCHOOL_IDS to the private manual local-test configuration before starting the worker.',
-      );
     cwd = resolve(root, 'nexora-backend');
     args = ['dist/scripts/run-worker.js'];
     break;

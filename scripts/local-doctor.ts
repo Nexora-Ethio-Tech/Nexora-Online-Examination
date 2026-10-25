@@ -28,14 +28,14 @@ try {
   );
   report('Pending migrations:', missing.length ? missing.join(', ') : 'none');
   failed ||= missing.length > 0;
-  const configured = (settings.WORKER_SCHOOL_IDS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const active = await pool.query("SELECT id FROM schools WHERE status='active'");
-  const uncovered = active.rows.filter((r: { id: string }) => !configured.includes(r.id)).length;
-  report('Active schools missing from worker scope:', uncovered);
-  failed ||= uncovered > 0;
+  const discovery = await pool.query(
+    "SELECT to_regprocedure('public.nexora_worker_schools(uuid)') IS NOT NULL AS ready",
+  );
+  report(
+    'Automatic worker discovery:',
+    discovery.rows[0].ready ? 'available' : 'migration required',
+  );
+  failed ||= !discovery.rows[0].ready;
   for (const name of ['GROQ', 'GEMINI'])
     report(
       `${name}:`,

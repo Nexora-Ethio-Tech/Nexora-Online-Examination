@@ -8,6 +8,7 @@ import { ImportWorkerController } from '../../src/modules/authoring/import.contr
 
 const mocks = vi.hoisted(() => ({
   query: vi.fn(),
+  discovery: vi.fn(),
   imports: vi.fn(),
   packages: vi.fn(),
 }));
@@ -32,7 +33,10 @@ const second = '22222222-2222-4222-8222-222222222222';
 function sweep() {
   // Prototype instances intentionally skip constructors; mocks provide all dependencies.
   return new WorkerSweepService(
-    Object.assign(Object.create(DbService.prototype), { tenantQuery: mocks.query }),
+    Object.assign(Object.create(DbService.prototype), {
+      tenantQuery: mocks.query,
+      query: mocks.discovery,
+    }),
     Object.assign(Object.create(ImportWorkerService.prototype), { run: mocks.imports }),
     Object.assign(Object.create(PackageWorkerService.prototype), { run: mocks.packages }),
   );
@@ -46,7 +50,11 @@ describe('bounded school worker sweep', () => {
   });
 
   function setup() {
-    vi.stubEnv('WORKER_SCHOOL_IDS', `${first},${second}`);
+    mocks.discovery.mockImplementation((_sql, params) =>
+      Promise.resolve({
+        rows: params[0] === first ? [{ id: second }] : [{ id: first }, { id: second }],
+      }),
+    );
     const service = sweep();
     // No database connection is created in these tests.
     mocks.packages.mockResolvedValue(true);
@@ -105,10 +113,11 @@ describe('bounded school worker sweep', () => {
     expect(mocks.packages).not.toHaveBeenCalled();
   });
 
-  it('fails on missing sweep configuration but permits explicit trusted scope', async () => {
+  it('discovers schools without configuration and permits explicit trusted scope', async () => {
     const service = setup();
     vi.stubEnv('WORKER_SCHOOL_IDS', '');
-    await expect(service.run({})).rejects.toThrow('WORKER_SCHOOL_IDS_REQUIRED');
+    mocks.discovery.mockResolvedValue({ rows: [] });
+    expect(await service.run({})).toMatchObject({ nextCursor: null, parsed: false });
     expect(mocks.query).not.toHaveBeenCalled();
     mocks.query.mockResolvedValue({ rows: [{ id: first }] });
     await service.run({ schoolId: first });
