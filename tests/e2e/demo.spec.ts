@@ -284,7 +284,7 @@ test('teacher import and review through admin approval, scheduling and extra tim
   ).toBeVisible();
   await page.getByRole('tab', { name: 'Review questions' }).click();
   for (const id of ['MATH-001', 'MATH-002']) {
-    await page.getByRole('button', { name: new RegExp(`^(Review|Open question) ${id}$`) }).click();
+    await page.getByRole('button', { name: new RegExp(`^Review ${id}:`) }).click();
     const section = page
       .locator('section')
       .filter({ has: page.getByRole('heading', { name: id, exact: true }) });
@@ -295,6 +295,9 @@ test('teacher import and review through admin approval, scheduling and extra tim
     await section.getByRole('button', { name: 'Save question review' }).click();
     await expect(section.getByRole('button', { name: 'Save question review' })).toBeEnabled();
   }
+  await page
+    .locator('#question-editor')
+    .screenshot({ path: testInfo.outputPath('compact-question-review.png') });
   await accessible(page);
   await page.getByRole('button', { name: 'Submit for approval' }).click();
   await page.getByRole('button', { name: 'Confirm send for approval' }).click();
@@ -352,9 +355,10 @@ test('teacher import and review through admin approval, scheduling and extra tim
   await page.getByRole('checkbox', { name: /I checked the EAT/ }).check();
   await page.getByRole('button', { name: 'Confirm schedule', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Assign invigilators' })).toBeVisible();
-  await page.getByLabel('Assignment change reason').fill('Assigned to supervise this sitting.');
   await page.getByRole('button', { name: 'Assign invigilator', exact: true }).first().click();
-  await expect(page.getByText('Staff assignment saved.')).toBeVisible();
+  await page.getByLabel('Assignment change reason').fill('Assigned to supervise this sitting.');
+  await page.getByRole('button', { name: 'Confirm assignment change' }).click();
+  await expect(page.locator('#main-content').getByText('Staff assignment saved.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Revoke assignment' })).toBeVisible();
   await page.getByRole('link', { name: 'Manage extra time' }).click();
   await page.getByRole('button', { name: 'Edit extra time for Samira' }).click();
@@ -568,9 +572,7 @@ test('school admin enables AI exam drafts and teachers retain upload and review 
 });
 
 // Browser-dispatched events verify the DOM shield, not OS capture prevention.
-test('strict shield restores a deleted watermark and locks after five interruptions', async ({
-  page,
-}) => {
+test('watermark tampering requires assistance on the first interruption', async ({ page }) => {
   await login(page, 'STUDENT');
   const card = page
     .locator('article')
@@ -582,30 +584,14 @@ test('strict shield restores a deleted watermark and locks after five interrupti
   await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
   await page.waitForTimeout(1200); // Let the supplied detector retain the original node.
   await page.getByTestId('exam-watermark').evaluate((el) => el.remove());
-  await expect(page.getByTestId('exam-watermark')).toHaveCount(1);
-  await expect
-    .poll(() => page.locator('.exam-runner-protected').getAttribute('data-tamper-count'))
-    .not.toBe('0');
-  for (const key of ['Meta', 'Alt', 'PrintScreen', 'F12']) {
-    await page.evaluate((key) => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-      window.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
-    }, key);
-    await expect(page.getByTestId('anti-screenshot-overlay')).toHaveCSS(
-      'background-color',
-      'rgb(0, 0, 0)',
-    );
-    await expect(page.locator('fieldset')).toBeHidden();
-    await page.getByRole('button', { name: 'Acknowledge & Resume Exam' }).click();
-    await expect(page.getByRole('radio').first()).toBeVisible();
-  }
-  await page.evaluate(() => document.exitFullscreen());
-  await expect(page.getByRole('heading', { name: 'Exam Locked' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Editing is paused' })).toBeVisible();
+  await expect(page.getByRole('radio')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Resume/ })).toHaveCount(0);
-  await expect(page.locator('fieldset')).toBeHidden();
 });
 
-test('fullscreen resume and pointer blackout preserve the active exam', async ({ page }) => {
+test('pointer movement keeps editing available and actual fullscreen exit requires approval', async ({
+  page,
+}) => {
   await login(page, 'STUDENT');
   const card = page
     .locator('article')
@@ -615,19 +601,12 @@ test('fullscreen resume and pointer blackout preserve the active exam', async ({
   await page.getByRole('button', { name: 'Start exam', exact: true }).click();
   await page.getByRole('radio').first().click();
   await expect(page.getByRole('radio').first()).toBeChecked();
+  await page.evaluate(() => document.documentElement.dispatchEvent(new MouseEvent('mouseleave')));
+  await expect(page.getByRole('radio').first()).toBeChecked();
+  await expect(page.getByTestId('anti-screenshot-overlay')).toHaveCount(0);
   await page.evaluate(() => document.exitFullscreen());
-  await expect(page.getByRole('heading', { name: 'Fullscreen Mode Exited' })).toBeVisible();
-  await page.getByRole('button', { name: 'Return to Fullscreen & Resume' }).click();
-  await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
-  await expect(page.getByRole('radio').first()).toBeChecked();
-  await page.evaluate(() => {
-    if (matchMedia('(pointer: coarse)').matches) window.dispatchEvent(new Event('blur'));
-    else document.documentElement.dispatchEvent(new MouseEvent('mouseleave'));
-  });
-  await expect(page.locator('fieldset')).toBeHidden();
-  await page.getByRole('button', { name: 'Acknowledge & Resume Exam' }).click();
-  await expect(page.getByRole('radio').first()).toBeChecked();
-  await expect(page.locator('.exam-runner-protected')).toHaveAttribute('data-tamper-count', '0');
+  await expect(page.getByRole('heading', { name: 'Editing is paused' })).toBeVisible();
+  await expect(page.getByRole('radio')).toHaveCount(0);
 });
 
 test('student exam categories stay usable on every screen size', async ({ page }, testInfo) => {

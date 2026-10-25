@@ -239,6 +239,9 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         try {
           await c.query('BEGIN');
           for (const table of [
+            'exam_assistance_requests',
+            'sitting_staff_assignments',
+            'admin_enrollment_invites',
             'directory_imports',
             'school_student_counters',
             'school_teacher_counters',
@@ -272,6 +275,94 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         }
       }
     }, 60000);
+    it('enrolls an inactive administrator through a private single-use link and validates profile permissions', async () => {
+      if (!pool || !app) throw new Error('Missing application');
+      const adminId = randomUUID(),
+        loginId = 'INVITE-' + adminId,
+        password = randomUUID(),
+        token = randomUUID() + randomUUID(),
+        hash = hashSha256(token);
+      const c = await pool.connect();
+      try {
+        await c.query('BEGIN');
+        await c.query('SET LOCAL ROLE nexora_platform');
+        await c.query('SELECT platform.create_admin($1,$2,$3,$4,$5)', [
+          school,
+          adminId,
+          loginId,
+          'First Father Grandfather',
+          await hashPassword(password),
+        ]);
+        await c.query('SELECT platform.update_admin_profile($1,$2,$3,$4,$5,$6,$7,$8)', [
+          school,
+          adminId,
+          'First',
+          'Father',
+          'Grandfather',
+          '+251911111111',
+          'admin@example.test',
+          1,
+        ]);
+        expect(
+          (await c.query('SELECT account_number FROM schools WHERE id=$1', [school])).rows[0]
+            .account_number,
+        ).toBeTruthy();
+        await c.query(
+          "INSERT INTO public.admin_enrollment_invites(token_hash,school_id,user_id,expires_at) VALUES($1,$2,$3,clock_timestamp()+interval '30 minutes')",
+          [hash, school, adminId],
+        );
+        await c.query('COMMIT');
+      } catch (e) {
+        await c.query('ROLLBACK');
+        throw e;
+      } finally {
+        c.release();
+      }
+      const bootstrap = await request(app.getHttpServer()).get('/api/v1/auth/csrf').expect(200);
+      const cookie = responseCookie(bootstrap, 'nexora_session');
+      anonymousHashes.push(hashSha256(cookie.split('=')[1]));
+      const enrollmentServer = app.getHttpServer();
+      const enroll = (action: string, body: object) =>
+        request(enrollmentServer)
+          .post('/api/v1/auth/admin-enrollment/' + action)
+          .set('Cookie', cookie)
+          .set('Origin', 'http://localhost:5173')
+          .set('X-CSRF-Token', bootstrap.body.csrfToken)
+          .send(body);
+      const credentials = { token, loginId, password };
+      await enroll('begin', { ...credentials, password: 'wrong' }).expect(403);
+      const setup = await enroll('begin', credentials).expect(200);
+      expect(setup.body.otpauthUri).toContain('otpauth://totp/');
+      await enroll('confirm', {
+        ...credentials,
+        code: totpCode(setup.body.secret, Math.floor(clock.now().getTime() / 30000)),
+      }).expect(200);
+      await enroll('begin', credentials).expect(403);
+      const row = (
+        await pool.query(
+          'SELECT status,mfa_enrolled_at,first_name,phone_number,recovery_email FROM users WHERE id=$1',
+          [adminId],
+        )
+      ).rows[0];
+      expect(row).toMatchObject({
+        status: 'active',
+        first_name: 'First',
+        phone_number: '+251911111111',
+        recovery_email: 'admin@example.test',
+      });
+      expect(row.mfa_enrolled_at).toBeTruthy();
+      expect(
+        JSON.stringify(
+          (
+            await pool.query(
+              'SELECT reason FROM audit_events WHERE school_id=$1 AND resource_id=$2',
+              [school, adminId],
+            )
+          ).rows,
+        ),
+      ).not.toContain(setup.body.secret);
+    });
+
     const readiness = () => ({
       packageId,
       sha256: checksum,
@@ -700,7 +791,9 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
           .field('classId', classId)
           .attach(
             'file',
-            Buffer.from('studentRef,displayName\nSYN-1,Synthetic Learner\n'),
+            Buffer.from(
+              "Roll number,First name,Father's name,Grandfather's name\n,Synthetic,Learner,Test\n",
+            ),
             'roster.csv',
           );
       const uploadKey = randomUUID();
@@ -949,6 +1042,103 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       expect(fresh.body.code).toBe('STATE_CHANGED');
       const monitor = await read(`/admin/monitor/sessions/${session}`).expect(200);
       expect(monitor.body.sitting).toMatchObject({ readyCount: 0, counts: { active: 1 } });
+    });
+    it('requires fresh staff MFA for each interruption, persists the pause and reports outcomes across assigned exams', async () => {
+      if (!pool) throw new Error('Missing database');
+      const before = (await pool.query('SELECT deadline_at FROM attempts WHERE id=$1', [attemptId]))
+        .rows[0];
+      await post(
+        `/assistance/sessions/${session}/staff`,
+        {
+          staffId: teacher,
+          active: true,
+          expectedRevision: 0,
+          reason: 'Assigned for integration test',
+        },
+        adminCookie,
+      ).expect(200);
+      const first = randomUUID();
+      const paused = await post(`/attempts/${attemptId}/assistance`, {
+        requestId: first,
+        deviceGeneration: 2,
+        interruptionKind: 'fullscreen_exit',
+      }).expect(200);
+      expect(paused.body.paused).toBe(true);
+      const duplicate = await post(`/attempts/${attemptId}/assistance`, {
+        requestId: randomUUID(),
+        deviceGeneration: 2,
+        interruptionKind: 'window_blur',
+      }).expect(200);
+      expect(duplicate.body.request.id).toBe(first);
+      expect(
+        (await read('/assistance/requests', teacherCookie).expect(200)).body.requests.map(
+          (r: { id: string }) => r.id,
+        ),
+      ).toContain(first);
+      expect((await read('/assistance/requests', foreignCookie).expect(200)).body.requests).toEqual(
+        [],
+      );
+      await post(`/attempts/${attemptId}/unlock`, {
+        packageId,
+        examVersion: 1,
+        scheduleRevision: 1,
+        deviceGeneration: 2,
+      }).expect(409);
+      const code = totpCode(mfaSecret, Math.floor(clock.now().getTime() / 30000));
+      const wrong = code === '000000' ? '111111' : '000000';
+      await post(
+        `/assistance/requests/${first}/decision`,
+        { action: 'approve', reason: 'Verified student', code: wrong },
+        adminCookie,
+      ).expect(403);
+      expect(
+        (await read(`/attempts/${attemptId}/assistance`, studentCookie).expect(200)).body.paused,
+      ).toBe(true);
+      await post(
+        `/assistance/requests/${first}/decision`,
+        { action: 'approve', reason: 'Verified student', code },
+        adminCookie,
+      ).expect(200);
+      const report = await read('/assistance/report', adminCookie).expect(200);
+      expect(report.body.events.map((r: { outcome: string }) => r.outcome)).toEqual(
+        expect.arrayContaining(['assistance_approved', 'assistance_mfa_failed']),
+      );
+      expect(report.body.events[0]).toMatchObject({
+        studentId: student,
+        staffId: admin,
+        examId: exam,
+        interruptionKind: 'fullscreen_exit',
+      });
+      expect(JSON.stringify(report.body)).not.toContain(code);
+      await read('/assistance/report', teacherCookie).expect(403);
+      const second = randomUUID();
+      await post(`/attempts/${attemptId}/assistance`, {
+        requestId: second,
+        deviceGeneration: 2,
+        interruptionKind: 'window_blur',
+      }).expect(200);
+      await post(
+        `/assistance/requests/${second}/decision`,
+        { action: 'approve', reason: 'Checked again', code },
+        adminCookie,
+      ).expect(409);
+      clock.setMockTime(new Date(start.getTime() + 30000));
+      await post(
+        `/assistance/requests/${second}/decision`,
+        {
+          action: 'approve',
+          reason: 'Checked again',
+          code: totpCode(mfaSecret, Math.floor(clock.now().getTime() / 30000)),
+        },
+        adminCookie,
+      ).expect(200);
+      expect(
+        (
+          await pool.query('SELECT deadline_at,assistance_paused FROM attempts WHERE id=$1', [
+            attemptId,
+          ])
+        ).rows[0],
+      ).toEqual({ ...before, assistance_paused: false });
     });
     it('publishes immutable official results only after acceptance and release gates', async () => {
       await read(`/sessions/${session}/results`, studentCookie).expect(403);

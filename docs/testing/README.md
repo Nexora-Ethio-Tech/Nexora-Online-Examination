@@ -4,6 +4,8 @@ Updated 24 October 2026. Start here to test the current Nexora frontend, school 
 
 ## Before you begin
 
+For the latest eleven improvements, use the [staff assistance, enrollment, roster and review testing guide](../pending-features-architecture-and-testing.md).
+
 - Use synthetic local test accounts and records. Do not use production credentials.
 - Your manual data is saved in `nexora_manual_test` on `127.0.0.1:55432` and survives restarts. The automated suite uses the separate disposable `nexora_be02a_test` database.
 - The guarded local launcher rejects hosted database connections. These instructions do not apply migrations to Supabase or deploy anything.

@@ -62,6 +62,23 @@ describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
         c.release();
       }
     }
+    it('discovers newly provisioned schools without configuration while runtime school data remains tenant-scoped', async () => {
+      const found: string[] = [];
+      let cursor: string | null = null;
+      do {
+        const page = await runtime.query<{ id: string }>(
+          'SELECT id FROM public.nexora_worker_schools($1)',
+          [cursor],
+        );
+        if (!page.rows.length) break;
+        found.push(page.rows[0].id);
+        cursor = page.rows.length > 1 ? page.rows[0].id : null;
+      } while (cursor);
+      expect(found).toEqual(expect.arrayContaining([school, foreign]));
+      await transaction(async (c) => {
+        expect((await c.query('SELECT id FROM schools WHERE id=$1', [foreign])).rows).toEqual([]);
+      });
+    });
     it('allocates unique immutable school numbers and separate concurrent teacher numbers', async () => {
       const rows = (
         await admin.query('SELECT account_number FROM schools WHERE id=ANY($1::uuid[])', [
