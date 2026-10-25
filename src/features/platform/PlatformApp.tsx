@@ -8,6 +8,7 @@ import { eatTime } from '@/features/exams/ExamsPage';
 import { platformApi, type School, type Admin, type ActionResult } from './api';
 import { OwnerGuide } from './OwnerGuide';
 import { processingLabel } from './language';
+import { administratorEnrollmentLink } from './enrollment-link';
 
 const inputClass = 'mt-1 min-h-11 w-full rounded border bg-background p-2';
 export function PlatformApp({ client: provided }: { client?: ApiClient }) {
@@ -651,8 +652,16 @@ function OwnerActions({
           Private setup link (expires in 30 minutes):{' '}
           <a
             className="underline break-all"
-            href={`${window.location.origin}/admin-enrollment#${result.enrollmentToken}`}
-          >{`${window.location.origin}/admin-enrollment#${result.enrollmentToken}`}</a>
+            href={administratorEnrollmentLink(
+              result.enrollmentToken,
+              import.meta.env.VITE_SCHOOL_PORTAL_ORIGIN || window.location.origin,
+            )}
+          >
+            {administratorEnrollmentLink(
+              result.enrollmentToken,
+              import.meta.env.VITE_SCHOOL_PORTAL_ORIGIN || window.location.origin,
+            )}
+          </a>
           . Share privately with this administrator alongside their login ID. The password is shown
           separately below.
         </p>

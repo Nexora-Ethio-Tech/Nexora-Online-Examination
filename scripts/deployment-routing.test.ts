@@ -7,6 +7,7 @@ function config(values: Record<string, string>) {
     'API_PROXY_TARGET',
     'PLATFORM_API_PROXY_TARGET',
     'VITE_APP_SURFACE',
+    'VITE_SCHOOL_PORTAL_ORIGIN',
     'VERCEL_URL',
     'VERCEL_PROJECT_PRODUCTION_URL',
   ])
@@ -29,12 +30,14 @@ test('school API routes precede SPA fallback and invigilator/owner deep links op
   const fallback = parsed.routes.find((r: { dest?: string }) => r.dest === '/index.html');
   assert.match('/invigilator', new RegExp(fallback.src));
   assert.match('/platform/schools', new RegExp(fallback.src));
+  assert.match('/admin-enrollment', new RegExp(fallback.src));
   assert.doesNotMatch('/missing.js', new RegExp(fallback.src));
 });
 test('owner deployment requires only its separate API and keeps it same-origin for cookies', () => {
   const result = config({
     VITE_APP_SURFACE: 'platform',
     PLATFORM_API_PROXY_TARGET: 'https://owner.example',
+    VITE_SCHOOL_PORTAL_ORIGIN: 'https://school.example',
   });
   assert.equal(result.status, 0, result.stderr);
   const parsed = JSON.parse(result.stdout);
@@ -45,6 +48,7 @@ test('rejects missing targets, insecure origins and proxy loops', () => {
   for (const values of [
     {},
     { VITE_APP_SURFACE: 'platform' },
+    { VITE_APP_SURFACE: 'platform', PLATFORM_API_PROXY_TARGET: 'https://owner.example' },
     { API_PROXY_TARGET: 'http://school.example' },
     { API_PROXY_TARGET: 'https://school.example/api/v1' },
     { API_PROXY_TARGET: 'https://front.example', VERCEL_URL: 'front.example' },

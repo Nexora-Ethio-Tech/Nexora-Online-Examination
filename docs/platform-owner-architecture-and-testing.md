@@ -1,5 +1,7 @@
 # Platform owner: architecture and testing guide
 
+Production setup progress: [25 October owner deployment and enrollment](production-owner-setup-2026-10-25.md).
+
 Current local status: see [24 October alignment and test results](local-release-readiness.md). Historical limitations below refer to the earlier run.
 
 20 October 2026. Implemented locally on `feat/verified-platform-development`. No migration, owner account, cloud deployment or production setting has been changed by this implementation. Real database and deployment acceptance remains required.
@@ -44,7 +46,7 @@ Production platform cookies are `__Host-nexora_platform`, HttpOnly, Secure, Same
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | School backend              | Existing restricted `DATABASE_URL`, school MFA/package keys; `NEXORA_SERVICE=school` or omitted. Do not add platform or migration credentials.                                                                                                                                     |
 | Owner backend               | `NEXORA_SERVICE=platform`, `PLATFORM_DATABASE_URL` using exactly `nexora_platform`, separate `PLATFORM_MFA_ENCRYPTION_KEY`, `APP_ORIGIN` set to the exact owner frontend HTTPS origin. Existing verified TLS/CA pool options apply. Do not supply school or migration credentials. |
-| Owner frontend              | `VITE_APP_SURFACE=platform`, `VITE_PLATFORM_API_BASE_URL=/platform-api/v1`, and the reviewed same-origin rewrite. No secret goes in a `VITE_` variable.                                                                                                                            |
+| Owner frontend              | `VITE_APP_SURFACE=platform`, `VITE_PLATFORM_API_BASE_URL=/platform-api/v1`, `PLATFORM_API_PROXY_TARGET` for the owner API, and `VITE_SCHOOL_PORTAL_ORIGIN` for school-admin enrollment links. The active `vercel.ts` provides the same-origin rewrite. No secret goes in a `VITE_` variable.                                                                                                                            |
 | Protected operator terminal | `MIGRATION_DATABASE_URL`, separate platform key for owner enrollment, or school key for school-admin enrollment. Never deploy these privileged credentials to either web service.                                                                                                  |
 
 Vercel remains the current target. Existing Nest configuration is reused in the separate backend project. No cron, long-running worker or new dependency is needed. HahuCloud remains a future hosting option. Deployment has not been rehearsed on Vercel for this feature.

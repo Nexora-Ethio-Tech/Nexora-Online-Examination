@@ -22,6 +22,7 @@ function targetOrigin(name: string, required: boolean) {
 const ownerSurface = process.env.VITE_APP_SURFACE === 'platform';
 const backend = targetOrigin('API_PROXY_TARGET', !ownerSurface);
 const ownerBackend = targetOrigin('PLATFORM_API_PROXY_TARGET', ownerSurface);
+if (ownerSurface) targetOrigin('VITE_SCHOOL_PORTAL_ORIGIN', true);
 
 export const config = {
   framework: 'vite',
@@ -54,7 +55,7 @@ export const config = {
       : []),
     { handle: 'filesystem' },
     {
-      src: '^/(?:login|mfa|(?:student|teacher|admin|invigilator|platform)(?:/[^.]*)?)?/?$',
+      src: '^/(?:login|mfa|admin-enrollment|(?:student|teacher|admin|invigilator|platform)(?:/[^.]*)?)?/?$',
       dest: '/index.html',
     },
     { src: '^/.*$', status: 404 },
