@@ -5,6 +5,7 @@ export const schoolSchema = z.object({
   id: uuid,
   name: z.string(),
   slug: z.string(),
+  schoolCode: z.string(),
   status: z.string(),
   revision: z.number().int(),
   students: z.number().int(),
@@ -19,17 +20,43 @@ const adminSchema = z.object({
   displayName: z.string(),
   status: z.string(),
   mfaEnrolled: z.boolean(),
+  firstName: z.string().nullable(),
+  fatherName: z.string().nullable(),
+  grandfatherName: z.string().nullable(),
+  phoneNumber: z.string().nullable(),
+  recoveryEmail: z.string().nullable(),
+  revision: z.number().int(),
 });
 const reason = z.string().trim().min(5).max(500);
 const shared = { requestId: uuid, code: z.string().regex(/^\d{6}$/), reason };
+const profile = {
+  firstName: z.string().trim().min(1).max(50),
+  fatherName: z.string().trim().min(1).max(50),
+  grandfatherName: z.string().trim().min(1).max(50),
+  phoneNumber: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9 ()-]{7,25}$/),
+  recoveryEmail: z.string().trim().email().max(254),
+};
 export const actionSchema = z.discriminatedUnion('action', [
+  z
+    .object({
+      ...shared,
+      ...profile,
+      action: z.literal('edit_admin'),
+      schoolId: uuid,
+      adminId: uuid,
+      expectedRevision: z.number().int().positive(),
+    })
+    .strict(),
   z
     .object({
       ...shared,
       action: z.literal('create_admin'),
       schoolId: uuid,
       loginId: z.string().trim().min(1).max(100),
-      displayName: z.string().trim().min(1).max(150),
+      ...profile,
     })
     .strict(),
   z
@@ -42,7 +69,7 @@ export const actionSchema = z.discriminatedUnion('action', [
         .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
         .max(100),
       loginId: z.string().trim().min(1).max(100),
-      displayName: z.string().trim().min(1).max(150),
+      ...profile,
     })
     .strict(),
   z
@@ -80,7 +107,9 @@ const resultSchema = z.object({
   message: z.string(),
   schoolId: uuid,
   adminId: uuid.optional(),
+  loginId: z.string().optional(),
   credential: z.string().nullable(),
+  enrollmentToken: z.string().nullable().optional(),
   replayed: z.boolean(),
 });
 export type School = z.infer<typeof schoolSchema>;

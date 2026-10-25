@@ -63,7 +63,11 @@ describe('owner portal', () => {
     await user.type(screen.getByLabelText('School name'), 'Example School');
     await user.type(screen.getByLabelText('School address name (lowercase)'), 'example-school');
     await user.type(screen.getByLabelText('First administrator ID'), 'ADMIN-EXAMPLE');
-    await user.type(screen.getByLabelText('Administrator name'), 'Example Admin');
+    await user.type(screen.getByLabelText('First name'), 'Example');
+    await user.type(screen.getByLabelText("Father's name"), 'Admin');
+    await user.type(screen.getByLabelText("Grandfather's name"), 'Test');
+    await user.type(screen.getByLabelText('Phone number'), '+251911111111');
+    await user.type(screen.getByLabelText('Recovery email'), 'admin@example.test');
     await user.type(screen.getByLabelText('Reason'), 'Verified school registration');
     await user.type(screen.getByLabelText('Fresh owner authenticator code'), '654321');
     await user.click(screen.getByRole('button', { name: 'Confirm owner action' }));

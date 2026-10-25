@@ -218,6 +218,7 @@ function Dashboard({ client }: { client: ApiClient }) {
               }}
             >
               <strong>{s.name}</strong>
+              <p>School code: {s.schoolCode}</p>
               <p>
                 {s.status} · {s.students} students · {s.teachers} teachers
               </p>
@@ -275,7 +276,11 @@ function OwnerActions({
   const [name, setName] = useState(''),
     [slug, setSlug] = useState(''),
     [loginId, setLoginId] = useState(''),
-    [displayName, setDisplayName] = useState('');
+    [firstName, setFirstName] = useState(''),
+    [fatherName, setFatherName] = useState(''),
+    [grandfatherName, setGrandfatherName] = useState(''),
+    [phoneNumber, setPhoneNumber] = useState(''),
+    [recoveryEmail, setRecoveryEmail] = useState('');
   const [state, setState] = useState('active'),
     [date, setDate] = useState(''),
     [confirmed, setConfirmed] = useState(false),
@@ -287,7 +292,10 @@ function OwnerActions({
   useEffect(() => {
     if (!result?.credential) return;
     const timer = setTimeout(
-      () => setResult((current) => (current ? { ...current, credential: null } : null)),
+      () =>
+        setResult((current) =>
+          current ? { ...current, credential: null, enrollmentToken: null } : null,
+        ),
       60_000,
     );
     return () => clearTimeout(timer);
@@ -298,9 +306,41 @@ function OwnerActions({
     setResult(null);
     try {
       let command: Record<string, unknown> = { action, reason };
-      if (!school) command = { ...command, name, slug, loginId, displayName };
+      if (!school)
+        command = {
+          ...command,
+          name,
+          slug,
+          loginId,
+          firstName,
+          fatherName,
+          grandfatherName,
+          phoneNumber,
+          recoveryEmail,
+        };
       else if (action === 'create_admin')
-        command = { ...command, schoolId: school.id, loginId, displayName };
+        command = {
+          ...command,
+          schoolId: school.id,
+          loginId,
+          firstName,
+          fatherName,
+          grandfatherName,
+          phoneNumber,
+          recoveryEmail,
+        };
+      else if (action === 'edit_admin')
+        command = {
+          ...command,
+          schoolId: school.id,
+          adminId,
+          firstName,
+          fatherName,
+          grandfatherName,
+          phoneNumber,
+          recoveryEmail,
+          expectedRevision: admins.find((a) => a.id === adminId)?.revision,
+        };
       else if (action === 'status')
         command = {
           ...command,
@@ -352,6 +392,7 @@ function OwnerActions({
           Close
         </Button>
       </div>
+      {school && <p>School code: {school.schoolCode}</p>}
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -378,6 +419,7 @@ function OwnerActions({
               </option>
               <option value="reset_admin">Recover school administrator</option>
               <option value="create_admin">Add school administrator</option>
+              <option value="edit_admin">Edit administrator information</option>
             </select>
           </label>
         ) : (
@@ -413,16 +455,7 @@ function OwnerActions({
                 onChange={(e) => setLoginId(e.target.value)}
               />
             </label>
-            <label>
-              Administrator name
-              <input
-                className={inputClass}
-                required
-                maxLength={150}
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-            </label>
+
             <p className="text-sm sm:col-span-2">
               Creates a 30-day trial. The administrator can sign in after completing authenticator
               setup.
@@ -441,17 +474,32 @@ function OwnerActions({
                 onChange={(e) => setLoginId(e.target.value)}
               />
             </label>
-            <label className="block">
-              New administrator name
-              <input
-                className={inputClass}
-                required
-                maxLength={150}
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-            </label>
+
             <p>The new administrator can sign in after completing authenticator setup.</p>
+          </div>
+        )}
+        {(!school || action === 'create_admin' || action === 'edit_admin') && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              ['First name', firstName, setFirstName],
+              ["Father's name", fatherName, setFatherName],
+              ["Grandfather's name", grandfatherName, setGrandfatherName],
+              ['Phone number', phoneNumber, setPhoneNumber],
+              ['Recovery email', recoveryEmail, setRecoveryEmail],
+            ].map(([label, value, setter]) => (
+              <label key={String(label)}>
+                {String(label)}
+                <input
+                  className={inputClass}
+                  required
+                  type={label === 'Recovery email' ? 'email' : 'text'}
+                  value={String(value)}
+                  onChange={(e) => {
+                    if (typeof setter === 'function') setter(e.target.value);
+                  }}
+                />
+              </label>
+            ))}
           </div>
         )}
         {school && action === 'subscription' && (
@@ -507,7 +555,7 @@ function OwnerActions({
             onChange={(e) => setReason(e.target.value)}
           />
         </label>
-        {school && action === 'reset_admin' && (
+        {school && (action === 'reset_admin' || action === 'edit_admin') && (
           <div className="space-y-3">
             <Button
               type="button"
@@ -531,7 +579,17 @@ function OwnerActions({
                 className={inputClass}
                 required
                 value={adminId}
-                onChange={(e) => setAdminId(e.target.value)}
+                onChange={(e) => {
+                  setAdminId(e.target.value);
+                  const a = admins.find((a) => a.id === e.target.value);
+                  if (a) {
+                    setFirstName(a.firstName ?? '');
+                    setFatherName(a.fatherName ?? '');
+                    setGrandfatherName(a.grandfatherName ?? '');
+                    setPhoneNumber(a.phoneNumber ?? '');
+                    setRecoveryEmail(a.recoveryEmail ?? '');
+                  }
+                }}
               >
                 <option value="">Choose administrator</option>
                 {admins.map((a) => (
@@ -542,27 +600,30 @@ function OwnerActions({
                 ))}
               </select>
             </label>
-            <label className="flex gap-3">
-              <input
-                type="checkbox"
-                checked={resetMfa}
-                onChange={(e) => setResetMfa(e.target.checked)}
-              />
-              Also invalidate MFA and deactivate the account until protected re-enrollment
-            </label>
-            <label className="flex gap-3">
-              <input
-                type="checkbox"
-                required
-                checked={confirmed}
-                onChange={(e) => setConfirmed(e.target.checked)}
-              />
-              I verified this administrator's identity through the school's trusted support contact.
-            </label>
-            <p className="text-sm">
-              Both options replace the password and revoke sessions. A new password is shown once;
-              it is never stored in the audit trail.
-            </p>
+            <div hidden={action !== 'reset_admin'}>
+              <label className="flex gap-3">
+                <input
+                  type="checkbox"
+                  checked={resetMfa}
+                  onChange={(e) => setResetMfa(e.target.checked)}
+                />
+                Also invalidate MFA and deactivate the account until protected re-enrollment
+              </label>
+              <label className="flex gap-3">
+                <input
+                  type="checkbox"
+                  required={action === 'reset_admin'}
+                  checked={confirmed}
+                  onChange={(e) => setConfirmed(e.target.checked)}
+                />
+                I verified this administrator's identity through the school's trusted support
+                contact.
+              </label>
+              <p className="text-sm">
+                Both options replace the password and revoke sessions. A new password is shown once;
+                it is never stored in the audit trail.
+              </p>
+            </div>
           </div>
         )}
         <label className="block">
@@ -585,12 +646,26 @@ function OwnerActions({
         <Button disabled={busy}>{busy ? 'Working…' : 'Confirm owner action'}</Button>
       </form>
       {error && <p role="alert">{error}</p>}
+      {result?.enrollmentToken && (
+        <p>
+          Private setup link (expires in 30 minutes):{' '}
+          <a
+            className="underline break-all"
+            href={`${window.location.origin}/admin-enrollment#${result.enrollmentToken}`}
+          >{`${window.location.origin}/admin-enrollment#${result.enrollmentToken}`}</a>
+          . Share privately with this administrator alongside their login ID. The password is shown
+          separately below.
+        </p>
+      )}
       {result && (
         <div className="space-y-3 rounded border p-4" role="status">
           <p>{result.message}</p>
           <p className="break-all text-sm">
-            School ID: {result.schoolId}
-            {result.adminId && ` · Admin ID: ${result.adminId}`}
+            {result.loginId && (
+              <>
+                Administrator login ID: <strong>{result.loginId}</strong>
+              </>
+            )}
           </p>
           {result.credential ? (
             <>

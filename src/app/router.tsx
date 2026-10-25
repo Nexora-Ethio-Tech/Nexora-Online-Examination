@@ -1,3 +1,4 @@
+import { AdminEnrollmentPage } from '@/features/auth/AdminEnrollmentPage';
 import { lazy, useEffect } from 'react';
 import { Navigate, Outlet, useLocation, createBrowserRouter, type RouteObject } from 'react-router';
 import { isAttemptPath, rememberAttempt } from '@/features/auth/attempt-resume';
@@ -199,6 +200,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <Home /> },
       { path: '/login', element: <LoginPage /> },
+      { path: '/admin-enrollment', element: <AdminEnrollmentPage /> },
       { path: '/mfa', element: <MfaPage /> },
       ...(['student', 'teacher', 'school_admin', 'invigilator'] as const).map((role) => ({
         element: <RequireRole role={role} />,
