@@ -721,96 +721,32 @@ export function TeacherDetail() {
                   </Button>
                 ))}
               </div>
-              <div className="space-y-3 md:hidden" aria-label="Question cards">
-                {visibleItems.map((item) => (
-                  <article
-                    key={item.itemId}
-                    className="min-w-0 space-y-2 rounded-lg border p-3 break-words"
-                  >
-                    <h3 className="font-semibold">Question {item.externalId}</h3>
-                    <p>{item.stem}</p>
-                    <p className="text-sm">
-                      Answer: {item.correctOptionId} · {item.primaryTopic || 'Topic needed'}
-                    </p>
-                    <p className="text-sm">
-                      {item.reviewed ? 'Confirmed' : 'Not yet confirmed'}
-                      {item.reviewFlags.length > 0 || item.keyConsistent === false
-                        ? ' · Warning needs attention'
-                        : ''}
-                    </p>
+              <nav className="flex flex-wrap gap-2" aria-label="Question cards">
+                {visibleItems.map((item) => {
+                  const flagged = item.reviewFlags.length > 0 || item.keyConsistent === false;
+                  const reviewed = !needsReview.has(item.itemId);
+                  return (
                     <Button
+                      key={item.itemId}
                       variant="outline"
+                      className={
+                        flagged
+                          ? 'border-amber-400 bg-amber-50 text-amber-950'
+                          : reviewed
+                            ? 'border-green-400 bg-green-100 text-green-950'
+                            : ''
+                      }
+                      aria-pressed={selectedItem?.itemId === item.itemId}
                       disabled={dirty || action.isPending}
-                      onClick={() => {
-                        setSelectedItemId(item.itemId);
-                        requestAnimationFrame(() =>
-                          document
-                            .getElementById('question-editor')
-                            ?.scrollIntoView({ block: 'start', behavior: 'smooth' }),
-                        );
-                      }}
+                      onClick={() => setSelectedItemId(item.itemId)}
+                      aria-label={`Review ${item.externalId}: ${flagged ? 'Flagged' : reviewed ? 'Reviewed' : 'Not reviewed'}`}
                     >
-                      Open question {item.externalId}
+                      {paper.indexOf(item) + 1}{' '}
+                      {flagged ? '⚠ Flagged' : reviewed ? '✓ Reviewed' : 'Not reviewed'}
                     </Button>
-                  </article>
-                ))}
-              </div>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-left text-sm">
-                  <caption className="sr-only">
-                    Question keys, topics, explanations and review status
-                  </caption>
-                  <thead>
-                    <tr>
-                      {['Question', 'Key', 'Topic', 'Explanation', 'Status', 'Action'].map(
-                        (heading) => (
-                          <th className="p-2" key={heading}>
-                            {heading}
-                          </th>
-                        ),
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleItems.map((item) => (
-                      <tr
-                        key={item.itemId}
-                        className={
-                          selectedItem?.itemId === item.itemId
-                            ? 'border-t bg-primary/5'
-                            : 'border-t'
-                        }
-                      >
-                        <td className="min-w-40 p-2">
-                          <span className="font-semibold">{item.externalId}</span>
-                          <p className="line-clamp-2">{item.stem}</p>
-                        </td>
-                        <td className="p-2">{item.correctOptionId}</td>
-                        <td className="p-2">{item.primaryTopic || 'Missing'}</td>
-                        <td className="min-w-40 p-2">
-                          <p className="line-clamp-2">{item.explanation || 'Missing'}</p>
-                        </td>
-                        <td className="p-2">
-                          {needsReview.has(item.itemId) ? 'Needs review' : 'Reviewed'}
-                          {(item.reviewFlags.length > 0 || item.keyConsistent === false) && (
-                            <span className="block">Flagged</span>
-                          )}
-                        </td>
-                        <td className="p-2">
-                          <Button
-                            variant="outline"
-                            disabled={dirty || action.isPending}
-                            onClick={() => setSelectedItemId(item.itemId)}
-                            aria-label={`Review ${item.externalId}`}
-                          >
-                            Review
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  );
+                })}
+              </nav>
               {!visibleItems.length && <p className="mt-3">No questions match this filter.</p>}
               {dirty && (
                 <p className="mt-3 text-sm" role="status">
