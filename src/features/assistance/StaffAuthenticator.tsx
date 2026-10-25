@@ -78,6 +78,18 @@ export function StaffAuthenticator() {
       setBusy(false);
     }
   }
+  if (status.data?.enrolled)
+    return (
+      <section aria-label="Your authenticator" className="rounded-xl border p-3">
+        <p data-tour="authenticator-heading" className="font-semibold">
+          Authenticator connected
+        </p>
+        <p className="text-sm">
+          Use the same Authenticator account for every assigned exam. Lost access? Ask your school
+          administrator for verified recovery.
+        </p>
+      </section>
+    );
   return (
     <section aria-label="Your authenticator" className="space-y-3 rounded-xl border p-4">
       <h2 data-tour="authenticator-heading" className="text-lg font-semibold">

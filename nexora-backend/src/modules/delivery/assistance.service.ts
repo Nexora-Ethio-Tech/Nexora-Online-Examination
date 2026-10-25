@@ -223,6 +223,19 @@ export class AssistanceService {
               .object({
                 requestId: uuid,
                 deviceGeneration: z.number().int().positive(),
+                interruptionKind: z
+                  .enum([
+                    'manual',
+                    'hidden',
+                    'pagehide',
+                    'fullscreen_exit',
+                    'focus_lost',
+                    'screenshot_attempt',
+                    'devtools',
+                    'window_blur',
+                    'watermark_tamper',
+                  ])
+                  .default('manual'),
               })
               .strict(),
             input,
@@ -268,7 +281,7 @@ export class AssistanceService {
         const created = (
           await c.query<Assistance>(
             `INSERT INTO exam_assistance_requests(id,school_id,attempt_id,student_id,device_generation,
-           supervision_revision,state,requested_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,'pending',$7,$8) RETURNING *`,
+           supervision_revision,state,requested_at,expires_at,interruption_kind) VALUES($1,$2,$3,$4,$5,$6,'pending',$7,$8,$9) RETURNING *`,
             [
               command.requestId,
               school,
@@ -278,6 +291,7 @@ export class AssistanceService {
               a.supervision_revision + 1,
               now,
               expires,
+              command.interruptionKind,
             ],
           )
         ).rows[0];
@@ -297,23 +311,32 @@ export class AssistanceService {
     });
   }
 
-  async inbox(req: Request, sessionId: string) {
+  async inbox(req: Request, sessionId?: string) {
     const { school, user } = identity(req);
-    parse(uuid, sessionId);
+    if (sessionId) parse(uuid, sessionId);
     return this.db.withTenantTransaction(school, async (c) => {
       const staff = await this.staff(c, school, user.id);
-      await this.assigned(c, school, sessionId, user.id, staff.role);
+      if (sessionId) await this.assigned(c, school, sessionId, user.id, staff.role);
       const rows = await c.query<
-        Assistance & { displayName: string; loginId: string; deviceGeneration: number }
+        Assistance & {
+          displayName: string;
+          loginId: string;
+          deviceGeneration: number;
+          examTitle: string;
+          sessionId: string;
+          startsAt: Date;
+        }
       >(
-        `SELECT r.*,u.display_name AS "displayName",u.login_id AS "loginId",r.device_generation AS "deviceGeneration"
+        `SELECT r.*,e.title AS "examTitle",a.session_id AS "sessionId",s.starts_at AS "startsAt",u.display_name AS "displayName",u.login_id AS "loginId",r.device_generation AS "deviceGeneration"
          FROM exam_assistance_requests r JOIN attempts a ON a.school_id=r.school_id AND a.id=r.attempt_id
+         JOIN exam_sessions s ON s.school_id=a.school_id AND s.id=a.session_id
+         JOIN exams e ON e.school_id=s.school_id AND e.id=s.exam_id
          JOIN users u ON u.school_id=r.school_id AND u.id=r.student_id
-         WHERE r.school_id=$1 AND a.session_id=$2 AND r.state='pending' AND r.expires_at>$3
+         WHERE r.school_id=$1 AND ($2::uuid IS NULL OR a.session_id=$2) AND ($4='school_admin' OR EXISTS(SELECT 1 FROM sitting_staff_assignments sa WHERE sa.school_id=a.school_id AND sa.session_id=a.session_id AND sa.staff_id=$5 AND sa.active)) AND r.state='pending' AND r.expires_at>$3
          AND r.device_generation=a.device_generation AND r.supervision_revision=a.supervision_revision
          AND a.assistance_paused AND NOT a.suspended AND a.state='active' AND a.deadline_at>$3
          ORDER BY r.requested_at LIMIT 200`,
-        [school, sessionId, this.clock.now()],
+        [school, sessionId ?? null, this.clock.now(), staff.role, user.id],
       );
       return {
         requests: rows.rows.map((r) => ({
@@ -321,6 +344,10 @@ export class AssistanceService {
           displayName: r.displayName,
           loginId: r.loginId,
           deviceGeneration: r.deviceGeneration,
+          examTitle: r.examTitle,
+          sessionId: r.sessionId,
+          startsAt: r.startsAt.toISOString(),
+          requestedAt: r.requested_at.toISOString(),
         })),
       };
     });
@@ -341,7 +368,7 @@ export class AssistanceService {
     );
     // Charged outside the transaction so failed codes cannot roll back the attempt limit.
     await requestLimit(this.db, `assistance-decision:${school}:${user.id}`, 5, 60);
-    return this.db.withTenantTransaction(school, async (c) => {
+    const outcome = await this.db.withTenantTransaction(school, async (c) => {
       const staff = await this.staff(c, school, user.id);
       const found = (
         await c.query<Assistance>(
@@ -384,15 +411,25 @@ export class AssistanceService {
         version: staff.mfa_secret_version,
       });
       const step = matchingTotpStep(secret, command.code, now);
-      if (step === undefined)
-        throw DomainException.forbidden('Incorrect or expired authenticator code');
+      if (step === undefined) {
+        await c.query(
+          "INSERT INTO audit_events(school_id,actor_id,action,resource_id,reason) VALUES($1,$2,'assistance_mfa_failed',$3,$4)",
+          [school, user.id, id, 'Incorrect or expired code'],
+        );
+        return { mfaFailure: true };
+      }
       const consumed = await c.query(
         `INSERT INTO mfa_consumed_steps(school_id,user_id,secret_version,step,consumed_at)
          VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING step`,
         [school, user.id, staff.mfa_secret_version, step, now],
       );
-      if (!consumed.rows.length)
-        throw DomainException.conflict('REVISION_CONFLICT', 'Use a fresh authenticator code');
+      if (!consumed.rows.length) {
+        await c.query(
+          "INSERT INTO audit_events(school_id,actor_id,action,resource_id,reason) VALUES($1,$2,'assistance_mfa_failed',$3,$4)",
+          [school, user.id, id, 'Previously used code'],
+        );
+        return { mfaFailure: true, reused: true };
+      }
       if (command.action === 'approve')
         await c.query(
           'UPDATE attempts SET assistance_paused=false,supervision_revision=supervision_revision+1 WHERE school_id=$1 AND id=$2',
@@ -410,6 +447,39 @@ export class AssistanceService {
         [school, user.id, `assistance_${desired}`, id, command.reason],
       );
       return response(result, now);
+    });
+    if ('mfaFailure' in outcome) {
+      if ('reused' in outcome)
+        throw DomainException.conflict('REVISION_CONFLICT', 'Use a fresh authenticator code');
+      throw DomainException.forbidden('Use a fresh, correct authenticator code.');
+    }
+    return outcome;
+  }
+  async report(req: Request, before?: string) {
+    const { school, user } = identity(req);
+    if (user.role !== 'school_admin') throw DomainException.forbidden();
+    const cursor = before ? parse(uuid, before) : null;
+    return this.db.withTenantTransaction(school, async (c) => {
+      const base = `FROM audit_events ev JOIN exam_assistance_requests r ON r.school_id=ev.school_id AND r.id::text=ev.resource_id
+ JOIN attempts a ON a.school_id=r.school_id AND a.id=r.attempt_id
+ JOIN exam_sessions s ON s.school_id=a.school_id AND s.id=a.session_id
+ JOIN exams e ON e.school_id=s.school_id AND e.id=s.exam_id
+ JOIN users staff ON staff.school_id=ev.school_id AND staff.id=ev.actor_id
+ JOIN users student ON student.school_id=r.school_id AND student.id=r.student_id
+ WHERE ev.school_id=$1 AND ev.action IN ('assistance_approved','assistance_rejected','assistance_mfa_failed')`;
+      const rows = await c.query(
+        `SELECT ev.id,ev.server_at AS "decidedAt",ev.action AS outcome,ev.reason,staff.id AS "staffId",staff.display_name AS "staffName",staff.role AS "staffRole",student.id AS "studentId",student.display_name AS "studentName",student.login_id AS "studentLoginId",e.id AS "examId",e.title AS "examTitle",s.id AS "sessionId",s.starts_at AS "startsAt",r.requested_at AS "requestedAt",r.interruption_kind AS "interruptionKind" ${base} AND ($2::uuid IS NULL OR (ev.server_at,ev.id)<(SELECT server_at,id FROM audit_events WHERE school_id=$1 AND id=$2)) ORDER BY ev.server_at DESC,ev.id DESC LIMIT 101`,
+        [school, cursor],
+      );
+      const totals = await c.query(
+        `SELECT staff.id AS "staffId",staff.display_name AS "staffName",student.id AS "studentId",student.display_name AS "studentName",e.id AS "examId",e.title AS "examTitle",ev.action AS outcome,count(*)::int AS count ${base} GROUP BY staff.id,staff.display_name,student.id,student.display_name,e.id,e.title,ev.action`,
+        [school],
+      );
+      return {
+        events: rows.rows.slice(0, 100),
+        nextCursor: rows.rows.length > 100 ? rows.rows[99].id : null,
+        totals: totals.rows,
+      };
     });
   }
 }

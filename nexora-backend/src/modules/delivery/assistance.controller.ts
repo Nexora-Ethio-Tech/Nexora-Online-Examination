@@ -1,5 +1,5 @@
 import { StaffAuthenticatorService } from './staff-authenticator.service';
-import { Header, Body, Controller, Get, Param, Post, Req, HttpCode } from '@nestjs/common';
+import { Header, Query, Body, Controller, Get, Param, Post, Req, HttpCode } from '@nestjs/common';
 import { Request } from 'express';
 import { Roles } from '../../common/guards/roles.guard';
 import { AssistanceService } from './assistance.service';
@@ -48,6 +48,18 @@ export class AssistanceController {
   @HttpCode(200)
   assign(@Req() req: Request, @Param('id') id: string, @Body() input: unknown) {
     return this.assistance.assignments(req, id, input);
+  }
+
+  @Roles('school_admin')
+  @Get('assistance/report')
+  report(@Req() req: Request, @Query('before') before?: string) {
+    return this.assistance.report(req, before);
+  }
+
+  @Roles('teacher', 'school_admin', 'invigilator')
+  @Get('assistance/requests')
+  allRequests(@Req() req: Request) {
+    return this.assistance.inbox(req);
   }
 
   @Roles('teacher', 'school_admin', 'invigilator')

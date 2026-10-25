@@ -1,3 +1,4 @@
+import { AssistanceReport } from './AssistanceReport';
 import { StaffAuthenticator } from './StaffAuthenticator';
 import { InvigilatorAssignments } from './InvigilatorAssignments';
 import { useState } from 'react';
@@ -27,14 +28,14 @@ export function AssistancePage() {
       </p>
       <StaffAuthenticator />
       <label className="block">
-        Exam sitting
+        Filter by exam (optional)
         <select
           data-tour="assistance-sitting"
           className="mt-2 min-h-11 w-full rounded border bg-background p-2"
           value={selected}
           onChange={(e) => setSelected(e.target.value)}
         >
-          <option value="">Choose a sitting</option>
+          <option value="">All assigned exams</option>
           {sessions.data?.sessions.map((s) => (
             <option key={s.id} value={s.id}>
               {s.title} — {eatTime(s.startsAt)}
@@ -47,9 +48,8 @@ export function AssistancePage() {
       {sessions.data?.sessions.length === 0 && (
         <p>No assigned sittings are available. Ask your school administrator.</p>
       )}
-      {selected && (
-        <Sitting key={selected} id={selected} admin={session?.user.role === 'school_admin'} />
-      )}
+      <Sitting key={selected} id={selected} admin={session?.user.role === 'school_admin'} />
+      {session?.user.role === 'school_admin' && <AssistanceReport />}
     </div>
   );
 }
@@ -79,7 +79,7 @@ function Sitting({ id, admin }: { id: string; admin: boolean }) {
       {inbox.data?.requests.map((request) => (
         <Decision key={request.id} request={request} refresh={() => void inbox.refetch()} />
       ))}
-      {admin && <InvigilatorAssignments id={id} />}
+      {admin && id && <InvigilatorAssignments id={id} />}
     </div>
   );
 }
@@ -122,6 +122,12 @@ function Decision({
       <h2 className="font-semibold">
         {request.displayName} · {request.loginId}
       </h2>
+      {request.examTitle && (
+        <p>
+          {request.examTitle} · {request.startsAt && eatTime(request.startsAt)}
+        </p>
+      )}
+      {request.requestedAt && <p>Requested {eatTime(request.requestedAt)}</p>}
       <p className="text-sm">
         Workstation generation {request.deviceGeneration} · Expires {eatTime(request.expiresAt)}
       </p>

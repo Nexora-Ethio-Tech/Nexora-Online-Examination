@@ -27,17 +27,67 @@ export const inboxSchema = z.object({
       displayName: z.string(),
       loginId: z.string(),
       deviceGeneration: z.number().int(),
+      examTitle: z.string().optional(),
+      sessionId: z.string().uuid().optional(),
+      startsAt: z.string().datetime().optional(),
+      requestedAt: z.string().datetime().optional(),
+    }),
+  ),
+});
+export const assistanceReportSchema = z.object({
+  events: z.array(
+    z.object({
+      id: z.string(),
+      staffId: z.string(),
+      staffName: z.string(),
+      staffRole: z.string(),
+      studentId: z.string(),
+      studentName: z.string(),
+      studentLoginId: z.string(),
+      examId: z.string(),
+      examTitle: z.string(),
+      sessionId: z.string(),
+      startsAt: z.string(),
+      requestedAt: z.string(),
+      decidedAt: z.string(),
+      interruptionKind: z.string(),
+      outcome: z.string(),
+      reason: z.string().nullable(),
+    }),
+  ),
+  nextCursor: z.string().nullable(),
+  totals: z.array(
+    z.object({
+      staffId: z.string(),
+      staffName: z.string(),
+      studentId: z.string(),
+      studentName: z.string(),
+      examId: z.string(),
+      examTitle: z.string(),
+      outcome: z.string(),
+      count: z.number(),
     }),
   ),
 });
 export function assistanceApi(client: ApiClient) {
   return {
+    report: (before: string | null, signal?: AbortSignal) =>
+      client.request(
+        '/assistance/report' + (before ? '?before=' + encodeURIComponent(before) : ''),
+        assistanceReportSchema,
+        { signal },
+      ),
     read: (id: string, signal?: AbortSignal) =>
       client.request(`/attempts/${encodeURIComponent(id)}/assistance`, studentSchema, { signal }),
-    request: (id: string, requestId: string, deviceGeneration: number) =>
+    request: (
+      id: string,
+      requestId: string,
+      deviceGeneration: number,
+      interruptionKind = 'manual',
+    ) =>
       client.request(`/attempts/${encodeURIComponent(id)}/assistance`, studentSchema, {
         method: 'POST',
-        body: { requestId, deviceGeneration },
+        body: { requestId, deviceGeneration, interruptionKind },
       }),
     sessions: (signal?: AbortSignal) =>
       client.request(
@@ -50,9 +100,13 @@ export function assistanceApi(client: ApiClient) {
         { signal },
       ),
     inbox: (id: string, signal?: AbortSignal) =>
-      client.request(`/assistance/sessions/${encodeURIComponent(id)}/requests`, inboxSchema, {
-        signal,
-      }),
+      client.request(
+        id ? `/assistance/sessions/${encodeURIComponent(id)}/requests` : '/assistance/requests',
+        inboxSchema,
+        {
+          signal,
+        },
+      ),
     staff: (id: string, signal?: AbortSignal) =>
       client.request(`/assistance/sessions/${encodeURIComponent(id)}/staff`, staffSchema, {
         signal,

@@ -53,7 +53,7 @@ describe('staff assistance screen', () => {
     );
     const user = userEvent.setup();
     await screen.findByRole('option', { name: /Test sitting/ });
-    await user.selectOptions(screen.getByLabelText('Exam sitting'), sessionId);
+    expect(screen.getByLabelText('Filter by exam (optional)')).toHaveValue('');
     const approve = await screen.findByRole('button', { name: 'Approve reopening' });
     expect(approve).toBeDisabled();
     await user.type(screen.getByLabelText('Decision reason'), 'Student identity verified');

@@ -259,6 +259,7 @@ describe('student ownership and device checks', () => {
       5,
       now,
       current.deadline_at,
+      'manual',
     ]);
     expect(mocks.query.mock.calls.at(-1)?.[0]).not.toMatch(
       /deadline|final_accept|suspended|state=/,
