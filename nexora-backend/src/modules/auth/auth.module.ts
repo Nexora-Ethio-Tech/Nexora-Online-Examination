@@ -1,3 +1,4 @@
+import { AdminEnrollmentService } from './admin-enrollment.service';
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -7,7 +8,7 @@ import { ClockService } from '../../common/clock/clock.service';
 @Module({
   imports: [DatabaseModule],
   controllers: [AuthController],
-  providers: [AuthService, ClockService],
+  providers: [AuthService, ClockService, AdminEnrollmentService],
   exports: [AuthService],
 })
 export class AuthModule {}

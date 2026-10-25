@@ -2,14 +2,34 @@ import { z } from 'zod';
 const reason = z.string().trim().min(5).max(500);
 const id = z.string().uuid();
 const shared = { requestId: id, reason, code: z.string().regex(/^\d{6}$/) };
+const profile = {
+  firstName: z.string().trim().min(1).max(50),
+  fatherName: z.string().trim().min(1).max(50),
+  grandfatherName: z.string().trim().min(1).max(50),
+  phoneNumber: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9 ()-]{7,25}$/),
+  recoveryEmail: z.string().trim().email().max(254),
+};
 export const actionSchema = z.discriminatedUnion('action', [
+  z
+    .object({
+      ...shared,
+      ...profile,
+      action: z.literal('edit_admin'),
+      schoolId: id,
+      adminId: id,
+      expectedRevision: z.number().int().positive(),
+    })
+    .strict(),
   z
     .object({
       ...shared,
       action: z.literal('create_admin'),
       schoolId: id,
       loginId: z.string().trim().min(1).max(100),
-      displayName: z.string().trim().min(1).max(150),
+      ...profile,
     })
     .strict(),
   z
@@ -22,7 +42,7 @@ export const actionSchema = z.discriminatedUnion('action', [
         .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
         .max(100),
       loginId: z.string().trim().min(1).max(100),
-      displayName: z.string().trim().min(1).max(150),
+      ...profile,
     })
     .strict(),
   z

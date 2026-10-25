@@ -168,7 +168,14 @@ export class PlatformService {
         await this.audit(c, owner.id, null, 'owner_login', 'Password and MFA verified');
         return { raw, csrfToken: csrf, displayName: owner.display_name };
       })
-      .catch(async (error) => {
+      .catch(async (failure) => {
+        const error =
+          failure instanceof Error && failure.message.includes('STALE_ADMIN_PROFILE')
+            ? DomainException.conflict(
+                'REVISION_CONFLICT',
+                'Reload administrator information before editing.',
+              )
+            : failure;
         if (error instanceof DomainException)
           await this.db.query(
             "INSERT INTO platform.audit(action,reason,details) VALUES('owner_login_failed','Owner authentication rejected',$1)",
@@ -201,7 +208,7 @@ export class PlatformService {
     return this.db.transaction(async (c) => {
       const { owner } = await this.owner(c, req);
       const rows = await c.query(
-        `SELECT s.id,s.name,s.slug,s.status,s.platform_revision AS revision,
+        `SELECT s.id,s.name,s.slug, lpad(s.account_number::text, greatest(3,length(s.account_number::text)), '0') AS "schoolCode",s.status,s.platform_revision AS revision,
         (SELECT count(*)::int FROM public.users u WHERE u.school_id=s.id AND u.role='student') AS students,
         (SELECT count(*)::int FROM public.users u WHERE u.school_id=s.id AND u.role='teacher') AS teachers,
         COALESCE(b.state,'legacy') AS subscription,b.expires_at AS "expiresAt",COALESCE(b.revision,0) AS "subscriptionRevision"
@@ -222,7 +229,7 @@ export class PlatformService {
     return this.db.transaction(async (c) => {
       const { owner } = await this.owner(c, req);
       const rows = await c.query(
-        `SELECT id,login_id AS "loginId",display_name AS "displayName",status,
+        `SELECT id,login_id AS "loginId",display_name AS "displayName",status,first_name AS "firstName",father_name AS "fatherName",grandfather_name AS "grandfatherName",phone_number AS "phoneNumber",recovery_email AS "recoveryEmail",revision,
         (mfa_enrolled_at IS NOT NULL) AS "mfaEnrolled" FROM public.users WHERE school_id=$1 AND role='school_admin' ORDER BY id`,
         [id],
       );
@@ -284,6 +291,7 @@ export class PlatformService {
         await this.verifyCode(c, owner, code);
         let result: Record<string, unknown>;
         let credential: string | null = null;
+        let enrollmentToken: string | null = null;
         let schoolId: string;
         if (body.action === 'provision') {
           schoolId = randomUUID();
@@ -295,7 +303,7 @@ export class PlatformService {
             body.name,
             body.slug,
             body.loginId,
-            body.displayName,
+            [body.firstName, body.fatherName, body.grandfatherName].join(' '),
             await hashPassword(credential),
           ]);
           await c.query(
@@ -305,6 +313,7 @@ export class PlatformService {
           result = {
             schoolId,
             adminId,
+            loginId: body.loginId,
             message:
               'School created. Admin is inactive until protected MFA enrollment is confirmed.',
           };
@@ -339,14 +348,31 @@ export class PlatformService {
               schoolId,
               adminId,
               body.loginId,
-              body.displayName,
+              [body.firstName, body.fatherName, body.grandfatherName].join(' '),
               await hashPassword(credential),
             ]);
             result = {
               schoolId,
               adminId,
+              loginId: body.loginId,
               message:
                 'Administrator created inactive; complete protected MFA enrollment before sign-in.',
+            };
+          } else if (body.action === 'edit_admin') {
+            await c.query('SELECT platform.update_admin_profile($1,$2,$3,$4,$5,$6,$7,$8)', [
+              schoolId,
+              body.adminId,
+              body.firstName,
+              body.fatherName,
+              body.grandfatherName,
+              body.phoneNumber,
+              body.recoveryEmail,
+              body.expectedRevision,
+            ]);
+            result = {
+              schoolId,
+              adminId: body.adminId,
+              message: 'Administrator information updated.',
             };
           } else if (body.action === 'reset_admin') {
             credential = generateOpaqueToken(24);
@@ -389,12 +415,42 @@ export class PlatformService {
             };
           }
         }
-        await this.audit(c, owner.id, schoolId, body.action, body.reason, command);
+        if (body.action === 'provision' || body.action === 'create_admin') {
+          await c.query('SELECT platform.update_admin_profile($1,$2,$3,$4,$5,$6,$7,$8)', [
+            schoolId,
+            result.adminId,
+            body.firstName,
+            body.fatherName,
+            body.grandfatherName,
+            body.phoneNumber,
+            body.recoveryEmail,
+            1,
+          ]);
+        }
+        if (
+          body.action === 'provision' ||
+          body.action === 'create_admin' ||
+          (body.action === 'reset_admin' && body.resetMfa)
+        ) {
+          enrollmentToken = generateOpaqueToken(32);
+          await c.query(
+            'UPDATE public.admin_enrollment_invites SET consumed_at=clock_timestamp() WHERE school_id=$1 AND user_id=$2 AND consumed_at IS NULL',
+            [schoolId, result.adminId],
+          );
+          await c.query(
+            "INSERT INTO public.admin_enrollment_invites(token_hash,school_id,user_id,expires_at) VALUES($1,$2,$3,clock_timestamp()+interval '30 minutes')",
+            [hashSha256(enrollmentToken), schoolId, result.adminId],
+          );
+        }
+        await this.audit(c, owner.id, schoolId, body.action, body.reason, {
+          action: body.action,
+          adminId: result.adminId,
+        });
         await c.query(
           'INSERT INTO platform.operations(owner_id,request_id,fingerprint,result) VALUES($1,$2,$3,$4)',
           [owner.id, requestId, fingerprint, result],
         );
-        return { ...result, credential, replayed: false };
+        return { ...result, credential, enrollmentToken, replayed: false };
       })
       .catch(async (error) => {
         if (error instanceof DomainException)

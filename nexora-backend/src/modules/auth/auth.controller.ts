@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Req, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { AdminEnrollmentService } from './admin-enrollment.service';
 import { AuthService } from './auth.service';
 import { AllowMfaChallenge, Public } from '../../common/guards/session-auth.guard';
 import { Roles } from '../../common/guards/roles.guard';
@@ -7,7 +8,22 @@ import { SkipCsrf } from '../../common/guards/csrf-origin.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly enrollment: AdminEnrollmentService,
+  ) {}
+  @Public()
+  @Post('admin-enrollment/begin')
+  @HttpCode(200)
+  beginEnrollment(@Req() r: Request, @Body() b: unknown) {
+    return this.enrollment.execute(r, 'begin', b);
+  }
+  @Public()
+  @Post('admin-enrollment/confirm')
+  @HttpCode(200)
+  confirmEnrollment(@Req() r: Request, @Body() b: unknown) {
+    return this.enrollment.execute(r, 'confirm', b);
+  }
 
   @Public()
   @SkipCsrf()

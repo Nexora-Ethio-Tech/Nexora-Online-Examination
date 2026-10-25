@@ -273,7 +273,11 @@ describe('privileged platform operations', () => {
       name: 'School A',
       slug: 'school-a',
       loginId: 'ADMIN-A',
-      displayName: 'Administrator A',
+      firstName: 'Administrator',
+      fatherName: 'Test',
+      grandfatherName: 'Account',
+      phoneNumber: '+251911111111',
+      recoveryEmail: 'admin@example.test',
       reason: 'Verified new customer',
       code,
     });
@@ -288,6 +292,8 @@ describe('privileged platform operations', () => {
         sql.includes('INSERT INTO platform.operations'),
     );
     expect(JSON.stringify(persisted)).not.toContain(result.credential);
+    expect(result.enrollmentToken).toEqual(expect.any(String));
+    expect(JSON.stringify(persisted)).not.toContain(result.enrollmentToken);
   });
   it('keeps MFA reset explicit and school-scoped', async () => {
     const adminId = randomUUID();
