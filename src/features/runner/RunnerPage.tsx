@@ -169,8 +169,9 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
               <p>{view.paper.instructions}</p>
               <p>
                 Browser interruptions are recorded for school review, not automatic penalties. The
-                timer continues while you are away. Fullscreen is required. Five interruptions lock
-                editing in this browser. Browser controls cannot guarantee screenshot prevention.
+                timer continues while you are away. Fullscreen is required. Each security
+                interruption requires staff approval. Browser controls cannot guarantee screenshot
+                prevention.
               </p>
               <Link to="/student" className="ml-4 inline-flex min-h-11 items-center underline">
                 Back to my exams

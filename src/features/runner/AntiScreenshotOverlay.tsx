@@ -60,7 +60,7 @@ export function AntiScreenshotOverlay({
         return 'This exam must stay in fullscreen. The exam screen is shielded behind a full black screen until you return to fullscreen.';
       case 'blur':
       default:
-        return 'You switched away from the exam window, pressed a system key (Windows / Command / Alt), or moved the pointer outside the exam window. The exam screen is shielded behind a full black screen until you resume.';
+        return 'You switched away from the exam window, pressed a system key (Windows / Command / Alt), used a restricted shortcut. The exam screen is shielded behind a full black screen until you resume.';
     }
   };
 
@@ -98,7 +98,7 @@ export function AntiScreenshotOverlay({
           </h2>
           <p id="security-blackout-desc" className="text-sm leading-relaxed text-neutral-300">
             {limitReached
-              ? 'The maximum number of security incidents was reached. Editing is locked in this browser. Your saved answers are preserved. Please contact your proctor.'
+              ? 'This interruption needs staff approval. Your saved answers are preserved and the original deadline continues. Please contact your invigilator.'
               : getDescription()}
           </p>
         </div>

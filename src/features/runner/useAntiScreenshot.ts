@@ -407,18 +407,7 @@ export function useAntiScreenshot({
     };
   }, [active, enabled, triggerBlackout]);
 
-  // STRICT: pointer leaving the window (heading for another monitor / a snipping toolbar)
-  useEffect(() => {
-    if (!active || !enabled || !strict || typeof window === 'undefined') return;
-    const isTouchPrimary =
-      typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
-    if (isTouchPrimary) return;
-
-    const handleLeave = () => triggerBlackout('blur');
-    document.documentElement.addEventListener('mouseleave', handleLeave);
-    return () => document.documentElement.removeEventListener('mouseleave', handleLeave);
-  }, [active, enabled, strict, triggerBlackout]);
-
+  // Pointer movement, including revealing browser fullscreen controls, is not an interruption.
   // Fullscreen enforcement + Keyboard Lock (Chromium)
   useEffect(() => {
     if (!active || !enabled || !requireFullscreen || !fullscreenSupported()) return;

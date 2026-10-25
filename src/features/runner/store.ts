@@ -10,6 +10,7 @@ export type RecordData = {
   items: { itemId: string; options: string[] }[];
   reviewItemIds?: string[];
   interruptions?: Interruption[];
+  pendingAssistance?: { requestId: string; kind: string };
   answers: Answer[];
   seq: number;
   outbox: Answer[];
@@ -238,5 +239,14 @@ export function recordInterruption(key: string, event: Interruption) {
 export function acknowledgeInterruptions(key: string, ids: string[]) {
   return update(key, (row) => {
     row.interruptions = (row.interruptions ?? []).filter((e) => !ids.includes(e.id));
+  });
+}
+
+export async function setPendingAssistance(
+  key: string,
+  value: { requestId: string; kind: string } | undefined,
+) {
+  return update(key, (row) => {
+    row.pendingAssistance = value;
   });
 }

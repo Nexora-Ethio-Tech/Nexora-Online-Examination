@@ -30,7 +30,7 @@ export function ExamSecurityShield({
     active: entered,
     strict: true,
     requireFullscreen: true,
-    maxIncidents: 5,
+    maxIncidents: 1,
     onInterruption: (kind, reason) => engine.reportSecurityEvent(kind, reason),
     onLimitReached: () => setLocked(true),
   });
@@ -45,8 +45,8 @@ export function ExamSecurityShield({
           <h2 className="text-xl font-semibold">Ready to start?</h2>
           <p>
             Fullscreen is required. Leaving this window or using restricted shortcuts hides your
-            questions. Five interruptions lock editing in this browser. Your original exam deadline
-            continues.
+            questions. Each security interruption requires staff approval. Your original exam
+            deadline continues.
           </p>
           <Button
             onClick={() => {
@@ -89,7 +89,7 @@ export function ExamSecurityShield({
         onResume={shield.resume}
         resumeLocked={shield.resumeLocked}
         limitReached={locked || shield.limitReached}
-        maxIncidents={5}
+        maxIncidents={1}
         assistanceAction={
           onRequestAssistance && (
             <div className="space-y-2">

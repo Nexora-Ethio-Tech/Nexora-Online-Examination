@@ -96,11 +96,14 @@ describe('privacy interruption integrity', () => {
       });
       expect(engine.snapshot().row?.answers).toEqual(before.answers);
       expect(engine.snapshot().row?.attempt.deadlineAt).toBe(before.attempt.deadlineAt);
-      expect(engine.snapshot().status).toBe('active');
+      expect(engine.snapshot().status).toBe('blocked');
     },
   );
-  it('records focus loss without changing answers, deadline or active authorization', async () => {
-    const { make } = await setup();
+  it('records focus loss and pauses editing without changing answers or deadline', async () => {
+    const { make } = await setup(async (url, init, next) => {
+      if (url.endsWith('/interruptions')) throw new TypeError('Offline');
+      return next(url, init);
+    });
     const engine = make();
     await engine.start();
     await answer(engine);
@@ -113,7 +116,7 @@ describe('privacy interruption integrity', () => {
       expect(stored?.answers).toEqual(before.answers);
       expect(stored?.attempt.deadlineAt).toBe(before.attempt.deadlineAt);
     });
-    expect(engine.snapshot().status).toBe('active');
+    expect(engine.snapshot().status).toBe('blocked');
   });
 });
 describe('assistance pause preserves local evidence', () => {
@@ -135,6 +138,61 @@ describe('assistance pause preserves local evidence', () => {
     expect(engine.snapshot().row?.outbox).toEqual(before?.outbox);
     expect(engine.snapshot().row?.attempt.deadlineAt).toBe(before?.attempt.deadlineAt);
     expect(engine.snapshot().row?.receipt).toBeFalsy();
+  });
+  it('retains an offline interruption across reload and resumes only after server approval', async () => {
+    let offline = false,
+      paused = false;
+    const requests: string[] = [];
+    const { make } = await setup(async (url, init, next) => {
+      if (url.endsWith('/assistance')) {
+        if (offline) throw new TypeError('Offline');
+        const body = JSON.parse(String(init.body));
+        requests.push(body.requestId);
+        paused = true;
+        return Response.json({
+          paused: true,
+          request: {
+            id: body.requestId,
+            attemptId: '11111111-1111-4111-8111-111111111111',
+            status: 'pending',
+            expiresAt: '2030-01-01T00:00:00Z',
+            reason: null,
+          },
+        });
+      }
+      const response = await next(url, init);
+      if (url.endsWith('/supervision'))
+        return Response.json({ ...(await response.json()), assistancePaused: paused });
+      return response;
+    });
+    const first = make();
+    await first.start();
+    await answer(first);
+    const before = requiredRow(first);
+    offline = true;
+    first.reportSecurityEvent('fullscreen_exit', 'Left fullscreen');
+    first.reportSecurityEvent('window_blur', 'Focus lost');
+    await vi.waitFor(async () =>
+      expect((await store.readRecord(before.key))?.pendingAssistance).toBeTruthy(),
+    );
+    expect(first.snapshot().status).toBe('blocked');
+    first.dispose();
+    const second = make();
+    await second.start();
+    expect(second.snapshot().status).toBe('blocked');
+    second.dispose();
+    offline = false;
+    const third = make();
+    await third.start();
+    expect(third.snapshot().status).toBe('blocked');
+    expect(requests).toHaveLength(1);
+    third.dispose();
+    paused = false;
+    const fourth = make();
+    await fourth.start();
+    expect(fourth.snapshot().status).toBe('active');
+    expect(requiredRow(fourth).answers).toEqual(before.answers);
+    expect(requiredRow(fourth).attempt.deadlineAt).toBe(before.attempt.deadlineAt);
   });
   it('revalidates assistance status before decrypting an existing attempt', async () => {
     const { make } = await setup(async (url, init, next) => {
@@ -588,8 +646,8 @@ describe('browser supervision controls', () => {
     await vi.waitFor(async () =>
       expect((await store.readRecord(before.key))?.interruptions).toHaveLength(1),
     );
-    await engine.checkSupervision();
-    expect((await store.readRecord(before.key))?.interruptions).toHaveLength(1);
+    await vi.waitFor(() => expect(batches).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 30));
     await engine.checkSupervision();
     expect(batches).toHaveLength(2);
     expect(batches[1]).toEqual(batches[0]);
@@ -625,13 +683,11 @@ describe('browser supervision controls', () => {
     await answer(engine);
     const before = requiredRow(engine);
     window.dispatchEvent(new Event('pagehide'));
-    await vi.waitFor(async () =>
-      expect((await store.readRecord(before.key))?.interruptions).toHaveLength(1),
-    );
+    await vi.waitFor(async () => expect(engine.snapshot().status).toBe('blocked'));
     const saved = await store.readRecord(before.key);
     expect(saved?.answers).toEqual(before.answers);
     expect(saved?.seq).toBe(before.seq);
-    expect(engine.snapshot().status).toBe('active');
+    expect(engine.snapshot().status).toBe('blocked');
     await engine.checkSupervision();
     expect((await store.readRecord(before.key))?.interruptions).toEqual([]);
   });
@@ -666,7 +722,7 @@ describe('browser supervision controls', () => {
     expect(reopened.snapshot().row?.answers).toEqual(original.answers);
     expect(reopened.snapshot().row?.attempt.deadlineAt).toBe(original.attempt.deadlineAt);
   });
-  it('keeps offline editing and interruption evidence when supervision is unreachable', async () => {
+  it('locks offline editing and retains interruption evidence when supervision is unreachable', async () => {
     let offline = false;
     const { make } = await setup(async (url, init, next) => {
       if (offline) throw new TypeError('Offline');
@@ -677,8 +733,9 @@ describe('browser supervision controls', () => {
     offline = true;
     window.dispatchEvent(new Event('pagehide'));
     await engine.checkSupervision();
-    await answer(engine);
-    expect(engine.snapshot().status).toBe('active');
+    engine.edit('q1', 'true');
+    expect(engine.snapshot().paper).toBeNull();
+    expect(engine.snapshot().status).toBe('blocked');
     expect((await store.readRecord(requiredRow(engine).key))?.interruptions).toHaveLength(1);
     offline = false;
     await engine.checkSupervision();
@@ -686,7 +743,7 @@ describe('browser supervision controls', () => {
   });
 });
 
-it('does not pause editing when optional telemetry is rejected', async () => {
+it('keeps editing paused when optional telemetry is rejected', async () => {
   const { make } = await setup(async (url, init, next) =>
     url.endsWith('/interruptions')
       ? new Response(
@@ -707,8 +764,8 @@ it('does not pause editing when optional telemetry is rejected', async () => {
     expect((await store.readRecord(requiredRow(engine).key))?.interruptions).toHaveLength(1),
   );
   await engine.checkSupervision();
-  expect(engine.snapshot().status).toBe('active');
-  await answer(engine);
+  expect(engine.snapshot().status).toBe('blocked');
+  expect(engine.snapshot().paper).toBeNull();
 });
 it('ignores a late suspension read after a committed submission', async () => {
   let delayed = false;

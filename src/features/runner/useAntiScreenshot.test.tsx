@@ -50,10 +50,10 @@ it('locks resume after five episodes without repeatedly counting the same episod
   unmount();
 });
 
-it('blacks out when the pointer leaves a desktop window', () => {
+it('does not treat hovering over browser controls as an interruption', () => {
   const { result, unmount } = renderHook(() => useAntiScreenshot({ active: true, strict: true }));
   fireEvent.mouseLeave(document.documentElement);
-  expect(result.current.isBlackedOut).toBe(true);
+  expect(result.current.isBlackedOut).toBe(false);
   unmount();
 });
 

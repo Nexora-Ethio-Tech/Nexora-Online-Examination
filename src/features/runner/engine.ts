@@ -104,6 +104,17 @@ export class RunnerEngine {
         }
         throw new Error('This exam window has ended. No editable local attempt is available.');
       }
+      if (local?.pendingAssistance) {
+        const sent = await assistanceApi(this.client).request(
+          this.attemptId,
+          local.pendingAssistance.requestId,
+          attempt.deviceGeneration,
+          local.pendingAssistance.kind,
+        );
+        await store.setPendingAssistance(local.key, undefined);
+        if (sent.paused)
+          throw new Error('Your interruption needs staff approval before reopening.');
+      }
       const control = await supervisionApi(this.client, this.controller.signal).read(
         this.attemptId,
       );
@@ -206,6 +217,7 @@ export class RunnerEngine {
     }
   }
   private online = () => {
+    void this.flushAssistance().catch(() => undefined);
     void this.checkSupervision();
     void this.sync();
   };
@@ -242,8 +254,18 @@ export class RunnerEngine {
       .catch(() =>
         this.set({ message: 'Could not save an interruption record. Answers are retained.' }),
       );
+    if (kind !== 'returned')
+      void this.requestAssistance(crypto.randomUUID(), kind).catch((error) =>
+        this.set({
+          message: message(error) + ' Keep this page open; reconnect and retry assistance.',
+        }),
+      );
   }
   async checkSupervision() {
+    if (this.view.status === 'blocked') {
+      await this.flushAssistance().catch(() => undefined);
+      return;
+    }
     if (this.view.status !== 'active' || this.checkingSupervision) return;
     this.checkingSupervision = true;
     let authorizedRead = false;
@@ -331,7 +353,7 @@ export class RunnerEngine {
     this.queue = this.queue
       .then(async () => {
         this.alive();
-        if (!this.clock || this.view.status === 'blocked') return;
+        if (!this.clock) return;
         const row = await store.saveAnswer(key, itemId, value, this.clock.now());
         this.set({ row, message: 'Saved on this device.' });
       })
@@ -356,22 +378,56 @@ export class RunnerEngine {
       .catch((error) => this.set({ message: `Review reminder was not saved: ${message(error)}` }))
       .finally(() => this.set({ saving: false }));
   }
-  async requestAssistance(requestId: string) {
+  private assistanceSending = false;
+  private async flushAssistance() {
+    if (this.assistanceSending || !this.view.row) return;
+    this.assistanceSending = true;
+    try {
+      const row = await store.readRecord(this.view.row.key);
+      if (!row) return;
+      const events = row.interruptions ?? [];
+      if (events.length) {
+        try {
+          const result = await supervisionApi(this.client, this.controller.signal).report(
+            this.attemptId,
+            events.slice(0, 50),
+          );
+          await store.acknowledgeInterruptions(row.key, result.acceptedIds);
+        } catch {
+          /* Keep evidence for later; telemetry failure must not prevent an approval request. */
+        }
+      }
+      if (!row.pendingAssistance) return;
+      const result = await assistanceApi(this.client).request(
+        this.attemptId,
+        row.pendingAssistance.requestId,
+        row.attempt.deviceGeneration,
+        row.pendingAssistance.kind,
+      );
+      await store.setPendingAssistance(row.key, undefined);
+      this.set({
+        message: result.paused
+          ? 'Waiting for staff approval. Your original deadline continues.'
+          : 'Staff has responded. Try opening the exam again.',
+      });
+    } finally {
+      this.assistanceSending = false;
+    }
+  }
+  async requestAssistance(requestId: string, kind = 'manual') {
     const row = this.view.row;
-    if (!row || row.final || !['active', 'blocked'].includes(this.view.status) || this.view.saving)
-      throw new Error('Wait for your answer to finish saving before requesting help.');
+    if (!row || row.final || !['active', 'blocked'].includes(this.view.status))
+      throw new Error('This attempt is not open for assistance.');
     this.set({
       status: 'blocked',
       paper: null,
       message: 'Requesting assistance. The exam timer continues.',
     });
     await this.queue;
+    const stored = await store.readRecord(row.key);
+    if (!stored?.pendingAssistance) await store.setPendingAssistance(row.key, { requestId, kind });
     this.alive();
-    return assistanceApi(this.client).request(
-      this.attemptId,
-      requestId,
-      row.attempt.deviceGeneration,
-    );
+    await this.flushAssistance();
   }
   async sync() {
     if (this.controller.signal.aborted || this.view.uploading) return;

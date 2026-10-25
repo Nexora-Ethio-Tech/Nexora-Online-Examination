@@ -32,7 +32,7 @@ it('keeps questions unmounted when fullscreen is rejected', async () => {
   expect(screen.queryByLabelText('Answer')).not.toBeInTheDocument();
 });
 
-it('reports interruptions, preserves the answer through resume and locks at five episodes', async () => {
+it('locks on the first interruption and preserves answers while staff approval is required', async () => {
   vi.spyOn(document.documentElement, 'requestFullscreen').mockResolvedValue();
   vi.spyOn(document, 'hasFocus').mockReturnValue(true);
   const report = vi.fn();
@@ -50,20 +50,13 @@ it('reports interruptions, preserves the answer through resume and locks at five
   fireEvent.click(screen.getByRole('button', { name: 'Start exam' }));
   await waitFor(() => expect(screen.getByLabelText('Answer')).toBeVisible());
   vi.useFakeTimers();
-  for (let n = 1; n <= 5; n++) {
-    fireEvent.blur(window);
-    expect(screen.getByLabelText('Answer')).not.toBeVisible();
-    expect(report).toHaveBeenCalledWith('window_blur', expect.any(String));
-    await act(async () => {
-      vi.advanceTimersByTime(1500);
-    });
-    if (n < 5) {
-      await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: 'Acknowledge & Resume Exam' }));
-      });
-      expect(screen.getByLabelText('Answer')).toHaveValue('Saved');
-    }
-  }
+  fireEvent.blur(window);
+  expect(screen.getByLabelText('Answer')).not.toBeVisible();
+  expect(screen.getByLabelText('Answer')).toHaveValue('Saved');
+  expect(report).toHaveBeenCalledWith('window_blur', expect.any(String));
+  await act(async () => {
+    vi.advanceTimersByTime(1500);
+  });
   expect(screen.getByRole('heading', { name: 'Exam Locked' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /Resume/ })).not.toBeInTheDocument();
   await act(async () => {
