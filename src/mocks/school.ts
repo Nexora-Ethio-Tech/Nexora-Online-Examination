@@ -185,13 +185,27 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
       if (
         !(file instanceof File) ||
         typeof classId !== 'string' ||
-        !file.name.toLowerCase().endsWith('.csv')
+        !['.csv', '.xlsx'].some((ext) => file.name.toLowerCase().endsWith(ext))
       )
-        return fail('Choose a CSV file and class.', 'VALIDATION_ERROR', 422);
+        return fail('Choose an Excel or CSV roster and class.', 'VALIDATION_ERROR', 422);
       if (file.size > 2 * 1024 * 1024)
         return fail('Each CSV upload may be at most 2 MiB.', 'PAYLOAD_TOO_LARGE', 413);
       try {
-        csv = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
+        if (file.name.toLowerCase().endsWith('.xlsx')) {
+          const digest = Array.from(
+            new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer())),
+          )
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join('');
+          if (digest !== 'fa06c181e768d3d6e034dfa9f455aa180211127663606de760692f17d5fd3895')
+            return fail(
+              'Demo mode supports the supplied Excel example only. Use the integrated backend for other Excel rosters.',
+              'VALIDATION_ERROR',
+              422,
+            );
+          csv =
+            "Roll number,First name,Father's name,Grandfather's name\n1,Hana,Dawit,Getachew\n,Samuel,Abebe,Tesfaye\n3,Mekdes,Kebede,Tadesse";
+        } else csv = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
       } catch {
         return fail('The CSV must use UTF-8 text.', 'VALIDATION_ERROR', 422);
       }
@@ -288,8 +302,33 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
           422,
         );
       }
-      if (records[0]?.join(',') !== 'studentRef,displayName' || records[0]?.length !== 2)
-        return fail('The CSV header must be studentRef,displayName.', 'VALIDATION_ERROR', 422);
+      const legacy = records[0]?.join(',') === 'studentRef,displayName';
+      const roll =
+        records[0]?.join(',') === "Roll number,First name,Father's name,Grandfather's name";
+      if (
+        !legacy &&
+        !roll &&
+        records[0]?.join(',') !== "First name,Father's name,Grandfather's name"
+      )
+        return fail('Use the downloadable roster headers.', 'VALIDATION_ERROR', 422);
+      const rollNumbers = records.slice(1).map((r) => (roll ? (r[0] ?? '').trim() : ''));
+      if (!legacy) {
+        const digest = Array.from(
+          new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(csv))),
+        )
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
+        records = [
+          ['studentRef', 'displayName'],
+          ...records.slice(1).map((r, i) => [
+            'roster_' + schoolClass.classId + '_' + (rollNumbers[i] || digest + '_' + i),
+            r
+              .slice(roll ? 1 : 0)
+              .map((n) => n.trim())
+              .join(' '),
+          ]),
+        ];
+      }
       if (records.length < 2 || records.length > 2001)
         return fail('Upload between 1 and 2,000 student rows per file.', 'VALIDATION_ERROR', 422);
       const refs = records.slice(1).map((r) => normalize(r[0] ?? ''));
@@ -298,7 +337,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         const displayName = (r[1] ?? '').trim();
         const errors: { field: string; message: string }[] = [];
         if (r.length !== 2) errors.push({ field: 'row', message: 'Expected exactly two fields.' });
-        if (!/^[A-Za-z0-9_-]{1,64}$/.test(studentRef))
+        if (legacy && !/^[A-Za-z0-9_-]{1,64}$/.test(studentRef))
           errors.push({
             field: 'studentRef',
             message: 'Use 1–64 letters, numbers, underscores or hyphens.',
@@ -319,7 +358,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
             field: 'studentRef',
             message: 'This student reference already exists in this school.',
           });
-        return { row: n + 2, studentRef, displayName, errors };
+        return { row: n + 2, studentRef, displayName, rollNumber: rollNumbers[n], errors };
       });
       const preview: RosterPreview = {
         importId: crypto.randomUUID(),

@@ -11,7 +11,7 @@ import {
   parsePreparationInput as parse,
   resourceIdSchema as uuid,
 } from '../delivery/preparation-schemas';
-import { parseRosterCsv } from './roster-csv';
+import { rosterRows, rosterReference } from './roster-format';
 import { allocateStudentNumbers, studentLoginId } from './student-numbering';
 
 const previewSchema = z.object({
@@ -24,6 +24,10 @@ const previewSchema = z.object({
     z.object({
       row: z.number().int(),
       studentRef: z.string(),
+      rollNumber: z.string().optional(),
+      firstName: z.string().optional(),
+      fatherName: z.string().optional(),
+      grandfatherName: z.string().optional(),
       displayName: z.string(),
       errors: z.array(z.object({ field: z.string(), message: z.string() })),
     }),
@@ -47,16 +51,16 @@ export class RosterService {
     const { school, user } = identity(req, 'school_admin');
     const { classId } = parse(z.object({ classId: uuid }).strict(), input);
     if (!file || file.buffer.length > 2097152)
-      throw DomainException.validationError('Upload a CSV file no larger than 2 MiB');
-    let csv: string[][];
+      throw DomainException.validationError('Upload an Excel or CSV roster no larger than 2 MiB');
+    let parsedRows: Awaited<ReturnType<typeof rosterRows>>;
     try {
-      csv = parseRosterCsv(new TextDecoder('utf-8', { fatal: true }).decode(file.buffer));
+      parsedRows = await rosterRows(file.buffer);
     } catch {
-      throw DomainException.validationError('Upload valid UTF-8 CSV with correctly quoted fields');
+      throw DomainException.validationError(
+        'Use the Excel roster template or a valid CSV with matching headers.',
+      );
     }
-    if (csv[0]?.join(',') !== 'studentRef,displayName' || csv[0].length !== 2)
-      throw DomainException.validationError('Headers must be studentRef,displayName');
-    if (csv.length < 2 || csv.length > 2001)
+    if (parsedRows.length < 1 || parsedRows.length > 2000)
       throw DomainException.validationError('Upload between 1 and 2000 students');
     const hash = createHash('sha256').update(file.buffer).digest('hex');
     return this.db.withTenantTransaction(school.id, async (c) =>
@@ -83,37 +87,35 @@ export class RosterService {
               )
             ).rows.map((r) => r.student_ref),
           );
+          const prepared = parsedRows.map((row) => ({
+            ...row,
+            studentRef: rosterReference(classId, row, hash),
+          }));
           const counts = new Map<string, number>();
-          for (const row of csv.slice(1)) {
-            const ref = (row[0] ?? '').trim().toLowerCase();
-            counts.set(ref, (counts.get(ref) ?? 0) + 1);
-          }
-          const rows = csv.slice(1).map((cells, index) => {
-            const studentRef = (cells[0] ?? '').trim(),
-              displayName = (cells[1] ?? '').trim();
-            const errors: { field: string; message: string }[] = [];
-            if (cells.length !== 2)
-              errors.push({ field: 'row', message: 'Each row must contain exactly two columns' });
-            if (!studentRef || studentRef.length > 128)
-              errors.push({
-                field: 'studentRef',
-                message: 'Use a student reference of 1–128 characters',
-              });
-            if (!displayName || displayName.length > 160)
-              errors.push({
-                field: 'displayName',
-                message: 'Use a display name of 1–160 characters',
-              });
-            if (
-              (counts.get(studentRef.toLowerCase()) ?? 0) > 1 ||
-              existing.has(studentRef.toLowerCase())
-            )
-              errors.push({
-                field: 'studentRef',
-                message: 'Student reference already exists or repeats in this file',
-              });
-            return { row: index + 2, studentRef, displayName, errors };
-          });
+          for (const row of prepared)
+            counts.set(
+              row.studentRef.toLowerCase(),
+              (counts.get(row.studentRef.toLowerCase()) ?? 0) + 1,
+            );
+          const rows = prepared.map((row) => ({
+            ...row,
+            errors: [
+              ...row.errors,
+              ...(!row.studentRef || row.studentRef.length > 128
+                ? [{ field: 'reference', message: 'Invalid roster reference' }]
+                : []),
+              ...((counts.get(row.studentRef.toLowerCase()) ?? 0) > 1 ||
+              existing.has(row.studentRef.toLowerCase())
+                ? [
+                    {
+                      field: 'rollNumber',
+                      message:
+                        'This roster row or roll number already exists in this class. Check Accounts before importing again.',
+                    },
+                  ]
+                : []),
+            ],
+          }));
           const preview = {
             importId: randomUUID(),
             revision: 1,
@@ -216,13 +218,17 @@ export class RosterService {
           const userId = randomUUID();
           userIds.push(userId);
           await c.query(
-            "INSERT INTO users(id,school_id,display_name,student_ref,login_id,role,password_hash,credentials_issued) VALUES($1,$2,$3,$4,$5,'student',NULL,false)",
+            "INSERT INTO users(id,school_id,display_name,student_ref,login_id,role,password_hash,credentials_issued,first_name,father_name,grandfather_name,roll_number) VALUES($1,$2,$3,$4,$5,'student',NULL,false,$6,$7,$8,$9)",
             [
               userId,
               school.id,
               student.displayName,
               student.studentRef,
               studentLoginId(schoolNumber, studentNumber++, this.clock.now()),
+              student.firstName ?? null,
+              student.fatherName ?? null,
+              student.grandfatherName ?? null,
+              student.rollNumber || null,
             ],
           );
           await c.query(

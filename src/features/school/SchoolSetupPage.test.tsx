@@ -81,7 +81,7 @@ describe('school setup UI', () => {
     await user.click(await screen.findByRole('tab', { name: 'Roster import' }));
     await user.selectOptions(await screen.findByLabelText('Roster class'), 'demo-class-10a');
     await user.upload(
-      screen.getByLabelText('Student CSV file'),
+      screen.getByLabelText('Student roster file'),
       csvFile('studentRef,displayName\nDEMO-001,Duplicate'),
     );
     submitRosterPreview();
@@ -89,7 +89,7 @@ describe('school setup UI', () => {
     expect(screen.getByRole('button', { name: 'Import validated students' })).toBeDisabled();
     expect(store.directory.accounts.size).toBe(2);
     await user.upload(
-      screen.getByLabelText('Student CSV file'),
+      screen.getByLabelText('Student roster file'),
       csvFile('studentRef,displayName\nNEW-1,Test Student'),
     );
     submitRosterPreview();

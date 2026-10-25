@@ -5,7 +5,7 @@ import { control, panel } from '@/features/exams/authoring/TeacherPage';
 import { eatTime } from '@/features/exams/ExamsPage';
 import { schoolApi } from './api';
 import type { RosterPreview } from './schemas';
-import { downloadCsv, Field, Reason, useSchoolOperation, useSchoolPage } from './SchoolSetupPage';
+import { Field, Reason, useSchoolOperation, useSchoolPage } from './SchoolSetupPage';
 
 export function RosterImport() {
   const api = schoolApi(useApiClient());
@@ -46,21 +46,18 @@ export function RosterImport() {
       >
         <h2 className="text-xl font-semibold">Import a student roster</h2>
         <p>
-          Choose one class and upload a UTF-8 CSV with the header studentRef,displayName. Previewing
-          creates no accounts. Every row must pass validation before import.
+          Choose a class and upload Excel or CSV with First name, Father's name and Grandfather's
+          name. Roll number is optional and goes first. Nexora generates login IDs; roll numbers are
+          not login IDs. Without roll numbers, check Accounts before importing a changed file again
+          to avoid duplicate students.
         </p>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            downloadCsv(
-              'studentRef,displayName\r\nSTU-001,Example Student\r\n',
-              'nexora-roster-example.csv',
-            )
-          }
+        <a
+          className="inline-flex min-h-11 items-center underline"
+          href="/templates/nexora-student-roster.xlsx"
+          download
         >
-          Download roster CSV example
-        </Button>
+          Download roster Excel example
+        </a>
         <fieldset disabled={op.pending || commit.pending} className="space-y-3">
           <Field label="Roster class">
             <select
@@ -83,11 +80,11 @@ export function RosterImport() {
             </select>
           </Field>
           {classes.controls}
-          <Field label="Student CSV file">
+          <Field label="Student roster file">
             <input
               className={control}
               type="file"
-              accept=".csv,text/csv"
+              accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               required
               onChange={(e) => {
                 const selected = e.target.files?.[0];
@@ -114,7 +111,7 @@ export function RosterImport() {
           <p>
             {preview.canCommit
               ? 'All rows passed validation. Review the names and class before importing.'
-              : 'Correct the errors in your CSV and upload it again. No accounts have been created.'}
+              : 'Correct the errors in your file and upload it again. No accounts have been created.'}
           </p>
           <div className="overflow-auto">
             <table className="w-full text-left text-sm">
@@ -122,7 +119,7 @@ export function RosterImport() {
               <thead>
                 <tr>
                   <th className="p-2">Row</th>
-                  <th className="p-2">Reference</th>
+                  <th className="p-2">Roll number (optional)</th>
                   <th className="p-2">Student name</th>
                   <th className="p-2">Validation</th>
                 </tr>
@@ -131,7 +128,7 @@ export function RosterImport() {
                 {preview.rows.slice(0, limit).map((r) => (
                   <tr key={r.row} className="border-t">
                     <td className="p-2">{r.row}</td>
-                    <td className="p-2">{r.studentRef}</td>
+                    <td className="p-2">{r.rollNumber || '—'}</td>
                     <td className="p-2">{r.displayName}</td>
                     <td className="p-2">
                       {r.errors.length

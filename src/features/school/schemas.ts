@@ -84,6 +84,7 @@ export const previewSchema = z.object({
     z.object({
       row: z.number().int().positive(),
       studentRef: z.string(),
+      rollNumber: z.string().optional(),
       displayName: z.string(),
       errors: z.array(z.object({ field: id, message: id })),
     }),

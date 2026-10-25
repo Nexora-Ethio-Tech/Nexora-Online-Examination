@@ -178,7 +178,10 @@ function attr(n: Node, name: string) {
   );
 }
 
-export async function parseQuestionFile(source: Buffer): Promise<Item[]> {
+export async function parseTemplateRows(
+  source: Buffer,
+  options = { sheetName: 'Questions', columns: 9, maxRows: 201, allowDocx: true },
+): Promise<string[][]> {
   const files = await unzip(source);
   const parsed = new Map<string, Node[]>();
   for (const [name, bytes] of files) {
@@ -206,6 +209,7 @@ export async function parseQuestionFile(source: Buffer): Promise<Item[]> {
   if (Boolean(doc) === Boolean(book)) fail('Upload a DOCX or XLSX question template');
   let rows: string[][] = [];
   if (doc) {
+    if (!options.allowDocx) fail('Upload an XLSX roster');
     for (const forbidden of [
       'drawing',
       'pict',
@@ -235,8 +239,8 @@ export async function parseQuestionFile(source: Buffer): Promise<Item[]> {
     if ([...parsed.keys()].filter((name) => /^xl\/worksheets\/[^/]+\.xml$/.test(name)).length !== 1)
       fail('XLSX must contain exactly one worksheet part');
     const sheets = all(book, 'sheet');
-    if (sheets.length !== 1 || attr(sheets[0], 'name') !== 'Questions')
-      fail('XLSX must contain one Questions worksheet');
+    if (sheets.length !== 1 || attr(sheets[0], 'name') !== options.sheetName)
+      fail(`XLSX must contain one ${options.sheetName} worksheet`);
     const relationship = all(parsed.get('xl/_rels/workbook.xml.rels') ?? [], 'Relationship').find(
       (n) => attr(n, 'Id') === attr(sheets[0], 'id'),
     );
@@ -273,7 +277,11 @@ export async function parseQuestionFile(source: Buffer): Promise<Item[]> {
       else if (kind && kind !== 'n' && kind !== 'str') fail('Unsupported cell type');
       if (!value.trim()) continue;
       const row = Number(match[2]);
-      if (match[1].length !== 1 || match[1] > 'I' || row > 201)
+      if (
+        match[1].length !== 1 ||
+        match[1].charCodeAt(0) >= 65 + options.columns ||
+        row > options.maxRows
+      )
         fail('Unexpected content outside the question table');
       const cellRef = match[0];
       if (cells.has(cellRef)) fail('Duplicate spreadsheet cell');
@@ -281,9 +289,17 @@ export async function parseQuestionFile(source: Buffer): Promise<Item[]> {
       maxRow = Math.max(maxRow, row);
     }
     rows = Array.from({ length: maxRow }, (_, r) =>
-      HEADERS.map((_, c) => cells.get(`${String.fromCharCode(65 + c)}${r + 1}`) ?? ''),
+      Array.from(
+        { length: options.columns },
+        (_, c) => cells.get(`${String.fromCharCode(65 + c)}${r + 1}`) ?? '',
+      ),
     );
   }
+  return rows;
+}
+
+export async function parseQuestionFile(source: Buffer): Promise<Item[]> {
+  const rows = await parseTemplateRows(source);
   if (rows[0]?.length !== HEADERS.length || rows[0].some((v, i) => v.trim() !== HEADERS[i]))
     fail('Column headers must match the downloadable template');
   if (rows.length < 2 || rows.length > 201) fail('Use between 1 and 200 questions');
