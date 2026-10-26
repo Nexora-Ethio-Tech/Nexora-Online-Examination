@@ -30,7 +30,8 @@ describe('administrator monitor screen', () => {
       return next(url, init);
     });
     const { user } = show(c.client, `/admin/monitor/attempts/${c.attempt.attemptId}`);
-    await screen.findByText('Not suspended');
+    // Cold lazy-route loading is separate from the supervision freshness assertion.
+    await screen.findByText('Not suspended', {}, { timeout: 5000 });
     expect(screen.getByText(/Device-reported times can be inaccurate/)).toBeInTheDocument();
     fail = true;
     await user.click(screen.getByRole('button', { name: 'Refresh supervision' }));

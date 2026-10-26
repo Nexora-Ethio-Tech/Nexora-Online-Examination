@@ -390,3 +390,33 @@ it('creates a separate invigilator account that cannot author or manage school a
   });
   expect((await api.accounts('invigilator', '', null)).items[0]?.role).toBe('invigilator');
 });
+
+describe('credentials issued with roster commit', () => {
+  it('returns one private file worth of credentials, redacts both replay stores and rejects conflicting replay', async () => {
+    const { api, store } = await setup();
+    const preview = await api.preview(
+      file('studentRef,displayName\nNEW-A,Student A\nNEW-B,Student B'),
+      'demo-class-10a',
+      key(),
+    );
+    const operation = key();
+    const first = await api.commit(preview.importId, preview.revision, '', operation, true);
+    expect(first.loginDetails?.credentials).toHaveLength(2);
+    const password = first.loginDetails?.credentials?.[0]?.password;
+    if (!password) throw new Error('Expected one-time passwords');
+    expect(
+      first.userIds.every((id) => store.directory.accounts.get(id)?.credentialState === 'issued'),
+    ).toBe(true);
+    expect(JSON.stringify([...store.directory.replays.values()])).not.toContain(password);
+    expect(JSON.stringify([...store.directory.previews.values()])).not.toContain(password);
+    const replay = await api.commit(preview.importId, preview.revision, '', operation, true);
+    expect(replay).toMatchObject({
+      ...first,
+      loginDetails: { ...first.loginDetails, credentials: null },
+    });
+    await expect(
+      api.commit(preview.importId, preview.revision, 'different', operation, true),
+    ).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
+    expect(store.directory.accounts.size).toBe(4);
+  });
+});

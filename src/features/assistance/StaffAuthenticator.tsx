@@ -1,3 +1,4 @@
+import { ReadError } from '@/components/shared/ReadError';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import QRCode from 'qrcode';
@@ -103,7 +104,7 @@ export function StaffAuthenticator() {
       {status.isPending && <p role="status">Checking authenticator setup…</p>}
       {status.error && (
         <>
-          <p role="alert">{errorMessage(status.error)}</p>
+          <ReadError error={status.error} />
           <Button onClick={() => void status.refetch()}>Retry authenticator status</Button>
         </>
       )}
@@ -125,7 +126,7 @@ export function StaffAuthenticator() {
           }}
         >
           <label className="block">
-            Confirm your password
+            <span className="field-label">Confirm your password</span>
             <input
               type="password"
               autoComplete="current-password"
@@ -165,7 +166,7 @@ export function StaffAuthenticator() {
             }}
           >
             <label className="block">
-              Authenticator setup code
+              <span className="field-label">Authenticator setup code</span>
               <input
                 inputMode="numeric"
                 autoComplete="off"

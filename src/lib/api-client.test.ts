@@ -97,3 +97,32 @@ describe('API client', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 });
+
+it('reports connection loss once and clears it after a response without treating cancellation as offline', async () => {
+  let fail = true;
+  const client = new ApiClient('/api/v1', async () => {
+    if (fail) throw new TypeError('Network lost');
+    return Response.json({});
+  });
+  const changed = vi.fn();
+  const unsubscribe = client.onConnectionChange(changed);
+  await expect(client.request('/first', z.unknown())).rejects.toMatchObject({
+    code: 'NETWORK_ERROR',
+  });
+  await expect(client.request('/second', z.unknown())).rejects.toMatchObject({
+    code: 'NETWORK_ERROR',
+  });
+  expect(client.connectionUnavailable()).toBe(true);
+  expect(changed).toHaveBeenCalledTimes(1);
+  fail = false;
+  await client.request('/first', z.unknown());
+  expect(client.connectionUnavailable()).toBe(false);
+  expect(changed).toHaveBeenCalledTimes(2);
+  unsubscribe();
+  const aborted = new AbortController();
+  aborted.abort();
+  await expect(
+    client.request('/cancelled', z.unknown(), { signal: aborted.signal }),
+  ).rejects.toThrow();
+  expect(client.connectionUnavailable()).toBe(false);
+});

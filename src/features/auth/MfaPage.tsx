@@ -50,6 +50,7 @@ export function MfaPage() {
         </p>
         <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-5">
           <FormField
+            required
             id="mfa-code"
             label="Verification code"
             error={form.formState.errors.code?.message}

@@ -1,3 +1,4 @@
+import { usePagedQuery } from '@/components/shared/Pagination';
 import { ScheduleCountdown } from '@/components/shared/ScheduleCountdown';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useRef, useState } from 'react';
@@ -99,7 +100,7 @@ function AccessForm({ access }: { access: PracticeAccess }) {
         <p className="text-destructive">Enter a valid EAT release date and time.</p>
       )}
       <label className="block">
-        Note (optional)
+        <span className="field-label">Note (optional)</span>
         <textarea
           className={control}
           maxLength={2000}
@@ -117,7 +118,7 @@ function AccessForm({ access }: { access: PracticeAccess }) {
         />
         I checked the paper, release time and practice access.
       </label>
-      <Failure error={mutation.error} />
+      <Failure action error={mutation.error} />
       {mutation.isSuccess && <p role="status">Practice settings saved.</p>}
       <Button disabled={mutation.isPending || !confirmed || (enabled && !releaseAt)}>
         {mutation.isPending ? 'Saving…' : 'Save practice settings'}
@@ -146,7 +147,8 @@ export function AdminPracticePage() {
     getNextPageParam: (p) => p.nextCursor ?? undefined,
     refetchInterval: 15000,
   });
-  const rows = query.data?.pages.flatMap((p) => p.items) ?? [];
+  const pagination = usePagedQuery(query, JSON.stringify(scope));
+  const rows = pagination.page?.items ?? [];
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-semibold">Practice release</h1>
@@ -169,11 +171,7 @@ export function AdminPracticePage() {
       {rows.map((row) => (
         <AccessForm key={`${row.examId}:${row.revision}`} access={row} />
       ))}
-      {query.hasNextPage && (
-        <Button disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
-          Load more papers
-        </Button>
-      )}
+      {pagination.controls}
     </div>
   );
 }
@@ -200,7 +198,7 @@ function StartPractice({
       <Button disabled={disabled || mutation.isPending} onClick={() => mutation.mutate()}>
         {mutation.isPending ? 'Starting…' : 'Start new practice'}
       </Button>
-      <Failure error={mutation.error} />
+      <Failure action error={mutation.error} />
     </div>
   );
 }
@@ -220,8 +218,9 @@ export function PracticePage() {
     getNextPageParam: (p) => p.nextCursor ?? undefined,
     refetchInterval: 15000,
   });
-  const rows =
-    query.data?.pages.flatMap((p) => p.items.map((item) => ({ ...item, clock: p.clock }))) ?? [];
+  const pagination = usePagedQuery(query, JSON.stringify(scope));
+  const currentPage = pagination.page;
+  const rows = currentPage?.items.map((item) => ({ ...item, clock: currentPage.clock })) ?? [];
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-semibold">Practice</h1>
@@ -289,11 +288,7 @@ export function PracticePage() {
           )}
         </section>
       ))}
-      {query.hasNextPage && (
-        <Button disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
-          Load more practice papers
-        </Button>
-      )}
+      {pagination.controls}
     </div>
   );
 }
@@ -361,7 +356,7 @@ function PracticeQuestion({
           >
             {mutation.isPending ? 'Checking answer…' : sent ? 'Retry same answer' : 'Check answer'}
           </Button>
-          <Failure error={mutation.error} />
+          <Failure action error={mutation.error} />
           {mutation.error && (
             <p>
               Your answer may already be saved. Retry the same answer or refresh practice to check
@@ -476,7 +471,7 @@ function PracticeRunner({ practiceAttemptId }: { practiceAttemptId: string }) {
                 Complete every question, then finish this attempt to update your best practice
                 score.
               </p>
-              <Failure error={complete.error} />
+              <Failure action error={complete.error} />
               <Button
                 disabled={answered !== attempt.items.length || complete.isPending}
                 onClick={() => complete.mutate()}

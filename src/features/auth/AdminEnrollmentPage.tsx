@@ -91,7 +91,7 @@ export function AdminEnrollmentPage() {
             expires after 30 minutes.
           </p>
           <label className="block">
-            User ID
+            <span className="field-label">User ID</span>
             <input
               className="block w-full rounded border p-3"
               required
@@ -101,7 +101,7 @@ export function AdminEnrollmentPage() {
             />
           </label>
           <label className="block">
-            Password
+            <span className="field-label">Password</span>
             <input
               className="block w-full rounded border p-3"
               required
@@ -122,7 +122,7 @@ export function AdminEnrollmentPage() {
               <p>Cannot scan? Add an Other account and enter this setup key:</p>
               <code className="break-all">{setup.secret}</code>
               <label className="block">
-                Six-digit authenticator code
+                <span className="field-label">Six-digit authenticator code</span>
                 <input
                   className="block w-full rounded border p-3"
                   required

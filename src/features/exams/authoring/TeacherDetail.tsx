@@ -1,3 +1,4 @@
+import { PagedItems } from '@/components/shared/Pagination';
 import { Trash2 } from 'lucide-react';
 import {
   AlertDialog,
@@ -61,8 +62,9 @@ function ItemReview({
         <div className="min-w-0 space-y-3">
           <h4 className="text-sm font-semibold">Teacher question and answer</h4>
           <label className="block text-sm">
-            Question
+            <span className="field-label">Question</span>
             <textarea
+              required
               className={control}
               rows={3}
               value={edit.stem}
@@ -71,8 +73,9 @@ function ItemReview({
           </label>
           {edit.options.map((o, i) => (
             <label key={o.id} className="block text-sm">
-              Option {o.id}
+              <span className="field-label">Option {o.id}</span>
               <Input
+                required
                 value={o.text}
                 onChange={(e) =>
                   change({
@@ -87,8 +90,9 @@ function ItemReview({
             </label>
           ))}
           <label className="block text-sm">
-            Correct answer
+            <span className="field-label">Correct answer</span>
             <select
+              required
               className={control}
               value={edit.correctOptionId}
               onChange={(e) =>
@@ -103,8 +107,9 @@ function ItemReview({
             </select>
           </label>
           <label className="block text-sm">
-            Marks
+            <span className="field-label">Marks</span>
             <Input
+              required
               type="number"
               value={edit.marks}
               onChange={(e) => change({ ...edit, marks: e.target.valueAsNumber, reviewed: false })}
@@ -124,7 +129,7 @@ function ItemReview({
             </p>
           )}
           <label className="block text-sm">
-            Primary topic
+            <span className="field-label">Primary topic</span>
             <Input
               value={edit.primaryTopic}
               onChange={(e) => change({ ...edit, primaryTopic: e.target.value, reviewed: false })}
@@ -134,7 +139,7 @@ function ItemReview({
             Secondary topics: {item.secondaryTopics.join(', ') || 'None'}
           </p>
           <label className="block text-sm">
-            Explanation
+            <span className="field-label">Explanation</span>
             <textarea
               rows={6}
               className={control}
@@ -143,7 +148,7 @@ function ItemReview({
             />
           </label>
           <label className="block text-sm">
-            Review note / flag resolution
+            <span className="field-label">Review note / flag resolution</span>
             <textarea
               rows={2}
               className={control}
@@ -372,7 +377,7 @@ export function TeacherDetail() {
                 cannot be deleted here.
               </AlertDialogDescription>
               <label className="block py-3">
-                Note (optional)
+                <span className="field-label">Note (optional)</span>
                 <Input
                   maxLength={500}
                   value={removeReason}
@@ -388,7 +393,7 @@ export function TeacherDetail() {
                 />
                 I understand and want to remove this draft.
               </label>
-              <Failure error={action.error} />
+              <Failure action error={action.error} />
               <Button
                 variant="destructive"
                 disabled={action.isPending || !removeConfirmed}
@@ -424,7 +429,8 @@ export function TeacherDetail() {
             : 'Approved paper. Your administrator manages scheduling and release.'}
         </p>
       )}
-      <Failure error={action.error || draft.error || items.error || job.error} />
+      <Failure action error={action.error} />
+      <Failure error={draft.error || items.error || job.error} />
       {action.error && (
         <Button
           variant="outline"
@@ -539,7 +545,7 @@ export function TeacherDetail() {
                 </p>
               )}
             <label className="block text-sm">
-              Question template
+              <span className="field-label">Question template</span>
               <Input
                 data-tour="question-template"
                 className="mt-2"
@@ -618,7 +624,7 @@ export function TeacherDetail() {
                         finish, but its result will not be applied.
                       </p>
                       <label className="block">
-                        Note (optional)
+                        <span className="field-label">Note (optional)</span>
                         <Input
                           value={cancelReason}
                           onChange={(e) => setCancelReason(e.target.value)}
@@ -764,32 +770,39 @@ export function TeacherDetail() {
                   </Button>
                 ))}
               </div>
-              <nav className="flex flex-wrap gap-2" aria-label="Question cards">
-                {visibleItems.map((item) => {
-                  const flagged = item.reviewFlags.length > 0 || item.keyConsistent === false;
-                  const reviewed = !needsReview.has(item.itemId);
-                  return (
-                    <Button
-                      key={item.itemId}
-                      variant="outline"
-                      className={
-                        flagged
-                          ? 'border-amber-400 bg-amber-50 text-amber-950'
-                          : reviewed
-                            ? 'border-green-400 bg-green-100 text-green-950'
-                            : ''
-                      }
-                      aria-pressed={selectedItem?.itemId === item.itemId}
-                      disabled={dirty || action.isPending}
-                      onClick={() => setSelectedItemId(item.itemId)}
-                      aria-label={`Review ${item.externalId}: ${flagged ? 'Flagged' : reviewed ? 'Reviewed' : 'Not reviewed'}`}
-                    >
-                      {paper.indexOf(item) + 1}{' '}
-                      {flagged ? '⚠ Flagged' : reviewed ? '✓ Reviewed' : 'Not reviewed'}
-                    </Button>
-                  );
-                })}
-              </nav>
+              <PagedItems items={visibleItems} identity={reviewFilter}>
+                {(pageItems) => (
+                  <>
+                    {' '}
+                    <nav className="flex flex-wrap gap-2" aria-label="Question cards">
+                      {pageItems.map((item) => {
+                        const flagged = item.reviewFlags.length > 0 || item.keyConsistent === false;
+                        const reviewed = !needsReview.has(item.itemId);
+                        return (
+                          <Button
+                            key={item.itemId}
+                            variant="outline"
+                            className={
+                              flagged
+                                ? 'border-amber-400 bg-amber-50 text-amber-950'
+                                : reviewed
+                                  ? 'border-green-400 bg-green-100 text-green-950'
+                                  : ''
+                            }
+                            aria-pressed={selectedItem?.itemId === item.itemId}
+                            disabled={dirty || action.isPending}
+                            onClick={() => setSelectedItemId(item.itemId)}
+                            aria-label={`Review ${item.externalId}: ${flagged ? 'Flagged' : reviewed ? 'Reviewed' : 'Not reviewed'}`}
+                          >
+                            {paper.indexOf(item) + 1}{' '}
+                            {flagged ? '⚠ Flagged' : reviewed ? '✓ Reviewed' : 'Not reviewed'}
+                          </Button>
+                        );
+                      })}
+                    </nav>{' '}
+                  </>
+                )}
+              </PagedItems>
               {!visibleItems.length && <p className="mt-3">No questions match this filter.</p>}
               {dirty && (
                 <p className="mt-3 text-sm" role="status">

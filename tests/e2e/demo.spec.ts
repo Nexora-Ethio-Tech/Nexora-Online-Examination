@@ -218,12 +218,6 @@ test('student answers offline, navigates questions and receives a confirmed subm
   await page.getByRole('radio').first().click();
   await expect(page.getByRole('radio').first()).toBeChecked();
   await expect(page.getByText(/1 answers saved on this device/)).toBeVisible();
-  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-  await expect(page.locator('fieldset')).toBeHidden();
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(page.locator('fieldset')).toBeHidden();
-  await page.getByRole('button', { name: 'Acknowledge & Resume Exam' }).click();
-  await expect(page.getByRole('radio').first()).toBeChecked();
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('#root')).toBeHidden();
   await page.emulateMedia({ media: 'screen' });
@@ -632,4 +626,97 @@ test('student exam categories stay usable on every screen size', async ({ page }
     path: testInfo.outputPath('student-exam-categories.png'),
     fullPage: true,
   });
+});
+
+test('compact setup: required markers, guarded edit cards, roster credential download and one offline notice', async ({
+  page,
+  context,
+}) => {
+  await login(page, 'ADMIN');
+  await navigateWorkspace(page, 'School setup');
+  await page.getByRole('button', { name: 'Add class', exact: true }).click();
+  const editor = page.getByRole('dialog', { name: 'Add class', exact: true });
+  const grade = editor.getByLabel('Grade', { exact: true });
+  await expect(grade).toHaveAttribute('required', '');
+  const marker = await grade
+    .locator('..')
+    .locator('.field-label')
+    .evaluate((label) => getComputedStyle(label, '::after').content);
+  expect(marker).toContain('*');
+  await grade.fill('9');
+  await editor.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(editor.getByText('Discard your unsaved changes?')).toBeVisible();
+  await editor.getByRole('button', { name: 'Keep editing' }).click();
+  await expect(grade).toHaveValue('9');
+  await accessible(page);
+  await editor.getByRole('button', { name: 'Close', exact: true }).click();
+  await editor.getByRole('button', { name: 'Discard changes' }).click();
+  await page.getByRole('tab', { name: 'Assignments', exact: true }).click();
+  const filters = page.locator('section[aria-label="Assignment filters"]');
+  await expect(filters.getByLabel('Search assignments')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('tab', { name: 'Roster import', exact: true }).click();
+  await page
+    .getByRole('combobox', { name: 'Roster class', exact: true })
+    .selectOption('demo-class-10a');
+  await page.getByLabel('Student roster file').setInputFiles({
+    name: 'intake.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(
+      "Roll number,First name,Father's name,Grandfather's name\nNEW-101,Synthetic,Learner,Test\n",
+    ),
+  });
+  await page.getByRole('button', { name: 'Preview roster', exact: true }).click();
+  await page.getByRole('checkbox', { name: /I checked every row/ }).check();
+  await page.getByRole('button', { name: 'Import validated students', exact: true }).click();
+  const credentials = page.getByRole('dialog', { name: 'Private login details' });
+  await expect(credentials).toBeVisible();
+  await expect(credentials.getByRole('button', { name: 'Close', exact: true })).toBeDisabled();
+  await expect(credentials).toBeVisible();
+  await accessible(page);
+  const download = page.waitForEvent('download');
+  await credentials
+    .getByRole('button', { name: 'Download login details (CSV)', exact: true })
+    .click();
+  expect((await download).suggestedFilename()).toBe('nexora-private-credentials.csv');
+  await credentials.getByRole('checkbox', { name: /I saved the login details/ }).check();
+  await credentials.getByRole('button', { name: 'Close login details', exact: true }).click();
+  await expect(page.getByText(/Imported 1 students/)).toBeVisible();
+  await context.setOffline(true);
+  await expect(
+    page.getByText('Offline · reconnect to load or send changes', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Cannot connect. Check your connection and try again.', { exact: true }),
+  ).toHaveCount(0);
+  await context.setOffline(false);
+});
+
+// The current shield requires staff approval on the first interruption; reconnection alone cannot resume it.
+test('offline focus interruption preserves saved work and requires staff approval', async ({
+  page,
+  context,
+}) => {
+  await login(page, 'STUDENT');
+  await page
+    .locator('article')
+    .filter({ has: page.getByRole('heading', { name: 'English · current window' }) })
+    .getByRole('link')
+    .click();
+  await page.getByRole('button', { name: 'Download exam' }).click();
+  await page.getByRole('button', { name: 'Start exam', exact: true }).click();
+  await expect(page.getByRole('radio').first()).toBeVisible();
+  await context.setOffline(true);
+  await page.getByRole('radio').first().click();
+  await expect(page.getByText(/1 answers saved on this device/)).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+  await expect(page.getByRole('heading', { name: 'Editing is paused', exact: true })).toBeVisible();
+  await expect(page.getByRole('radio')).toHaveCount(0);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.getByRole('button', { name: /Resume/ })).toHaveCount(0);
+  await expect(page.getByText(/1 answers saved on this device/)).toBeVisible();
+  await context.setOffline(false);
+  await page.getByRole('button', { name: 'Try opening exam again', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Editing is paused', exact: true })).toBeVisible();
+  await expect(page.getByRole('radio')).toHaveCount(0);
 });

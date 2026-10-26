@@ -1,29 +1,39 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useApiClient } from '@/lib/ApiProvider';
 import { control, panel } from '@/features/exams/authoring/TeacherPage';
 import { eatTime } from '@/features/exams/ExamsPage';
 import { schoolApi } from './api';
-import type { RosterPreview } from './schemas';
+import { useLocalPagination } from '@/components/shared/Pagination';
+import type { CredentialIssue, RosterPreview } from './schemas';
 import { Field, useSchoolOperation, useSchoolPage } from './SchoolSetupPage';
 
-export function RosterImport() {
+export function RosterImport({
+  showIssue,
+  onSaving,
+}: {
+  showIssue: (issue: CredentialIssue) => void;
+  onSaving: (saving: boolean) => void;
+}) {
   const api = schoolApi(useApiClient());
   const classes = useSchoolPage(['classes'], api.classes);
   const op = useSchoolOperation();
   const commit = useSchoolOperation();
+  useEffect(() => {
+    onSaving(commit.pending);
+    return () => onSaving(false);
+  }, [commit.pending, onSaving]);
   const [classId, setClassId] = useState('');
   const [file, setFile] = useState<{ file: File; token: string } | null>(null);
   const [preview, setPreview] = useState<RosterPreview | null>(null);
   const reason = '';
   const [confirmed, setConfirmed] = useState(false);
-  const [limit, setLimit] = useState(25);
+  const page = useLocalPagination(preview?.rows ?? [], preview?.importId);
   const [created, setCreated] = useState<number | null>(null);
   function resetPreview() {
     setPreview(null);
     setConfirmed(false);
     setCreated(null);
-    setLimit(25);
   }
   return (
     <div className="space-y-5">
@@ -39,7 +49,6 @@ export function RosterImport() {
                 setPreview(value);
                 setConfirmed(false);
                 setCreated(null);
-                setLimit(25);
               },
             );
         }}
@@ -125,7 +134,7 @@ export function RosterImport() {
                 </tr>
               </thead>
               <tbody>
-                {preview.rows.slice(0, limit).map((r) => (
+                {page.rows.map((r) => (
                   <tr key={r.row} className="border-t">
                     <td className="p-2">{r.row}</td>
                     <td className="p-2">{r.rollNumber || '—'}</td>
@@ -144,15 +153,11 @@ export function RosterImport() {
               </tbody>
             </table>
           </div>
-          {limit < preview.rows.length && (
-            <Button variant="outline" onClick={() => setLimit(limit + 25)}>
-              Show more preview rows
-            </Button>
-          )}
+          {page.controls}
           {created !== null ? (
             <p role="status">
-              Imported {created} students. Open Accounts, choose their class, and create their login
-              details. Existing exam rosters were preserved.
+              Imported {created} students. Their login details were created during import. Existing
+              exam rosters were preserved.
             </p>
           ) : (
             <form
@@ -162,8 +167,12 @@ export function RosterImport() {
                 if (confirmed && preview.canCommit)
                   void commit.run(
                     JSON.stringify([preview.importId, preview.revision, reason]),
-                    (key) => api.commit(preview.importId, preview.revision, reason.trim(), key),
-                    (result) => setCreated(result.createdCount),
+                    (key) =>
+                      api.commit(preview.importId, preview.revision, reason.trim(), key, true),
+                    (result) => {
+                      setCreated(result.createdCount);
+                      if (result.loginDetails) showIssue(result.loginDetails);
+                    },
                   );
               }}
             >
@@ -174,13 +183,20 @@ export function RosterImport() {
                     checked={confirmed}
                     onChange={(e) => setConfirmed(e.target.checked)}
                   />
-                  I checked every row and the intended class.
+                  I checked every row and the intended class. Create login details for these
+                  students.
                 </label>
                 <Button className="min-h-11" disabled={!confirmed}>
                   Import validated students
                 </Button>
               </fieldset>
             </form>
+          )}
+          {commit.pending && (
+            <p role="status">
+              Saving students and creating private login details. Large rosters can take several
+              minutes. Keep this page open.
+            </p>
           )}
           {commit.feedback}
         </section>

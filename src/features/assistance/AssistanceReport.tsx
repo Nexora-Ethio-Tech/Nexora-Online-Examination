@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { Pagination, useCursorPages, useLocalPagination } from '@/components/shared/Pagination';
+import { ReadError } from '@/components/shared/ReadError';
 import { useQuery } from '@tanstack/react-query';
 import { useApiClient } from '@/lib/ApiProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { errorMessage } from '@/lib/api-client';
 import { eatTime } from '@/features/exams/ExamsPage';
 import { Button } from '@/components/ui/button';
 import { assistanceApi } from './api';
@@ -15,11 +15,13 @@ const label = (outcome: string) =>
 export function AssistanceReport() {
   const client = useApiClient(),
     { session } = useAuth();
-  const [before, setBefore] = useState<string | null>(null);
+  const pages = useCursorPages();
+  const before = pages.cursor;
   const report = useQuery({
     queryKey: ['assistance-report', session?.school.id, session?.user.id, before],
     queryFn: ({ signal }) => assistanceApi(client).report(before, signal),
   });
+  const totals = useLocalPagination(report.data?.totals ?? [], before ?? '');
   return (
     <section className="space-y-4 rounded-xl border p-4" data-tour="assistance-report">
       <h2 className="text-xl font-semibold">Staff assistance history</h2>
@@ -31,18 +33,19 @@ export function AssistanceReport() {
         Refresh history
       </Button>
       {report.isPending && <p>Loading history…</p>}
-      {report.error && <p role="alert">{errorMessage(report.error)}</p>}
+      {report.error && <ReadError error={report.error} />}
       {report.data && (
         <>
           <details>
             <summary>Totals by staff, student and exam</summary>
             <ul className="space-y-2">
-              {report.data.totals.map((t, i) => (
+              {totals.rows.map((t, i) => (
                 <li key={i}>
                   {t.staffName} · {t.studentName} · {t.examTitle} · {label(t.outcome)}: {t.count}
                 </li>
               ))}
             </ul>
+            {totals.controls}
           </details>
           {report.data.events.length === 0 && <p>No assistance decisions recorded.</p>}
           {report.data.events.map((e) => (
@@ -62,18 +65,15 @@ export function AssistanceReport() {
               <p>{e.reason}</p>
             </article>
           ))}
-          <div className="flex gap-2">
-            <Button variant="outline" disabled={!before} onClick={() => setBefore(null)}>
-              First page
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!report.data.nextCursor}
-              onClick={() => setBefore(report.data?.nextCursor ?? null)}
-            >
-              More history
-            </Button>
-          </div>
+          <Pagination
+            page={pages.number}
+            hasNext={!!report.data.nextCursor}
+            busy={report.isFetching}
+            previous={pages.previous}
+            next={() => {
+              if (report.data?.nextCursor) pages.next(report.data.nextCursor);
+            }}
+          />
         </>
       )}
     </section>

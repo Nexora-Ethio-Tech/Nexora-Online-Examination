@@ -90,7 +90,7 @@ export function ExamGeneration({
         )}
       <fieldset disabled={disabled} className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm sm:col-span-2">
-          Topics and syllabus coverage
+          <span className="field-label">Topics and syllabus coverage</span>
           <textarea
             required
             maxLength={4000}
@@ -104,8 +104,9 @@ export function ExamGeneration({
           />
         </label>
         <label className="block text-sm">
-          Difficulty
+          <span className="field-label">Difficulty</span>
           <select
+            required
             className={control}
             value={difficulty}
             onChange={(e) => {
@@ -121,7 +122,7 @@ export function ExamGeneration({
           </select>
         </label>
         <label className="block text-sm">
-          Marks per question
+          <span className="field-label">Marks per question</span>
           <Input
             type="number"
             required
@@ -132,7 +133,7 @@ export function ExamGeneration({
           />
         </label>
         <label className="block text-sm">
-          Multiple-choice questions
+          <span className="field-label">Multiple-choice questions</span>
           <Input
             type="number"
             required
@@ -143,7 +144,7 @@ export function ExamGeneration({
           />
         </label>
         <label className="block text-sm">
-          True/false questions
+          <span className="field-label">True/false questions</span>
           <Input
             type="number"
             required
@@ -160,7 +161,7 @@ export function ExamGeneration({
             : '—'}
         </p>
         <label className="block text-sm sm:col-span-2">
-          Additional guidance (optional)
+          <span className="field-label">Additional guidance (optional)</span>
           <textarea
             maxLength={4000}
             rows={3}

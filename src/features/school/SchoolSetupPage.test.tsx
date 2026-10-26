@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { createMemoryRouter } from 'react-router';
@@ -22,7 +22,7 @@ function setup(transport?: Transport) {
   });
   const router = createMemoryRouter(routes, { initialEntries: ['/admin/school'] });
   render(<App client={client} queryClient={cache} router={router} />);
-  return { store, cache, client, user: userEvent.setup() };
+  return { store, cache, client, router, user: userEvent.setup() };
 }
 function csvFile(text: string) {
   const bytes = new TextEncoder().encode(text);
@@ -115,7 +115,7 @@ describe('school setup UI', () => {
     });
   });
   it('blocks invalid imports and issues valid roster credentials only after explicit confirmation', async () => {
-    const { user, store, cache } = setup();
+    const { user, store, cache, router } = setup();
     await user.click(await screen.findByRole('tab', { name: 'Roster import' }));
     await user.selectOptions(await screen.findByLabelText('Roster class'), 'demo-class-10a');
     await user.upload(
@@ -137,19 +137,6 @@ describe('school setup UI', () => {
     await user.click(screen.getByRole('checkbox', { name: /I checked every row/ }));
     await user.click(screen.getByRole('button', { name: 'Import validated students' }));
     expect(await screen.findByText(/Imported 1 students/)).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Accounts' }));
-    await user.click(await screen.findByRole('button', { name: /Grade 10 A/ }));
-    await user.click(
-      await screen.findByRole('checkbox', { name: 'Select Test Student for login details' }),
-    );
-    expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Create login details for selected accounts' }),
-    ).toBeDisabled();
-    await user.click(screen.getByRole('checkbox', { name: /I checked the selected students/ }));
-    await user.click(
-      screen.getByRole('button', { name: 'Create login details for selected accounts' }),
-    );
     await screen.findByRole('heading', { name: 'Save these login details now' });
     const password = screen
       .getByRole('table', { name: 'New account login details' })
@@ -174,13 +161,22 @@ describe('school setup UI', () => {
     expect(JSON.stringify(localStorage)).not.toContain(password);
     expect(JSON.stringify(sessionStorage)).not.toContain(password);
     expect(screen.getByRole('button', { name: 'Close login details' })).toBeDisabled();
-    await user.click(screen.getByRole('link', { name: 'Official results' }));
+    // Simulate browser navigation while the modal owns focus.
+    await act(async () => {
+      void router.navigate('/admin/results');
+    });
     expect(await screen.findByText('Leave the login details?')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await user.click(screen.getByRole('checkbox', { name: /I saved the login details/ }));
     await user.click(screen.getByRole('button', { name: 'Close login details' }));
     expect(screen.queryByText(password)).not.toBeInTheDocument();
+    expect(await screen.findByText(/Imported 1 students/)).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Accounts' }));
+    await user.click(await screen.findByRole('button', { name: /Grade 10 A/ }));
     expect(await screen.findByRole('heading', { name: 'Test Student' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('checkbox', { name: 'Select Test Student for login details' }),
+    ).not.toBeInTheDocument();
   });
   it('requires reset acknowledgment and invalidates an existing signed-in session', async () => {
     const { user, store } = setup();
@@ -233,20 +229,25 @@ describe('school setup UI', () => {
     await screen.findByRole('heading', { name: 'Login details were already created' });
     expect(keys[1]).toBe(keys[0]);
     expect(store.directory.accounts.size).toBe(3);
-    expect(screen.getByText('Teacher Example Family')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('dialog', { name: 'Private login details' })).getByText(
+        'Teacher Example Family',
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Download login details (CSV)' }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close login details' })).toBeEnabled();
   });
   it('connects teacher assignments to the teacher workspace', async () => {
-    const { user, client } = setup();
+    const { user, client, cache } = setup();
     await screen.findByRole('heading', { name: 'School setup' });
     const subject = await schoolApi(client).saveSubject(
       null,
       { name: 'Physics', code: 'PHY', reason: 'New subject' },
       crypto.randomUUID(),
     );
+    await cache.invalidateQueries({ queryKey: ['school'] });
     await user.click(screen.getByRole('tab', { name: 'Assignments' }));
     await user.selectOptions(await screen.findByLabelText('Teacher'), 'demo-teacher');
     await user.selectOptions(screen.getByLabelText('Class'), 'demo-class-10a');

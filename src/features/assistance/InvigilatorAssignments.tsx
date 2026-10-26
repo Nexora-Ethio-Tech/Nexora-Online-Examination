@@ -1,3 +1,5 @@
+import { useLocalPagination } from '@/components/shared/Pagination';
+import { ReadError } from '@/components/shared/ReadError';
 import { useState } from 'react';
 import {
   Dialog,
@@ -25,11 +27,12 @@ export function InvigilatorAssignments({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const staff = useQuery({
-    queryKey: ['assistance', 'staff', session?.school.id, session?.user.id, id],
+    queryKey: ['assistance', session?.school.id, session?.user.id, 'staff', id],
     queryFn: ({ signal }) => assistanceApi(client).staff(id, signal),
     refetchInterval: 15_000,
     refetchIntervalInBackground: false,
   });
+  const page = useLocalPagination(staff.data?.staff ?? [], id);
   async function assign(staffId: string, active: boolean, expectedRevision: number) {
     setBusy(true);
     setMessage('');
@@ -57,11 +60,11 @@ export function InvigilatorAssignments({ id }: { id: string }) {
         Refresh invigilators
       </Button>
       {staff.isPending && <p role="status">Loading staff…</p>}
-      {staff.error && <p role="alert">{errorMessage(staff.error)}</p>}
+      {staff.error && <ReadError error={staff.error} />}
       {staff.data?.staff.length === 0 && (
         <p>No staff accounts found. Create an invigilator account in School setup → Accounts.</p>
       )}
-      {staff.data?.staff.map((s) => (
+      {page.rows.map((s) => (
         <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 border-t py-3">
           <p>
             {s.displayName} · {s.active ? 'Assigned' : 'Not assigned'} ·{' '}
@@ -80,6 +83,7 @@ export function InvigilatorAssignments({ id }: { id: string }) {
           </Button>
         </div>
       ))}
+      {page.controls}
       <Dialog
         open={!!selected}
         onOpenChange={(open) => {
@@ -98,7 +102,7 @@ export function InvigilatorAssignments({ id }: { id: string }) {
           </DialogHeader>
           {staff.data?.reasonRequired && (
             <label>
-              Assignment change reason
+              <span className="field-label">Assignment change reason</span>
               <input
                 className="mt-1 min-h-11 w-full rounded border bg-background p-2"
                 value={reason}

@@ -93,11 +93,6 @@ export const previewSchema = z.object({
   canCommit: z.boolean(),
   totalRows: z.number().int().nonnegative(),
 });
-export const importResultSchema = z.object({
-  importId: id,
-  createdCount: z.number().int().nonnegative(),
-  userIds: z.array(id),
-});
 export const credentialIssueSchema = z.object({
   issueId: id,
   issuedCount: z.number().int().positive(),
@@ -107,6 +102,12 @@ export const credentialIssueSchema = z.object({
   credentials: z
     .array(z.object({ userId: id, displayName: name, loginId: id, password: id }))
     .nullable(),
+});
+export const importResultSchema = z.object({
+  importId: id,
+  createdCount: z.number().int().nonnegative(),
+  userIds: z.array(id),
+  loginDetails: credentialIssueSchema.optional(),
 });
 export const targetsSchema = z
   .array(z.object({ userId: id, revision }))

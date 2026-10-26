@@ -384,7 +384,10 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
     if (importMatch && method === 'POST') {
       const record = d.previews.get(importMatch[1] ?? '');
       if (!record) return fail('Import not found.', 'NOT_FOUND', 404);
-      const parsed = optionalEdit.strict().safeParse(body);
+      const parsed = optionalEdit
+        .extend({ issueCredentials: z.boolean().default(false) })
+        .strict()
+        .safeParse(body);
       if (!parsed.success) return fail('Check the preview revision.', 'VALIDATION_ERROR', 422);
       if (record.committed) return commit(record.committed);
       const p = record.preview;
@@ -408,13 +411,26 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         makeAccount('student', r.displayName, p.classId, r.studentRef),
       );
       accounts.forEach((a) => d.accounts.set(a.userId, a));
-      record.committed = {
+      const loginDetails = parsed.data.issueCredentials
+        ? issue(accounts, parsed.data.reason)
+        : undefined;
+      const result = {
+        ...(loginDetails ? { loginDetails } : {}),
         importId: p.importId,
         createdCount: accounts.length,
         userIds: accounts.map((a) => a.userId),
       };
+      record.committed = {
+        ...result,
+        ...(loginDetails ? { loginDetails: { ...loginDetails, credentials: null } } : {}),
+      };
       audit('roster_imported', p.importId, parsed.data.reason);
-      return commit(record.committed);
+      // Persist only redacted replay metadata, including the nested credential issue.
+      d.replays.set(replayKey, {
+        payload: fingerprint,
+        response: structuredClone(record.committed),
+      });
+      return json(result);
     }
     const entity = /^\/(classes|subjects)(?:\/([^/]+))?$/.exec(path);
     if (entity && (method === 'POST' || method === 'PATCH')) {

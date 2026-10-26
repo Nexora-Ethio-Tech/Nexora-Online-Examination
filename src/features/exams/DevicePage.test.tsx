@@ -86,7 +86,7 @@ describe('replacement browser registration', () => {
     expect(replace).toBeDisabled();
     await user.click(screen.getByRole('checkbox'));
     await user.click(replace);
-    await screen.findByText(/Cannot connect/);
+    await screen.findByText(/This action could not be confirmed/);
     const next = await retainedId('browser-device');
     expect(next).not.toBe(old);
     await user.click(screen.getByRole('button', { name: 'Register this browser' }));

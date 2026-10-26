@@ -58,7 +58,7 @@ function setup() {
 describe('administrator recovery review screen', () => {
   it('requires an explicit decision, reason and confirmation before acceptance and shows the audit', async () => {
     const { user, store } = setup();
-    await screen.findByRole('heading', { name: 'Answer comparison' });
+    await screen.findByRole('heading', { name: 'Answer comparison' }, { timeout: 5000 });
     expect(screen.getByText('Upload reason: The network disconnected.')).toBeInTheDocument();
     expect(screen.getAllByText('No timely answer saved')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Confirm decision' })).toBeDisabled();

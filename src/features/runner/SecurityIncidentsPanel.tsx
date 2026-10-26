@@ -1,3 +1,4 @@
+import { useLocalPagination, PagedItems } from '@/components/shared/Pagination';
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { useMemo, useState } from 'react';
 import {
@@ -222,6 +223,10 @@ export function SecurityIncidentsPanel({ incidents, onReview }: SecurityIncident
       );
   }, [filtered]);
 
+  const pages = useLocalPagination(
+    attempts,
+    JSON.stringify([search, [...activeGroups], status, delayedOnly]),
+  );
   const toggleGroup = (g: IncidentGroup) =>
     setActiveGroups((prev) => {
       const next = new Set(prev);
@@ -315,7 +320,7 @@ export function SecurityIncidentsPanel({ incidents, onReview }: SecurityIncident
 
       {/* Attempts, latest received first */}
       <ul className="space-y-3">
-        {attempts.map((a) => {
+        {pages.rows.map((a) => {
           const open = expanded.has(a.attemptId);
           return (
             <li key={a.attemptId} className="rounded-xl border bg-white dark:bg-neutral-900">
@@ -348,58 +353,67 @@ export function SecurityIncidentsPanel({ incidents, onReview }: SecurityIncident
               </button>
 
               {open && (
-                <ol className="space-y-2 border-t p-3">
-                  {a.events.map((e) => {
-                    const g = classifyIncident(e.kind);
-                    const dismissed = e.reviewStatus === 'dismissed';
-                    return (
-                      <li key={e.id} className="flex flex-wrap items-center gap-3 text-sm">
-                        <span
-                          className={`size-2.5 shrink-0 rounded-full ${GROUPS[g].dot}`}
-                          aria-hidden="true"
-                        />
-                        <time className="w-52 shrink-0 text-xs text-neutral-500">
-                          Device reported: {fmt(e.observedAt)}
-                        </time>
-                        {e.receivedAt && (
-                          <span className="text-xs">School received: {fmt(e.receivedAt)}</span>
-                        )}
-                        <GroupChip group={g} />
-                        <code className="text-xs text-neutral-500">{e.kind}</code>
-                        {delayedIds.has(e.id) && (
-                          <span className="rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-900 dark:bg-sky-950 dark:text-sky-200">
-                            Delayed delivery
-                          </span>
-                        )}
-                        {e.reviewStatus && e.reviewStatus !== 'unreviewed' && (
-                          <span
-                            className={`text-xs font-medium ${dismissed ? 'text-neutral-500 line-through' : 'text-red-600'}`}
-                          >
-                            {e.reviewStatus}
-                          </span>
-                        )}
-                        {onReview && (
-                          <span className="ml-auto flex gap-2">
-                            <button
-                              type="button"
-                              className="text-xs underline"
-                              onClick={() => onReview(e.id, 'confirmed')}
-                            >
-                              Confirm
-                            </button>
-                            <button
-                              type="button"
-                              className="text-xs underline"
-                              onClick={() => onReview(e.id, 'dismissed')}
-                            >
-                              Dismiss
-                            </button>
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ol>
+                <PagedItems items={a.events} identity={a.attemptId}>
+                  {(pageEvents) => (
+                    <>
+                      {' '}
+                      <ol className="space-y-2 border-t p-3">
+                        {pageEvents.map((e) => {
+                          const g = classifyIncident(e.kind);
+                          const dismissed = e.reviewStatus === 'dismissed';
+                          return (
+                            <li key={e.id} className="flex flex-wrap items-center gap-3 text-sm">
+                              <span
+                                className={`size-2.5 shrink-0 rounded-full ${GROUPS[g].dot}`}
+                                aria-hidden="true"
+                              />
+                              <time className="w-52 shrink-0 text-xs text-neutral-500">
+                                Device reported: {fmt(e.observedAt)}
+                              </time>
+                              {e.receivedAt && (
+                                <span className="text-xs">
+                                  School received: {fmt(e.receivedAt)}
+                                </span>
+                              )}
+                              <GroupChip group={g} />
+                              <code className="text-xs text-neutral-500">{e.kind}</code>
+                              {delayedIds.has(e.id) && (
+                                <span className="rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-900 dark:bg-sky-950 dark:text-sky-200">
+                                  Delayed delivery
+                                </span>
+                              )}
+                              {e.reviewStatus && e.reviewStatus !== 'unreviewed' && (
+                                <span
+                                  className={`text-xs font-medium ${dismissed ? 'text-neutral-500 line-through' : 'text-red-600'}`}
+                                >
+                                  {e.reviewStatus}
+                                </span>
+                              )}
+                              {onReview && (
+                                <span className="ml-auto flex gap-2">
+                                  <button
+                                    type="button"
+                                    className="text-xs underline"
+                                    onClick={() => onReview(e.id, 'confirmed')}
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="text-xs underline"
+                                    onClick={() => onReview(e.id, 'dismissed')}
+                                  >
+                                    Dismiss
+                                  </button>
+                                </span>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ol>{' '}
+                    </>
+                  )}
+                </PagedItems>
               )}
             </li>
           );
@@ -410,6 +424,7 @@ export function SecurityIncidentsPanel({ incidents, onReview }: SecurityIncident
           </li>
         )}
       </ul>
+      {pages.controls}
     </section>
   );
 }

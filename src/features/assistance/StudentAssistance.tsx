@@ -1,3 +1,5 @@
+import { useAuth } from '@/features/auth/AuthProvider';
+import { ReadError } from '@/components/shared/ReadError';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -18,11 +20,12 @@ export function StudentAssistance({
   saving: boolean;
 }) {
   const client = useApiClient();
+  const { session } = useAuth();
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const status = useQuery({
-    queryKey: ['assistance', 'student', attemptId],
+    queryKey: ['assistance', session?.school.id, session?.user.id, 'student', attemptId],
     queryFn: ({ signal }) => assistanceApi(client).read(attemptId, signal),
     enabled: paused,
     refetchInterval: 15_000,
@@ -56,9 +59,7 @@ export function StudentAssistance({
           {!status.data.paused && ' Choose Try opening exam again to continue.'}
         </p>
       )}
-      {(error || (paused && status.error)) && (
-        <p role="alert">{error || errorMessage(status.error)}</p>
-      )}
+      {error ? <p role="alert">{error}</p> : paused ? <ReadError error={status.error} /> : null}
       <Button
         variant="outline"
         disabled={busy || saving || (paused && status.data?.request?.status === 'pending')}

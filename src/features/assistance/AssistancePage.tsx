@@ -1,3 +1,6 @@
+import { useLocalPagination } from '@/components/shared/Pagination';
+import { useTeacherScope } from '@/features/exams/authoring/TeacherPage';
+import { ReadError } from '@/components/shared/ReadError';
 import { AssistanceReport } from './AssistanceReport';
 import { StaffAuthenticator } from './StaffAuthenticator';
 import { InvigilatorAssignments } from './InvigilatorAssignments';
@@ -14,9 +17,10 @@ import { assistanceApi, inboxSchema } from './api';
 export function AssistancePage() {
   const client = useApiClient();
   const { session } = useAuth();
+  const scope = useTeacherScope();
   const [selected, setSelected] = useState('');
   const sessions = useQuery({
-    queryKey: ['assistance', 'sessions'],
+    queryKey: ['assistance', ...scope, 'sessions'],
     queryFn: ({ signal }) => assistanceApi(client).sessions(signal),
   });
   return (
@@ -28,7 +32,7 @@ export function AssistancePage() {
       </p>
       <StaffAuthenticator />
       <label className="block">
-        Filter by exam (optional)
+        <span className="field-label">Filter by exam (optional)</span>
         <select
           data-tour="assistance-sitting"
           className="mt-2 min-h-11 w-full rounded border bg-background p-2"
@@ -44,7 +48,7 @@ export function AssistancePage() {
         </select>
       </label>
       {sessions.isPending && <p role="status">Loading sittings…</p>}
-      {sessions.error && <p role="alert">{errorMessage(sessions.error)}</p>}
+      {sessions.error && <ReadError error={sessions.error} />}
       {sessions.data?.sessions.length === 0 && (
         <p>No assigned sittings are available. Ask your school administrator.</p>
       )}
@@ -55,12 +59,14 @@ export function AssistancePage() {
 }
 function Sitting({ id, admin }: { id: string; admin: boolean }) {
   const client = useApiClient();
+  const scope = useTeacherScope();
   const inbox = useQuery({
-    queryKey: ['assistance', 'inbox', id],
+    queryKey: ['assistance', ...scope, 'inbox', id],
     queryFn: ({ signal }) => assistanceApi(client).inbox(id, signal),
     refetchInterval: 15_000,
     refetchIntervalInBackground: false,
   });
+  const page = useLocalPagination(inbox.data?.requests ?? [], id);
   return (
     <div className="space-y-5">
       <p className="text-sm">
@@ -74,11 +80,12 @@ function Sitting({ id, admin }: { id: string; admin: boolean }) {
         Refresh requests
       </Button>
       {inbox.isPending && <p role="status">Loading requests…</p>}
-      {inbox.error && <p role="alert">Requests may be stale. {errorMessage(inbox.error)}</p>}
+      {inbox.error && <p role="status">Requests may be out of date. Refresh when connected.</p>}
       {inbox.data?.requests.length === 0 && <p>No pending, unexpired requests.</p>}
-      {inbox.data?.requests.map((request) => (
+      {page.rows.map((request) => (
         <Decision key={request.id} request={request} refresh={() => void inbox.refetch()} />
       ))}
+      {page.controls}
       {admin && id && <InvigilatorAssignments id={id} />}
     </div>
   );
@@ -132,7 +139,9 @@ function Decision({
         Workstation generation {request.deviceGeneration} · Expires {eatTime(request.expiresAt)}
       </p>
       <label className="block">
-        Decision note (optional for approval; required for rejection)
+        <span className="field-label">
+          Decision note (optional for approval; required for rejection)
+        </span>
         <textarea
           className="mt-1 w-full rounded border bg-background p-2"
           maxLength={500}
@@ -142,7 +151,7 @@ function Decision({
         />
       </label>
       <label className="block">
-        Your authenticator code
+        <span className="field-label">Your authenticator code</span>
         <input
           className="mt-1 block min-h-11 rounded border bg-background p-2"
           inputMode="numeric"

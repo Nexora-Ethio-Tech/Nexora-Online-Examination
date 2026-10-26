@@ -142,7 +142,7 @@ export function DashboardLayout() {
         Skip to main content
       </a>
       {!focused && (
-        <header ref={header} className="sticky top-0 z-20 border-b bg-background px-4 sm:px-8">
+        <header ref={header} className="sticky top-8 z-20 border-b bg-background px-4 sm:px-8">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <Sheet open={menuOpen} onOpenChange={setMenuOpen}>

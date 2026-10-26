@@ -1,3 +1,4 @@
+import { isConnectionError } from '@/lib/api-client';
 import { formatEatClock } from '@/lib/ethiopian-date';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -121,7 +122,7 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
         ← My exams
       </Link>
       {query.isPending ? <p role="status">Loading schedule…</p> : null}
-      {query.error ? (
+      {query.error && !isConnectionError(query.error) ? (
         <ErrorState
           message={errorMessage(query.error)}
           onRetry={() => {

@@ -1,3 +1,4 @@
+import { usePagedQuery, useLocalPagination } from '@/components/shared/Pagination';
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { EthiopianDateTimeField } from '@/components/shared/EthiopianDateTimeField';
@@ -58,6 +59,8 @@ export function ResultsPage() {
     getNextPageParam: (p) => p.nextCursor ?? undefined,
     refetchInterval: 15000,
   });
+  const staffPagination = usePagedQuery(staff, JSON.stringify(scope));
+  const minePagination = usePagedQuery(mine, JSON.stringify(scope));
   const csv = useMutation({ mutationFn: () => api.csv(), onSuccess: downloadCsv });
   const query = student ? mine : staff;
   return (
@@ -91,7 +94,8 @@ export function ResultsPage() {
           </Button>
         )}
       </div>
-      <Failure error={query.error ?? csv.error} />
+      <Failure error={query.error} />
+      <Failure action error={csv.error} />
       {query.isPending && <p role="status">Loading results…</p>}
       {!query.isPending && !query.error && !query.data?.pages.some((p) => p.items.length) && (
         <p className={panel}>
@@ -99,84 +103,72 @@ export function ResultsPage() {
         </p>
       )}
       {student
-        ? mine.data?.pages
-            .flatMap((p) => p.items)
-            .map((row) => (
-              <section className={panel} key={row.sessionId}>
-                <h2 className="text-xl font-semibold">{row.title}</h2>
-                <p className="mt-2">{row.className}</p>
-                {row.result ? (
-                  <>
-                    <p className="mt-4 text-lg font-semibold">
-                      {row.result.score === null
-                        ? statusText(row.result.status)
-                        : `${row.result.score} / ${row.result.maxScore} · ${percent(row.result.percent)}`}
-                    </p>
-                    {row.result.rank !== null && (
-                      <p>
-                        Class rank: {row.result.rank} ·{' '}
-                        {row.result.passed ? 'Pass' : 'Below pass threshold'}
-                      </p>
-                    )}
-                    {row.result.exclusionReason && (
-                      <p className="mt-2">Reason: {row.result.exclusionReason}</p>
-                    )}
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Published revision {row.publicationRevision}
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-4">
-                    Not released. Planned release: {eatTime(row.plannedReleaseAt)}. Administrator
-                    approval is also required.
+        ? minePagination.page?.items.map((row) => (
+            <section className={panel} key={row.sessionId}>
+              <h2 className="text-xl font-semibold">{row.title}</h2>
+              <p className="mt-2">{row.className}</p>
+              {row.result ? (
+                <>
+                  <p className="mt-4 text-lg font-semibold">
+                    {row.result.score === null
+                      ? statusText(row.result.status)
+                      : `${row.result.score} / ${row.result.maxScore} · ${percent(row.result.percent)}`}
                   </p>
-                )}
-                <p className="mt-4 text-sm text-muted-foreground">
-                  Best practice score:{' '}
-                  {row.bestPracticePercent === null
-                    ? 'No completed practice score'
-                    : percent(row.bestPracticePercent)}
-                  . Practice is separate from your official result.
+                  {row.result.rank !== null && (
+                    <p>
+                      Class rank: {row.result.rank} ·{' '}
+                      {row.result.passed ? 'Pass' : 'Below pass threshold'}
+                    </p>
+                  )}
+                  {row.result.exclusionReason && (
+                    <p className="mt-2">Reason: {row.result.exclusionReason}</p>
+                  )}
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Published revision {row.publicationRevision}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-4">
+                  Not released. Planned release: {eatTime(row.plannedReleaseAt)}. Administrator
+                  approval is also required.
                 </p>
-                {row.practice?.available && (
-                  <Button asChild variant="outline" className="mt-3">
-                    <Link to="/student/practice">Open practice</Link>
-                  </Button>
-                )}
-              </section>
-            ))
-        : staff.data?.pages
-            .flatMap((p) => p.items)
-            .map((row) => (
-              <section className={panel} key={row.sessionId}>
-                <h2 className="text-xl font-semibold">{row.title}</h2>
-                <p className="mt-2">
-                  {row.className} · {row.subjectName}
-                </p>
-                <p className="mt-2">Exam ends: {eatTime(row.endsAt)}</p>
-                <p className="mt-2">
-                  {row.publication?.revision === row.revision
-                    ? `Approved revision ${row.revision} · release ${eatTime(row.publication.releaseAt)}`
-                    : `Revision ${row.revision} needs publication approval`}
-                </p>
-                <Button asChild variant="outline" className="mt-4">
-                  <Link
-                    to={`${roleHome[session?.user.role ?? 'student']}/results/${encodeURIComponent(row.sessionId)}`}
-                  >
-                    View results
-                  </Link>
+              )}
+              <p className="mt-4 text-sm text-muted-foreground">
+                Best practice score:{' '}
+                {row.bestPracticePercent === null
+                  ? 'No completed practice score'
+                  : percent(row.bestPracticePercent)}
+                . Practice is separate from your official result.
+              </p>
+              {row.practice?.available && (
+                <Button asChild variant="outline" className="mt-3">
+                  <Link to="/student/practice">Open practice</Link>
                 </Button>
-              </section>
-            ))}
-      {query.hasNextPage && (
-        <Button
-          variant="outline"
-          disabled={query.isFetchingNextPage}
-          onClick={() => void query.fetchNextPage()}
-        >
-          Load more results
-        </Button>
-      )}
+              )}
+            </section>
+          ))
+        : staffPagination.page?.items.map((row) => (
+            <section className={panel} key={row.sessionId}>
+              <h2 className="text-xl font-semibold">{row.title}</h2>
+              <p className="mt-2">
+                {row.className} · {row.subjectName}
+              </p>
+              <p className="mt-2">Exam ends: {eatTime(row.endsAt)}</p>
+              <p className="mt-2">
+                {row.publication?.revision === row.revision
+                  ? `Approved revision ${row.revision} · release ${eatTime(row.publication.releaseAt)}`
+                  : `Revision ${row.revision} needs publication approval`}
+              </p>
+              <Button asChild variant="outline" className="mt-4">
+                <Link
+                  to={`${roleHome[session?.user.role ?? 'student']}/results/${encodeURIComponent(row.sessionId)}`}
+                >
+                  View results
+                </Link>
+              </Button>
+            </section>
+          ))}
+      {student ? minePagination.controls : staffPagination.controls}
     </div>
   );
 }
@@ -250,13 +242,17 @@ function PublicationForm({ report }: { report: Report }) {
           </Button>
         </form>
       )}
-      <Failure error={mutation.error} />
+      <Failure action error={mutation.error} />
       {mutation.isSuccess && <p role="status">Release date updated.</p>}
     </section>
   );
 }
 
 export function ReportView({ report }: { report: Report }) {
+  const page = useLocalPagination(
+    report.rows,
+    `${report.summary.sessionId}:${report.summary.revision}`,
+  );
   return (
     <div className="results-print grid gap-6 xl:grid-cols-2">
       <dl className="grid gap-4 border-y py-5 sm:grid-cols-3 xl:col-span-2">
@@ -309,7 +305,10 @@ export function ReportView({ report }: { report: Report }) {
             </thead>
             <tbody>
               {report.rows.map((row) => (
-                <tr className="border-t" key={row.studentId}>
+                <tr
+                  className={`border-t ${page.rows.includes(row) ? '' : 'hidden print:table-row'}`}
+                  key={row.studentId}
+                >
                   <th scope="row" className="p-2 font-normal">
                     {row.studentName}
                     <span className="block text-xs">{row.loginId}</span>
@@ -330,6 +329,7 @@ export function ReportView({ report }: { report: Report }) {
             </tbody>
           </table>
         </div>
+        {page.controls}
       </section>
       <section className={panel}>
         <h2 className="text-xl font-semibold">Score distribution</h2>
@@ -464,7 +464,8 @@ export function ResultDetail() {
           </Button>
         </div>
       </div>
-      <Failure error={detail.error ?? report.error ?? csv.error} />
+      <Failure error={detail.error ?? report.error} />
+      <Failure action error={csv.error} />
       {(detail.isPending || (revision !== undefined && report.isPending)) && (
         <p role="status">Loading official results…</p>
       )}

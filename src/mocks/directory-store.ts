@@ -82,7 +82,12 @@ export function createDirectoryStore() {
       {
         preview: RosterPreview;
         classRevision: number;
-        committed: { importId: string; createdCount: number; userIds: string[] } | null;
+        committed: {
+          importId: string;
+          createdCount: number;
+          userIds: string[];
+          loginDetails?: CredentialIssue;
+        } | null;
       }
     >(),
     audit: [] as DirectoryAudit[],

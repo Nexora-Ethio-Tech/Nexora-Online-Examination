@@ -1,3 +1,4 @@
+import { usePagedQuery } from '@/components/shared/Pagination';
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useRef, useState } from 'react';
@@ -38,7 +39,8 @@ export function RecoveryPage() {
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     refetchInterval: 15000,
   });
-  const rows = query.data?.pages.flatMap((p) => p.items) ?? [];
+  const pagination = usePagedQuery(query, JSON.stringify([scope, filter]));
+  const rows = pagination.page?.items ?? [];
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-semibold">Recovery review</h1>
@@ -51,7 +53,7 @@ export function RecoveryPage() {
           <Button variant="outline" disabled={example.isPending} onClick={() => example.mutate()}>
             {example.isPending ? 'Loading example…' : 'Load synthetic recovery example'}
           </Button>
-          <Failure error={example.error} />
+          <Failure action error={example.error} />
         </section>
       )}
       <p>
@@ -60,7 +62,7 @@ export function RecoveryPage() {
       </p>
       <div className="flex flex-wrap items-end gap-3">
         <label>
-          Show uploads
+          <span className="field-label">Show uploads</span>
           <select
             className={control}
             value={filter}
@@ -101,15 +103,7 @@ export function RecoveryPage() {
           </Button>
         </article>
       ))}
-      {query.hasNextPage && (
-        <Button
-          variant="outline"
-          disabled={query.isFetchingNextPage}
-          onClick={() => void query.fetchNextPage()}
-        >
-          Load more uploads
-        </Button>
-      )}
+      {pagination.controls}
     </div>
   );
 }
@@ -158,7 +152,7 @@ function DecisionForm({ detail }: { detail: Detail }) {
         </p>
       )}
       <label className="block">
-        Decision
+        <span className="field-label">Decision</span>
         <select
           className={control}
           value={decision}
@@ -185,7 +179,7 @@ function DecisionForm({ detail }: { detail: Detail }) {
         </p>
       )}
       <label className="block">
-        Decision reason
+        <span className="field-label">Decision reason</span>
         <textarea
           className={control}
           value={reason}
@@ -203,7 +197,7 @@ function DecisionForm({ detail }: { detail: Detail }) {
         />
         I reviewed the upload, timely saves, related cases and the consequences of this decision.
       </label>
-      <Failure error={mutation.error} />
+      <Failure action error={mutation.error} />
       {mutation.isSuccess && (
         <p role="status">
           Decision saved. Refresh the case if its updated history has not appeared.

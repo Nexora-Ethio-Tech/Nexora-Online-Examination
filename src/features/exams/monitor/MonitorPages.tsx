@@ -1,3 +1,4 @@
+import { Pagination as PageNavigation, useCursorPages } from '@/components/shared/Pagination';
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { SupervisionPanel } from './SupervisionPanel';
 import { useEffect, useState } from 'react';
@@ -50,15 +51,7 @@ function useLiveRead<T extends { serverNow: string }>(
     performance.now() - query.data.clock.receivedAt < 30_000;
   return { query, fresh };
 }
-function usePages() {
-  const [cursors, setCursors] = useState<(string | null)[]>([null]);
-  return {
-    cursor: cursors.at(-1) ?? null,
-    number: cursors.length,
-    previous: () => setCursors((c) => c.slice(0, -1)),
-    next: (cursor: string) => setCursors((c) => [...c, cursor]),
-  };
-}
+const usePages = useCursorPages;
 function Pagination({
   pages,
   next,
@@ -69,19 +62,13 @@ function Pagination({
   pending: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Button variant="outline" disabled={pending || pages.number === 1} onClick={pages.previous}>
-        Previous page
-      </Button>
-      <span className="text-sm">Page {pages.number}</span>
-      <Button
-        variant="outline"
-        disabled={pending || !next}
-        onClick={() => next && pages.next(next)}
-      >
-        Next page
-      </Button>
-    </div>
+    <PageNavigation
+      page={pages.number}
+      busy={pending}
+      hasNext={!!next}
+      previous={pages.previous}
+      next={() => next && pages.next(next)}
+    />
   );
 }
 function Refresh({
@@ -248,7 +235,7 @@ export function MonitorPage() {
           <Button variant="outline" disabled={example.isPending} onClick={() => example.mutate()}>
             {example.isPending ? 'Loading example…' : 'Load synthetic monitoring example'}
           </Button>
-          <Failure error={example.error} />
+          <Failure action error={example.error} />
         </section>
       )}
       <p className="text-sm text-muted-foreground">
@@ -493,7 +480,7 @@ function TransferForm({ detail: d, fresh }: { detail: MonitorAttempt; fresh: boo
             : 'This attempt is closed or has no transferable device.'}
         </p>
       )}
-      <Failure error={error} />
+      <Failure action error={error} />
       {result ? (
         <p role="status" className="rounded-lg bg-primary/10 p-4 text-sm">
           Replacement approved. Device approval version {result.deviceGeneration}. Ask the student
@@ -524,7 +511,7 @@ function TransferForm({ detail: d, fresh }: { detail: MonitorAttempt; fresh: boo
             className="space-y-4"
           >
             <label className="block text-sm">
-              Registered replacement browser ID
+              <span className="field-label">Registered replacement browser ID</span>
               <Input
                 className="mt-2"
                 value={deviceId}
@@ -537,7 +524,7 @@ function TransferForm({ detail: d, fresh }: { detail: MonitorAttempt; fresh: boo
               />
             </label>
             <label className="block text-sm">
-              Reason for replacement
+              <span className="field-label">Reason for replacement</span>
               <textarea
                 className={`${control} mt-2`}
                 rows={3}

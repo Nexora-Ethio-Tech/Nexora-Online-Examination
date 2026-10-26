@@ -1,3 +1,5 @@
+import { isConnectionError } from '@/lib/api-client';
+import { usePagedQuery } from '@/components/shared/Pagination';
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { ScheduleCountdown } from '@/components/shared/ScheduleCountdown';
 import { RefreshControl } from '@/components/shared/RefreshControl';
@@ -56,10 +58,12 @@ export function ExamsPage() {
     getNextPageParam: (page): string | null | undefined => page.nextCursor ?? undefined,
     refetchInterval: 30_000,
   });
-  const exams =
-    query.data?.pages.flatMap((page) =>
-      page.items.map((item) => ({ ...item, clock: page.clock })),
-    ) ?? [];
+  const pagination = usePagedQuery(
+    query,
+    JSON.stringify([session?.school.id, session?.user.id, category]),
+  );
+  const currentPage = pagination.page;
+  const exams = currentPage?.items.map((item) => ({ ...item, clock: currentPage.clock })) ?? [];
 
   const [gradeFilter, setGradeFilter] = useState<'All past exams' | GradeStatus>('All past exams');
   const hasPast = exams.some((exam) => examGroup(exam) === 'Past exams');
@@ -113,7 +117,7 @@ export function ExamsPage() {
         }}
       />
       {query.isPending ? <p role="status">Loading your exams…</p> : null}
-      {query.error ? (
+      {query.error && !isConnectionError(query.error) ? (
         <ErrorState
           message={errorMessage(query.error)}
           onRetry={() => {
@@ -187,7 +191,7 @@ export function ExamsPage() {
           {query.hasNextPage && (
             <p className="text-xs text-muted-foreground">
               Categories and alphabetical order apply across all pages. Result-status filters apply
-              to loaded exams; load more to include the rest.
+              to the current page; use Next page to see more.
             </p>
           )}
           {!groups.length && <p role="status">No loaded exams match this filter.</p>}
@@ -272,17 +276,7 @@ export function ExamsPage() {
           </div>
         </section>
       ))}
-      {query.hasNextPage ? (
-        <Button
-          variant="outline"
-          disabled={query.isFetchingNextPage}
-          onClick={() => {
-            void query.fetchNextPage();
-          }}
-        >
-          {query.isFetchingNextPage ? 'Loading…' : 'Load more exams'}
-        </Button>
-      ) : null}
+      {pagination.controls}
     </div>
   );
 }
