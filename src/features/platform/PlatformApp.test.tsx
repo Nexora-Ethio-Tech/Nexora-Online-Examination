@@ -61,7 +61,7 @@ describe('owner portal', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Add school' }));
     await user.type(screen.getByLabelText('School name'), 'Example School');
-    await user.type(screen.getByLabelText('School short name'), 'example-school');
+    await user.type(screen.getByLabelText('School short name'), 'Example School');
     await user.type(screen.getByLabelText('First administrator ID'), 'ADMIN-EXAMPLE');
     await user.type(screen.getByLabelText('First name'), 'Example');
     await user.type(screen.getByLabelText("Father's name"), 'Admin');
@@ -77,6 +77,7 @@ describe('owner portal', () => {
     await user.click(screen.getByRole('button', { name: 'Confirm owner action' }));
     await screen.findByText(/Credentials cannot be retrieved again/);
     expect(sent).toHaveLength(2);
+    expect(sent[0]?.slug).toBe('example-school');
     expect(sent[0]?.phoneNumber).toBe('');
     expect(sent[0]?.recoveryEmail).toBe('');
     expect(sent[1]?.requestId).toBe(sent[0]?.requestId);

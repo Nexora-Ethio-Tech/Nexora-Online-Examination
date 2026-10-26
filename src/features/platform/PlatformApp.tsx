@@ -441,17 +441,16 @@ function OwnerActions({
               <input
                 className={inputClass}
                 required
-                pattern="[a-z0-9]+(-[a-z0-9]+)*"
                 maxLength={100}
                 aria-label="School short name"
                 aria-describedby="school-short-name-help"
-                placeholder="eagle-school"
+                placeholder="Eagle School"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
               />
               <span id="school-short-name-help" className="block text-sm text-muted-foreground">
-                A unique short name using lowercase letters, numbers and hyphens. This is not a
-                street address or the automatically generated school code.
+                Uppercase letters and spaces are welcome. We save “Eagle School” as “eagle-school”.
+                This is not a street address or the automatically generated school code.
               </span>
             </label>
             <label>

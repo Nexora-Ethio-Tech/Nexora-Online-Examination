@@ -32,3 +32,10 @@ describe('optional owner administrator contacts', () => {
     expect(actionSchema.safeParse({ ...base, recoveryEmail: 'invalid' }).success).toBe(false);
   });
 });
+
+it('normalizes school short names without altering the display name', () => {
+  const result = actionSchema.parse({ ...base, slug: '  Eagle   SCHOOL  ', name: 'Eagle SCHOOL' });
+  expect(result.action === 'provision' && result.slug).toBe('eagle-school');
+  expect(result.action === 'provision' && result.name).toBe('Eagle SCHOOL');
+  expect(actionSchema.safeParse({ ...base, slug: '   ' }).success).toBe(false);
+});
