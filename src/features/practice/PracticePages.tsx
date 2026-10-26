@@ -1,3 +1,5 @@
+import { QuestionContext } from '../exams/content/Content';
+import type { Structure } from '../exams/content/schema';
 import { ScheduleCountdown } from '@/components/shared/ScheduleCountdown';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useRef, useState } from 'react';
@@ -301,10 +303,12 @@ export function PracticePage() {
 }
 
 function PracticeQuestion({
+  structure,
   item,
   attemptId,
   onSaved,
 }: {
+  structure?: Structure;
   item: PracticeAttempt['items'][number];
   attemptId: string;
   onSaved: (a: PracticeAttempt) => Promise<void>;
@@ -319,6 +323,7 @@ function PracticeQuestion({
   });
   return (
     <section className={`${panel} space-y-4`}>
+      <QuestionContext structure={structure} item={item} />
       <h2 className="text-xl font-semibold">{item.stem}</h2>
       <p>{item.marks} marks</p>
       <fieldset disabled={!!item.feedback || !!sent || mutation.isPending}>
@@ -462,6 +467,7 @@ function PracticeRunner({ practiceAttemptId }: { practiceAttemptId: string }) {
           {item && (
             <PracticeQuestion
               key={`${practiceAttemptId}:${item.itemId}`}
+              structure={attempt.structure}
               item={item}
               attemptId={practiceAttemptId}
               onSaved={saved}
