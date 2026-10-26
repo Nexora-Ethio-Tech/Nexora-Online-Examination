@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { createHmac } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DbService } from '../../src/common/db/db.service';
 import { ImportWorkerService } from '../../src/modules/authoring/import-worker.service';
@@ -143,5 +144,31 @@ describe('bounded school worker sweep', () => {
     expect(run).toHaveBeenLastCalledWith({ schoolId: first });
     vi.stubEnv('CRON_SECRET', '');
     await expect(controller.cron('Bearer ', {})).rejects.toThrow();
+  });
+
+  it('consumes a signed dispatch once and refuses replay before processing', async () => {
+    const service = setup();
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const secret = 's'.repeat(48);
+    vi.stubEnv('IMPORT_WORKER_SECRET', secret);
+    const signature = createHmac('sha256', secret)
+      .update(`nexora-worker-v1\n${first}\n${second}\n${timestamp}`)
+      .digest('hex');
+    const run = vi.spyOn(service, 'run').mockResolvedValue({
+      parsed: false,
+      aiProcessed: 0,
+      packageProcessed: false,
+      nextCursor: null,
+    });
+    mocks.discovery
+      .mockResolvedValueOnce({ rows: [{ accepted: true }] })
+      .mockResolvedValueOnce({ rows: [{ accepted: false }] });
+    const controller = new ImportWorkerController(service);
+    await controller.run(`Nexora-HMAC ${signature}`, { schoolId: first }, timestamp, second);
+    await expect(
+      controller.run(`Nexora-HMAC ${signature}`, { schoolId: first }, timestamp, second),
+    ).rejects.toThrow();
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(run).toHaveBeenCalledWith({ schoolId: first });
   });
 });
