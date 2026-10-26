@@ -38,3 +38,10 @@ Pending owner sessions cannot call owner APIs or authenticate school endpoints. 
 No additional database migration is required by shared sign-in itself. Migration 034 remains a prerequisite for the earlier structured-content changes in this branch. Source changes alone neither configure nor remove Vercel projects.
 
 Production migration 034 was applied and verified on 26 October 2026; see [migration report](production-migration-034-2026-10-26.md). Vercel configuration and live combined-hosting checks are still pending.
+
+## Dependency audit gate
+The backend audit exposed vulnerable versions of [Zod](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) and [multer](https://github.com/advisories/GHSA-q7qp-rjg7-q26m), plus body-parser and Vitest advisories. The release pins Zod 4.6.7 and Vitest 4.1.12, and overrides the existing Nest 11 parser dependencies to multer 2.5.0 and body-parser 2.4.0. Shared parser types and the test record schema were adapted to Zod 4; no security check was disabled. Backend audit reports zero vulnerabilities. Verify full backend typecheck, unit tests and real local integration after this dependency change.
+
+### Browser regression alignment
+
+The synthetic offline submission journey remains uninterrupted. A separate browser regression checks that the first offline focus loss pauses editing, preserves the saved-answer count, and offers no self-resume after focus or connectivity returns. Real staff approval and MFA remain covered by the database integration suite; the mock journey does not claim to verify them.
