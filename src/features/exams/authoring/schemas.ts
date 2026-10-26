@@ -1,3 +1,4 @@
+import { blocksSchema, structureSchema } from '../content/schema';
 import { z } from 'zod';
 
 const text = z.string().trim().min(1);
@@ -14,6 +15,9 @@ export const metadataSchema = z.object({
 export const itemSchema = z
   .object({
     itemId: text,
+    sectionId: text.nullable().optional(),
+    passageId: text.nullable().optional(),
+    content: blocksSchema.optional(),
     externalId: text.max(128),
     type: z.enum(['mcq_single', 'true_false']),
     stem: text.max(10000),
@@ -61,6 +65,7 @@ export const itemSchema = z
       });
   });
 export const draftSchema = metadataSchema.extend({
+  structure: structureSchema.optional(),
   examId: text,
   createdAt: z.string().optional(),
   concluded: z.boolean().optional(),
