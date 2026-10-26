@@ -293,6 +293,8 @@ describe('privileged platform operations', () => {
         sql.includes('INSERT INTO platform.operations'),
     );
     expect(JSON.stringify(persisted)).not.toContain(result.credential);
+    if (!('enrollmentToken' in result))
+      throw new Error('Fresh provisioning must include enrollment metadata');
     expect(result.enrollmentToken).toEqual(expect.any(String));
     expect(JSON.stringify(persisted)).not.toContain(result.enrollmentToken);
   });

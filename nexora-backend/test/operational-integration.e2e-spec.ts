@@ -1685,7 +1685,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
     it.runIf(process.env.RUN_REAL_BROWSER === 'true')(
       'renders the real frontend and completes practice through browser controls',
       async () => {
-        if (!app) throw new Error('Not started');
+        if (!app || !pool) throw new Error('Not started');
         clock.setMockTime(new Date(end.getTime() + 60000));
         const candidate = await read(`/sessions/${session}/results`).expect(200);
         if (!candidate.body.summary.publication)
