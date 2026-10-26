@@ -4,6 +4,8 @@ import { DbService } from '../../common/db/db.service';
 import { parsePreparationInput } from '../delivery/preparation-schemas';
 import { ImportWorkerService } from './import-worker.service';
 import { PackageWorkerService } from './package-worker.service';
+import { verifyWorkerSignature } from './worker-signature';
+import { DomainException } from '../../common/errors/domain.exception';
 
 const sweepSchema = z
   .object({
@@ -22,6 +24,22 @@ export class WorkerSweepService {
     private readonly imports: ImportWorkerService,
     private readonly packages: PackageWorkerService,
   ) {}
+
+  async runSigned(input: unknown, authorization: unknown, timestamp: unknown, nonce: unknown) {
+    const verified = verifyWorkerSignature(
+      input,
+      authorization,
+      timestamp,
+      nonce,
+      process.env.IMPORT_WORKER_SECRET,
+    );
+    const claim = await this.db.query<{ accepted: boolean }>(
+      'SELECT public.nexora_claim_worker_dispatch($1,$2) AS accepted',
+      [verified.schoolId, verified.nonce],
+    );
+    if (claim.rows[0]?.accepted !== true) throw DomainException.forbidden();
+    return this.run({ schoolId: verified.schoolId });
+  }
 
   // One school per request keeps provider work bounded. The scheduler follows nextCursor.
   // Existing database leases continue to arbitrate concurrent/repeated triggers.

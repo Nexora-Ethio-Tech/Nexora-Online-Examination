@@ -94,7 +94,14 @@ export class ImportWorkerController {
   @HttpCode(200)
   @Public()
   @SkipCsrf()
-  async run(@Headers('authorization') authorization: unknown, @Body() input: unknown) {
+  async run(
+    @Headers('authorization') authorization: unknown,
+    @Body() input: unknown,
+    @Headers('x-nexora-worker-time') timestamp?: unknown,
+    @Headers('x-nexora-worker-nonce') nonce?: unknown,
+  ) {
+    if (typeof authorization === 'string' && authorization.startsWith('Nexora-HMAC '))
+      return this.sweep.runSigned(input, authorization, timestamp, nonce);
     this.authorize(authorization, process.env.IMPORT_WORKER_SECRET);
     return this.sweep.run(input);
   }
