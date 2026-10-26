@@ -7,7 +7,7 @@ import { execFileSync } from 'child_process';
 const escape = (value: string) =>
   value.replace(
     /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c,
   );
 export async function enrollmentHtml(loginId: string, secret: string) {
   const uri = `otpauth://totp/${encodeURIComponent(`NexoraOwner:${loginId}`)}?secret=${secret}&issuer=NexoraOwner&algorithm=SHA1&digits=6&period=30`;

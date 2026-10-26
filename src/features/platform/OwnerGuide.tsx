@@ -8,7 +8,7 @@ export const ownerSteps = [
   },
   {
     title: 'Add a school',
-    body: 'Enter the school name, address name and administrator login ID, three names, phone and recovery email. Share the one-time password and private 30-minute setup link with that administrator. They verify their credentials, scan their QR code and confirm enrollment.',
+    body: 'Enter the school name, unique short name and administrator login ID, and three names. Phone (+251) and recovery email are optional and not yet verified. Share the one-time password and private 30-minute setup link with that administrator. They verify their credentials, scan their QR code and confirm enrollment.',
     target: '#owner-add-school',
   },
   {

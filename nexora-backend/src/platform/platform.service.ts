@@ -365,8 +365,8 @@ export class PlatformService {
               body.firstName,
               body.fatherName,
               body.grandfatherName,
-              body.phoneNumber,
-              body.recoveryEmail,
+              body.phoneNumber || null,
+              body.recoveryEmail || null,
               body.expectedRevision,
             ]);
             result = {
@@ -422,8 +422,8 @@ export class PlatformService {
             body.firstName,
             body.fatherName,
             body.grandfatherName,
-            body.phoneNumber,
-            body.recoveryEmail,
+            body.phoneNumber || null,
+            body.recoveryEmail || null,
             1,
           ]);
         }

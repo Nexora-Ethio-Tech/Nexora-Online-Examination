@@ -36,8 +36,10 @@ const profile = {
   phoneNumber: z
     .string()
     .trim()
-    .regex(/^\+?[0-9 ()-]{7,25}$/),
-  recoveryEmail: z.string().trim().email().max(254),
+    .regex(/^\+251[0-9]{9}$/)
+    .or(z.literal(''))
+    .optional(),
+  recoveryEmail: z.string().trim().email().max(254).or(z.literal('')).optional(),
 };
 export const actionSchema = z.discriminatedUnion('action', [
   z
