@@ -1,3 +1,7 @@
+# Implementation update — 26 October 2026
+
+The current branch now includes a bounded implementation described in [structured content architecture](structured-content-architecture-and-testing.md). Read that before starting overlapping work. The original specification below remains useful background; it is not a claim that arbitrary rich office-document parsing or a separate asset service was implemented.
+
 # Nexora structured exams — developer implementation handoff
 
 Prepared: 25 October 2026. Status: implementation specification, not a claim that these features already exist.
