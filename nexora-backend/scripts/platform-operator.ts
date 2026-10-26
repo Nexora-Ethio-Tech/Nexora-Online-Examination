@@ -7,6 +7,8 @@ import { platformKey } from '../src/platform/platform-db';
 import { newMfaSecret, encryptMfaSecret, matchingTotpStep } from '../src/common/crypto/mfa';
 import { generateOpaqueToken, hashPassword } from '../src/common/crypto/password';
 
+import { showEnrollmentPage } from './owner-enrollment-page';
+
 loadBackendEnvironment();
 async function main() {
   if (!process.stdin.isTTY || !process.stdout.isTTY)
@@ -16,6 +18,7 @@ async function main() {
     throw new Error('Choose create, recover, disable or provision-runtime');
   const terminal = createInterface({ input: process.stdin, output: process.stdout });
   const pool = new Pool(databasePoolConfig('migration'));
+  let removePage = () => {};
   try {
     const role = (
       await pool.query<{ allowed: boolean }>(
@@ -155,12 +158,21 @@ async function main() {
     process.stdout.write(
       `Private initial password: ${password}\nPrivate authenticator URI: otpauth://totp/${encodeURIComponent(`NexoraOwner:${loginId}`)}?secret=${secret}&issuer=NexoraOwner&algorithm=SHA1&digits=6&period=30\n`,
     );
+    removePage = await showEnrollmentPage(loginId, secret);
+    process.stdout.write(
+      'Use only the NEW authenticator entry from this run. Previous entries no longer work.\n',
+    );
     const expires = Date.now() + 300_000;
     for (let tries = 0; tries < 5; tries++) {
       const code = await terminal.question('Authenticator confirmation code: ');
       const now = (await pool.query<{ now: Date }>('SELECT clock_timestamp() AS now')).rows[0].now;
       const step = matchingTotpStep(secret, code.trim(), now);
-      if (Date.now() > expires) break;
+      if (Date.now() > expires) {
+        process.stderr.write(
+          'Enrollment expired. Account remains inactive; restart recovery when ready.\n',
+        );
+        break;
+      }
       if (step !== undefined) {
         const confirmationClient = await pool.connect();
         try {
@@ -184,12 +196,15 @@ async function main() {
         process.stdout.write('Owner active. Wait for a fresh code before signing in.\n');
         return;
       }
-      process.stdout.write('Incorrect code.\n');
+      process.stdout.write(
+        `Code did not match. Use the NEW entry from this run. ${4 - tries} attempts remain.\n`,
+      );
     }
     throw new Error(
       'Confirmation failed or expired; owner remains inactive. Use protected recovery to restart.',
     );
   } finally {
+    removePage();
     terminal.close();
     await pool.end();
   }
