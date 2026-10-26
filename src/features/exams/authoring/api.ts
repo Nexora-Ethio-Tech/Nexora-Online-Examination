@@ -1,3 +1,4 @@
+import type { Structure } from '../content/schema';
 import { generationInputSchema, type GenerationInput } from './generation-schemas';
 import type { ApiClient } from '@/lib/api-client';
 import { z } from 'zod';
@@ -14,6 +15,12 @@ import {
 
 export function authoringApi(client: ApiClient) {
   return {
+    saveOutline: (id: string, structure: Structure, items: Item[], revision: number, key: string) =>
+      client.request(`/exams/${encodeURIComponent(id)}/outline`, draftSchema, {
+        method: 'POST',
+        body: { revision, structure, items },
+        idempotencyKey: key,
+      }),
     removeDraft: (id: string, revision: number, reason: string, key: string) =>
       client.request(
         `/exams/${encodeURIComponent(id)}/remove`,
