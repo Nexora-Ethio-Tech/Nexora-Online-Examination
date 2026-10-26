@@ -10,8 +10,10 @@ const profile = {
   phoneNumber: z
     .string()
     .trim()
-    .regex(/^\+?[0-9 ()-]{7,25}$/),
-  recoveryEmail: z.string().trim().email().max(254),
+    .regex(/^\+251[0-9]{9}$/)
+    .or(z.literal(''))
+    .optional(),
+  recoveryEmail: z.string().trim().email().max(254).or(z.literal('')).optional(),
 };
 export const actionSchema = z.discriminatedUnion('action', [
   z
@@ -43,8 +45,14 @@ export const actionSchema = z.discriminatedUnion('action', [
       name: z.string().trim().min(1).max(150),
       slug: z
         .string()
-        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-        .max(100),
+        .trim()
+        .max(100)
+        .transform((value) => value.toLowerCase().replace(/\s+/g, '-'))
+        .pipe(
+          z
+            .string()
+            .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use letters, numbers, spaces or single hyphens.'),
+        ),
       loginId: z.string().trim().min(1).max(100),
       ...profile,
     })

@@ -13,13 +13,16 @@ export function platformPoolConfig(environment: NodeJS.ProcessEnv = process.env)
   if (!environment.PLATFORM_DATABASE_URL) throw new Error('PLATFORM_DATABASE_URL is required');
   if (
     environment.NODE_ENV === 'production' &&
-    [
-      environment.MIGRATION_DATABASE_URL,
-      environment.DATABASE_URL,
-      environment.MFA_ENCRYPTION_KEY,
-    ].some(Boolean)
+    (environment.MIGRATION_DATABASE_URL ||
+      (environment.NEXORA_SERVICE !== 'combined' &&
+        (environment.DATABASE_URL || environment.MFA_ENCRYPTION_KEY)))
   )
     throw new Error('Production platform service must not contain migration or school credentials');
+  if (
+    environment.NEXORA_SERVICE === 'combined' &&
+    environment.PLATFORM_MFA_ENCRYPTION_KEY === environment.MFA_ENCRYPTION_KEY
+  )
+    throw new Error('Owner and school MFA encryption keys must remain separate');
   const config = databasePoolConfig('runtime', {
     ...environment,
     DATABASE_URL: environment.PLATFORM_DATABASE_URL,

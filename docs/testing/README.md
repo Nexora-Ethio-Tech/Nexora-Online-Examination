@@ -1,5 +1,7 @@
 # Complete local testing guide
 
+Latest additions: [structured exam content](../structured-content-architecture-and-testing.md), [two-deployment setup](../combined-deployment-architecture-and-testing.md), and [coworker administrator setup](../coworker-school-administrator-guide.md).
+
 Updated 24 October 2026. Start here to test the current Nexora frontend, school backend, owner backend and worker against local PostgreSQL. These are instructions and expected results, not a claim that every manual check has passed.
 
 ## Before you begin

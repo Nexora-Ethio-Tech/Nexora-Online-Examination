@@ -173,7 +173,7 @@ export class AdministrationService {
             .parse(
               (
                 await c.query(
-                  `SELECT item_id "itemId",external_id "externalId",type,stem,options,correct_key "correctOptionId",marks,primary_topic "primaryTopic",secondary_topics "secondaryTopics",explanation,key_consistent "keyConsistent",review_flags "reviewFlags",reviewed,review_note "reviewNote" FROM exam_items WHERE school_id=$1 AND exam_version_id=$2 ORDER BY position,item_id`,
+                  `SELECT item_id "itemId",external_id "externalId",type,stem,section_id "sectionId",passage_id "passageId",content,options,correct_key "correctOptionId",marks,primary_topic "primaryTopic",secondary_topics "secondaryTopics",explanation,key_consistent "keyConsistent",review_flags "reviewFlags",reviewed,review_note "reviewNote" FROM exam_items WHERE school_id=$1 AND exam_version_id=$2 ORDER BY position,item_id`,
                   [school, v.id],
                 )
               ).rows,
@@ -365,7 +365,7 @@ export class AdministrationService {
             )
           ).rows[0];
           await c.query(
-            'INSERT INTO exam_items(school_id,exam_version_id,item_id,position,type,stem,options,correct_key,marks,primary_topic_id,secondary_topics,explanation,external_id,primary_topic,key_consistent,review_flags,reviewed,review_note,reviewed_by,reviewed_at) SELECT school_id,$1,item_id,position,type,stem,options,correct_key,marks,primary_topic_id,secondary_topics,explanation,external_id,primary_topic,key_consistent,review_flags,reviewed,review_note,reviewed_by,reviewed_at FROM exam_items WHERE school_id=$2 AND exam_id=$3 AND exam_version_id IS NULL',
+            'INSERT INTO exam_items(school_id,exam_version_id,item_id,position,type,stem,options,correct_key,marks,primary_topic_id,secondary_topics,explanation,external_id,primary_topic,key_consistent,review_flags,reviewed,review_note,reviewed_by,reviewed_at,section_id,passage_id,content) SELECT school_id,$1,item_id,position,type,stem,options,correct_key,marks,primary_topic_id,secondary_topics,explanation,external_id,primary_topic,key_consistent,review_flags,reviewed,review_note,reviewed_by,reviewed_at,section_id,passage_id,content FROM exam_items WHERE school_id=$2 AND exam_id=$3 AND exam_version_id IS NULL',
             [version.id, school.id, id],
           );
           await c.query('INSERT INTO package_jobs(school_id,exam_version_id) VALUES($1,$2)', [

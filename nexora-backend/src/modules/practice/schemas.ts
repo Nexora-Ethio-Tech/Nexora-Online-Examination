@@ -1,3 +1,4 @@
+import { blocksSchema, structureSchema } from '../authoring/content-schema';
 import { z } from 'zod';
 const id = z.string().min(1);
 const version = z.number().int().positive();
@@ -63,6 +64,7 @@ export const feedbackSchema = z.object({
   earnedMarks: z.number().int().nonnegative(),
 });
 export const practiceAttemptSchema = z.object({
+  structure: structureSchema.optional(),
   practiceAttemptId: id,
   examId: id,
   examVersion: version,
@@ -73,6 +75,9 @@ export const practiceAttemptSchema = z.object({
     .array(
       z
         .object({
+          content: blocksSchema.optional(),
+          sectionId: id.nullable().optional(),
+          passageId: id.nullable().optional(),
           itemId: id,
           type: z.enum(['mcq_single', 'true_false']),
           stem: id,

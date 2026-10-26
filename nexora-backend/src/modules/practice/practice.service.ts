@@ -1,3 +1,4 @@
+import { blocksSchema, structureSchema } from '../authoring/content-schema';
 import { requestLimit } from '../../common/security/request-limit';
 import { Injectable } from '@nestjs/common';
 import { Request } from 'express';
@@ -25,6 +26,7 @@ const page = z
   })
   .strict();
 const versionSchema = z.object({
+  structure: structureSchema.nullish(),
   id: uuid,
   examId: uuid,
   version: z.number().int().positive(),
@@ -33,6 +35,9 @@ const versionSchema = z.object({
 });
 type Version = z.infer<typeof versionSchema>;
 const itemSchema = z.object({
+  content: blocksSchema.optional(),
+  sectionId: z.string().nullable().optional(),
+  passageId: z.string().nullable().optional(),
   itemId: z.string(),
   type: z.enum(['mcq_single', 'true_false']),
   stem: z.string(),
@@ -68,7 +73,7 @@ export class PracticeService {
     }
     const row = (
       await c.query(
-        `SELECT v.id,e.id "examId",v.version,COALESCE(v.frozen_metadata->>'title',e.title) title,COALESCE(v.frozen_metadata->>'instructions',e.instructions) instructions FROM exams e JOIN exam_versions v ON v.school_id=e.school_id AND v.exam_id=e.id WHERE e.school_id=$1 AND e.id=$2 AND v.approved_at IS NOT NULL AND ($3::int IS NULL OR v.version=$3) ORDER BY v.version DESC LIMIT 1`,
+        `SELECT v.id,e.id "examId",v.version,COALESCE(v.frozen_metadata->>'title',e.title) title,COALESCE(v.frozen_metadata->>'instructions',e.instructions) instructions,v.frozen_metadata->'structure' structure FROM exams e JOIN exam_versions v ON v.school_id=e.school_id AND v.exam_id=e.id WHERE e.school_id=$1 AND e.id=$2 AND v.approved_at IS NOT NULL AND ($3::int IS NULL OR v.version=$3) ORDER BY v.version DESC LIMIT 1`,
         [school, id, number ?? null],
       )
     ).rows[0];
@@ -235,7 +240,7 @@ export class PracticeService {
       .parse(
         (
           await c.query(
-            'SELECT item_id "itemId",type,stem,marks,options,correct_key "correctKey",explanation FROM exam_items WHERE school_id=$1 AND exam_version_id=$2 ORDER BY position,item_id',
+            'SELECT item_id "itemId",type,stem,section_id "sectionId",passage_id "passageId",content,marks,options,correct_key "correctKey",explanation FROM exam_items WHERE school_id=$1 AND exam_version_id=$2 ORDER BY position,item_id',
             [school, v.id],
           )
         ).rows,
@@ -275,6 +280,7 @@ export class PracticeService {
       examVersion: v.version,
       title: v.title,
       instructions: v.instructions,
+      structure: v.structure ?? undefined,
       state: attempt.state,
       items: items.map((item) => {
         const { correctKey, explanation, ...publicItem } = item,

@@ -1,3 +1,5 @@
+import { validateImages } from './image-validation';
+import { blocksSchema, structureSchema, structureProblems } from './content-schema';
 import { wrapPackageKey } from '../../common/crypto/package-key';
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -8,6 +10,9 @@ import { encryptExamPackage } from '../../common/crypto/package-cipher';
 
 const publicItem = z
   .object({
+    content: blocksSchema.optional(),
+    sectionId: z.string().nullable().optional(),
+    passageId: z.string().nullable().optional(),
     itemId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
     type: z.enum(['mcq_single', 'true_false']),
     stem: z.string().min(1),
@@ -24,6 +29,7 @@ const publicItem = z
   .strict();
 const paper = z
   .object({
+    structure: structureSchema.optional(),
     examVersion: z.number().int().positive(),
     title: z.string().min(1),
     instructions: z.string(),
@@ -75,20 +81,26 @@ export class PackageWorkerService {
     ).rows[0];
     if (!lease) return;
     const version = (
-      await c.query<{ version: number; title: string; instructions: string }>(
-        "SELECT v.version,COALESCE(v.frozen_metadata->>'title',e.title) title,COALESCE(v.frozen_metadata->>'instructions',e.instructions) instructions FROM exam_versions v JOIN exams e ON e.school_id=v.school_id AND e.id=v.exam_id WHERE v.school_id=$1 AND v.id=$2 AND v.approved_at IS NOT NULL",
+      await c.query<{ version: number; title: string; instructions: string; structure?: unknown }>(
+        "SELECT v.version,COALESCE(v.frozen_metadata->>'title',e.title) title,COALESCE(v.frozen_metadata->>'instructions',e.instructions) instructions,v.frozen_metadata->'structure' structure FROM exam_versions v JOIN exams e ON e.school_id=v.school_id AND e.id=v.exam_id WHERE v.school_id=$1 AND v.id=$2 AND v.approved_at IS NOT NULL",
         [school, job.exam_version_id],
       )
     ).rows[0];
     if (!version) throw new Error('Approved version unavailable');
     const items = (
       await c.query(
-        'SELECT item_id "itemId",type,stem,options,marks FROM exam_items WHERE school_id=$1 AND exam_version_id=$2 ORDER BY position,item_id',
+        'SELECT item_id "itemId",type,stem,section_id "sectionId",passage_id "passageId",content,options,marks FROM exam_items WHERE school_id=$1 AND exam_version_id=$2 ORDER BY position,item_id',
         [school, job.exam_version_id],
       )
     ).rows;
+    const structure = structureSchema.parse(version.structure ?? { sections: [], passages: [] });
+    const validatedItems = z.array(publicItem).parse(items);
+    if (structureProblems(structure, validatedItems).length)
+      throw new Error('Invalid section or passage references');
+    validateImages(structure, validatedItems);
     const encrypted = encryptExamPackage(
       paper.parse({
+        ...(structure.sections.length ? { structure } : {}),
         examVersion: version.version,
         title: version.title,
         instructions: version.instructions,

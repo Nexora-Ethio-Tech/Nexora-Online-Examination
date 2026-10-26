@@ -19,6 +19,7 @@ function targetOrigin(name: string, required: boolean) {
     throw new Error(`${name} must point to the backend project, not the frontend.`);
   return url.origin;
 }
+const combinedSurface = process.env.VITE_APP_SURFACE === 'combined';
 const ownerSurface = process.env.VITE_APP_SURFACE === 'platform';
 const backend = targetOrigin('API_PROXY_TARGET', !ownerSurface);
 const ownerBackend = targetOrigin('PLATFORM_API_PROXY_TARGET', ownerSurface);
@@ -44,7 +45,16 @@ export const config = {
           },
         ]
       : []),
-    ...(ownerBackend
+    ...(combinedSurface && backend
+      ? [
+          {
+            src: '^(/platform-api/v1(?:/.*)?)$',
+            dest: `${backend}$1`,
+            headers: { 'Cache-Control': 'private, no-store' },
+          },
+        ]
+      : []),
+    ...(!combinedSurface && ownerBackend
       ? [
           {
             src: '^/platform-api/v1(/.*)?$',

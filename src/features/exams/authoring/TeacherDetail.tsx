@@ -6,6 +6,7 @@ import {
   AlertDialogTitle,
   AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
+import { OutlineEditor } from '../content/OutlineEditor';
 import { ExamGeneration } from './ExamGeneration';
 import { importStatus } from './import-status';
 import { useEffect, useRef, useState } from 'react';
@@ -229,7 +230,8 @@ export function TeacherDetail() {
   const [dirtyItems, setDirtyItems] = useState<Set<string>>(new Set());
   const [metadataDirty, setMetadataDirty] = useState(false);
   const [editorEpoch, setEditorEpoch] = useState(0);
-  const dirty = dirtyItems.size > 0 || metadataDirty;
+  const [outlineDirty, setOutlineDirty] = useState(false);
+  const dirty = dirtyItems.size > 0 || metadataDirty || outlineDirty;
   const blocker = useBlocker(dirty);
   useBeforeUnload(
     useCallback(
@@ -262,6 +264,7 @@ export function TeacherDetail() {
       ]);
       setDirtyItems(new Set());
       setMetadataDirty(false);
+      setOutlineDirty(false);
       setMessage('Changes saved.');
       setConfirmed(false);
       setBulkConfirmed(false);
@@ -698,6 +701,26 @@ export function TeacherDetail() {
           )}
         </TabsContent>
         <TabsContent value="review" className="space-y-4">
+          {items.data && items.data.revision === d.revision && (
+            <OutlineEditor
+              key={d.revision}
+              initial={d.structure}
+              items={paper}
+              disabled={disabled || dirtyItems.size > 0 || metadataDirty}
+              onDirty={setOutlineDirty}
+              onSave={(structure, next) =>
+                action.mutate(() =>
+                  api.saveOutline(
+                    examId,
+                    structure,
+                    next,
+                    d.revision,
+                    key('outline', { structure, items: next, revision: d.revision }),
+                  ),
+                )
+              }
+            />
+          )}
           {items.isPending && <p role="status">Loading questions…</p>}
           {!items.isPending && paper.length === 0 && (
             <p className={panel}>
@@ -842,7 +865,7 @@ export function TeacherDetail() {
             <ItemReview
               key={`${item.itemId}-${items.data?.revision}-${editorEpoch}`}
               item={item}
-              disabled={disabled || (dirty && !dirtyItems.has(item.itemId))}
+              disabled={disabled || outlineDirty || (dirty && !dirtyItems.has(item.itemId))}
               onDirty={(value) =>
                 setDirtyItems((prior) => {
                   const next = new Set(prior);

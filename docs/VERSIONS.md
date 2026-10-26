@@ -1,5 +1,9 @@
 # Verified development versions
 
+26 October 2026, `corrections`/`main` merge verification: Node **24.18.0**, npm **11.16.0**. A reproducible backend `npm ci` installed the incoming lockfile: Zod **4.6.7**, Vitest **4.1.12**, multer **2.5.0**, body-parser **2.4.0**; npm reported **0 vulnerabilities**. This records the local verification runtime; earlier runtime entries remain historical.
+
+26 October 2026: backend Zod **4.6.7**, Vitest **4.1.12**, with explicit transitive overrides for multer **2.5.0** and body-parser **2.4.0**. Nest remains **11.2.7**. The shared parser helper now uses the Zod 4 generic signature; record schemas specify key and value schemas. Backend npm audit reports **0 vulnerabilities**. Node remains **24.14.1**. These changes address the CI audit failures; no audit checks or validation limits were disabled. See [release validation](combined-deployment-architecture-and-testing.md).
+
 23 October 2026: pinned `qrcode` **1.5.4** and `@types/qrcode` **1.5.6** for local authenticator QR rendering. Node **24.14.1**. Installation reported three moderate advisories in existing Vitest/mocker/ip-address dependencies; no forced upgrades were applied.
 
 21 October 2026: added pinned `kenat` **4.0.0**, the calendar engine used by Kewti. It adds one package with no runtime dependencies. Node remains **24.14.1**. Installation reports the same seven high-severity advisory entries previously documented in the frontend dependency tree; no force upgrades were applied. Kewti's dropdown guidance was reviewed at source commit `8bedfc0f6ece86cb9a70324337318a7fb2e2cb40` and adapted locally. A verified reverse-conversion guard handles the discovered century-boundary drift; see `kewti-calendar-architecture-and-testing.md`.

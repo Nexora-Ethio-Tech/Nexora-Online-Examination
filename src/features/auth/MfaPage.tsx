@@ -42,11 +42,11 @@ export function MfaPage() {
       <div className="w-full max-w-sm rounded-2xl border bg-background p-6 shadow-sm sm:p-8">
         <ShieldCheck className="mb-6 size-9" aria-hidden="true" />
         <p className="mb-2 text-xs font-semibold tracking-widest text-muted-foreground">
-          ADMINISTRATOR VERIFICATION
+          ACCOUNT VERIFICATION
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">One more step</h1>
         <p className="mt-3 mb-8 text-sm leading-relaxed text-muted-foreground">
-          Enter the six-digit code from your authenticator app to open your school workspace.
+          Enter the six-digit code from your authenticator app to open your workspace.
         </p>
         <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-5">
           <FormField

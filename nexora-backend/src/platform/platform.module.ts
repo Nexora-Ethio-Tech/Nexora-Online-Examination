@@ -17,7 +17,7 @@ import { PlatformService } from './platform.service';
 import { GlobalExceptionFilter } from '../common/errors/global-exception.filter';
 import { ResponseHeadersInterceptor } from '../common/interceptors/response-headers.interceptor';
 
-// This controller is mounted only in the separate platform service deployment.
+// Mounted in the isolated platform app, either standalone or within combined hosting.
 // Every method delegates to session/CSRF/owner checks inside PlatformService.
 @Controller()
 export class PlatformController {
@@ -31,6 +31,20 @@ export class PlatformController {
     @Body() b: unknown,
   ) {
     return this.service.login(r, s, b);
+  }
+  @Post('auth/identify') @HttpCode(200) identify(
+    @Req() r: Request,
+    @Res({ passthrough: true }) s: Response,
+    @Body() b: unknown,
+  ) {
+    return this.service.identify(r, s, b);
+  }
+  @Post('auth/verify') @HttpCode(200) verify(
+    @Req() r: Request,
+    @Res({ passthrough: true }) s: Response,
+    @Body() b: unknown,
+  ) {
+    return this.service.verifyLogin(r, s, b);
   }
   @Get('auth/me') me(@Req() r: Request) {
     return this.service.me(r);

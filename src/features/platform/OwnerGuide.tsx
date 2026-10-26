@@ -3,12 +3,12 @@ import { tourPresentation } from '@/features/onboarding/tour-appearance';
 export const ownerSteps = [
   {
     title: 'Your schools',
-    body: 'Each school card shows its permanent numeric school code. Choose a school to manage its subscription, access and administrators. Use Next page to see more schools.',
+    body: 'Use the shared sign-in page with your own ID, password and authenticator code. Your account opens this owner workspace automatically. Each school card shows its permanent numeric school code. Choose a school to manage its subscription, access and administrators. Use Next page to see more schools.',
     target: '#owner-schools h2',
   },
   {
     title: 'Add a school',
-    body: 'Enter the school name, address name and administrator login ID, three names, phone and recovery email. Share the one-time password and private 30-minute setup link with that administrator. They verify their credentials, scan their QR code and confirm enrollment.',
+    body: 'Enter the school name, unique short name (spaces and uppercase letters are accepted) and administrator login ID, and three names. Phone (+251) and recovery email are optional and not yet verified. Share the one-time password and private 30-minute setup link with that administrator. They verify their credentials, scan their QR code and confirm enrollment.',
     target: '#owner-add-school',
   },
   {

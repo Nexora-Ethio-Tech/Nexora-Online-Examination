@@ -1,3 +1,5 @@
+import { questionOrder as structuredQuestionOrder } from './question-order';
+import { structureSchema } from '../authoring/content-schema';
 import { unwrapPackageKey } from '../../common/crypto/package-key';
 import { captureResultSnapshot } from '../../common/db/result-snapshot';
 import { Injectable } from '@nestjs/common';
@@ -394,12 +396,28 @@ export class PreparationService {
           throw DomainException.conflict('RECOVERY_REQUIRED', 'Exam deadline has passed');
         const items = await client.query<{
           item_id: string;
+          type: string;
+          section_id: string | null;
+          passage_id: string | null;
           options: { id: string; text: string }[];
         }>(
-          'SELECT item_id, options FROM exam_items WHERE school_id = $1 AND exam_version_id = $2 ORDER BY position',
+          'SELECT item_id,type,section_id,passage_id, options FROM exam_items WHERE school_id = $1 AND exam_version_id = $2 ORDER BY position',
           [school.id, sitting.exam_version_id],
         );
-        const questionOrder = items.rows.map((item) => item.item_id);
+        const frozen = (
+          await client.query(
+            "SELECT frozen_metadata->'structure' structure FROM exam_versions WHERE school_id=$1 AND id=$2",
+            [school.id, sitting.exam_version_id],
+          )
+        ).rows[0];
+        const structure = structureSchema.parse(
+          frozen?.structure ?? { sections: [], passages: [] },
+        );
+        const questionOrder = structuredQuestionOrder(
+          items.rows,
+          structure,
+          sitting.ordering === 'shuffle_questions_and_options',
+        );
         const shuffle = (values: string[]) => {
           for (let i = values.length - 1; i > 0; i--) {
             const j = randomInt(i + 1);
@@ -408,11 +426,11 @@ export class PreparationService {
           return values;
         };
         const shuffled = sitting.ordering === 'shuffle_questions_and_options';
-        if (shuffled) shuffle(questionOrder);
+
         const optionOrders = Object.fromEntries(
           items.rows.map((item) => {
             const ids = item.options.map((option) => option.id);
-            return [item.item_id, shuffled ? shuffle(ids) : ids];
+            return [item.item_id, shuffled && item.type !== 'true_false' ? shuffle(ids) : ids];
           }),
         );
         const inserted = await client.query<AttemptRecord>(

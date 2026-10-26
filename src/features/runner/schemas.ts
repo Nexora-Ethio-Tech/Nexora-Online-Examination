@@ -1,3 +1,4 @@
+import { blocksSchema, structureSchema, structureProblems } from '@/features/exams/content/schema';
 import { z } from 'zod';
 import { attemptSchema, attemptState } from '@/features/exams/schemas';
 export const identifier = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
@@ -7,6 +8,7 @@ const time = z.iso.datetime();
 const option = z.object({ id: identifier, text: z.string().min(1) }).strict();
 export const paperSchema = z
   .object({
+    structure: structureSchema.optional(),
     examVersion: version,
     title: z.string().min(1),
     instructions: z.string(),
@@ -14,6 +16,9 @@ export const paperSchema = z
       .array(
         z
           .object({
+            sectionId: identifier.nullable().optional(),
+            passageId: identifier.nullable().optional(),
+            content: blocksSchema.optional(),
             itemId: identifier,
             type: z.enum(['mcq_single', 'true_false']),
             stem: z.string().min(1),
@@ -24,7 +29,14 @@ export const paperSchema = z
       )
       .min(1),
   })
-  .strict();
+  .strict()
+  .superRefine((paper, ctx) => {
+    for (const message of structureProblems(
+      paper.structure ?? { sections: [], passages: [] },
+      paper.items,
+    ))
+      ctx.addIssue({ code: 'custom', message });
+  });
 export const unlockSchema = z.object({
   packageId: identifier,
   key: z.string().regex(/^[A-Za-z0-9_-]{43}$/),

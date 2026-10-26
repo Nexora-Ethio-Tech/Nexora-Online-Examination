@@ -46,6 +46,7 @@ export function PlatformApp({ client: provided }: { client?: ApiClient }) {
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 401)) throw e;
         setOwner(null);
+        if (import.meta.env.VITE_APP_SURFACE === 'combined') window.location.replace('/login');
       }
     } catch (e) {
       setError(errorMessage(e));
@@ -72,7 +73,7 @@ export function PlatformApp({ client: provided }: { client?: ApiClient }) {
           </div>
           {import.meta.env.VITE_APP_SURFACE !== 'platform' && (
             <a className="underline" href="/">
-              School sign-in
+              Sign-in page
             </a>
           )}
         </header>
@@ -446,20 +447,27 @@ function OwnerActions({
                 className={inputClass}
                 required
                 maxLength={150}
+                placeholder="Eagle School"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
             </label>
             <label>
-              <span className="field-label">School address name (lowercase)</span>
+              <span className="field-label">School short name</span>
               <input
                 className={inputClass}
                 required
-                pattern="[a-z0-9]+(-[a-z0-9]+)*"
                 maxLength={100}
+                aria-label="School short name"
+                aria-describedby="school-short-name-help"
+                placeholder="Eagle School"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
               />
+              <span id="school-short-name-help" className="block text-sm text-muted-foreground">
+                Uppercase letters and spaces are welcome. We save “Eagle School” as “eagle-school”.
+                This is not a street address or the automatically generated school code.
+              </span>
             </label>
             <label>
               <span className="field-label">First administrator ID</span>
@@ -500,15 +508,14 @@ function OwnerActions({
               ['First name', firstName, setFirstName],
               ["Father's name", fatherName, setFatherName],
               ["Grandfather's name", grandfatherName, setGrandfatherName],
-              ['Phone number', phoneNumber, setPhoneNumber],
-              ['Recovery email', recoveryEmail, setRecoveryEmail],
             ].map(([label, value, setter]) => (
               <label key={String(label)}>
                 <span className="field-label">{String(label)}</span>
                 <input
                   className={inputClass}
                   required
-                  type={label === 'Recovery email' ? 'email' : 'text'}
+                  type="text"
+                  placeholder={String(label)}
                   value={String(value)}
                   onChange={(e) => {
                     if (typeof setter === 'function') setter(e.target.value);
@@ -516,6 +523,45 @@ function OwnerActions({
                 />
               </label>
             ))}
+            <div>
+              <label htmlFor="owner-admin-phone">Phone number (optional)</label>
+              <div className="mt-1 flex min-h-11 items-center rounded border bg-background">
+                <span className="border-r px-3" aria-hidden="true">
+                  +251
+                </span>
+                <input
+                  id="owner-admin-phone"
+                  aria-describedby="owner-contact-help owner-phone-help"
+                  className="min-h-11 w-full min-w-0 rounded-r bg-background p-2"
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="911123456"
+                  pattern="[0-9]{9}"
+                  maxLength={9}
+                  value={phoneNumber.startsWith('+251') ? phoneNumber.slice(4) : phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value ? '+251' + e.target.value : '')}
+                />
+              </div>
+              <p id="owner-phone-help" className="text-sm text-muted-foreground">
+                Ethiopia (+251). Enter 9 digits without the leading 0.
+              </p>
+            </div>
+            <label>
+              Recovery email (optional)
+              <input
+                className={inputClass}
+                type="email"
+                placeholder="admin@example.com"
+                maxLength={254}
+                aria-describedby="owner-contact-help"
+                value={recoveryEmail}
+                onChange={(e) => setRecoveryEmail(e.target.value)}
+              />
+            </label>
+            <p id="owner-contact-help" className="text-sm text-muted-foreground sm:col-span-2">
+              You can leave contact details blank. Email and phone verification will be available
+              later; saving these details does not verify them.
+            </p>
           </div>
         )}
         {school && action === 'subscription' && (
@@ -647,7 +693,7 @@ function OwnerActions({
           </div>
         )}
         <label className="block">
-          <span className="field-label">Fresh owner authenticator code</span>
+          <span className="field-label">Authentication code</span>
           <input
             className={inputClass}
             inputMode="numeric"
