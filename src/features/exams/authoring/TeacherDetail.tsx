@@ -1,3 +1,10 @@
+import { Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from '@/components/ui/alert-dialog';
 import { ExamGeneration } from './ExamGeneration';
 import { importStatus } from './import-status';
 import { useEffect, useRef, useState } from 'react';
@@ -172,6 +179,7 @@ function ItemReview({
 export function TeacherDetail() {
   const navigate = useNavigate();
   const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeConfirmed, setRemoveConfirmed] = useState(false);
   const [removeReason, setRemoveReason] = useState('');
   const { examId = '' } = useParams();
   const api = authoringApi(useApiClient());
@@ -336,19 +344,33 @@ export function TeacherDetail() {
       {editable && (
         <section className="space-y-3">
           <Button
-            variant="destructive"
+            variant="ghost"
+            size="icon"
+            className="min-h-11 min-w-11 text-muted-foreground hover:text-destructive"
+            aria-label="Delete / archive draft"
+            title="Delete / archive draft"
             disabled={action.isPending || dirty}
-            onClick={() => setRemoveOpen(true)}
+            onClick={() => {
+              setRemoveReason('');
+              setRemoveConfirmed(false);
+              setRemoveOpen(true);
+            }}
           >
-            Delete / archive draft
+            <Trash2 className="size-4" aria-hidden="true" />
           </Button>
-          {removeOpen && (
-            <div className={panel}>
-              <p>
+          <AlertDialog
+            open={removeOpen}
+            onOpenChange={(next) => {
+              if (!action.isPending) setRemoveOpen(next);
+            }}
+          >
+            <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
+              <AlertDialogTitle>Delete / archive “{d.title}”?</AlertDialogTitle>
+              <AlertDialogDescription>
                 Remove this draft from your papers and cancel its pending work. An unused draft is
                 deleted; a draft with history is archived. Approved papers and student evidence
                 cannot be deleted here.
-              </p>
+              </AlertDialogDescription>
               <label className="block py-3">
                 Removal reason
                 <Input
@@ -357,9 +379,19 @@ export function TeacherDetail() {
                   onChange={(e) => setRemoveReason(e.target.value)}
                 />
               </label>
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={removeConfirmed}
+                  disabled={action.isPending}
+                  onChange={(e) => setRemoveConfirmed(e.target.checked)}
+                />
+                I understand and want to remove this draft.
+              </label>
+              <Failure error={action.error} />
               <Button
                 variant="destructive"
-                disabled={action.isPending || !removeReason.trim()}
+                disabled={action.isPending || !removeReason.trim() || !removeConfirmed}
                 onClick={() =>
                   run(async () => {
                     await api.removeDraft(
@@ -374,11 +406,15 @@ export function TeacherDetail() {
               >
                 Confirm draft removal
               </Button>
-              <Button variant="outline" onClick={() => setRemoveOpen(false)}>
+              <Button
+                variant="outline"
+                disabled={action.isPending}
+                onClick={() => setRemoveOpen(false)}
+              >
                 Keep draft
               </Button>
-            </div>
-          )}
+            </AlertDialogContent>
+          </AlertDialog>
         </section>
       )}
       {!editable && (
@@ -557,11 +593,18 @@ export function TeacherDetail() {
               {editable && job.data.state !== 'cancelled' && (
                 <div className="my-3 space-y-3">
                   <Button
-                    variant="destructive"
+                    variant="ghost"
+                    size="icon"
+                    className="min-h-11 min-w-11 text-muted-foreground hover:text-destructive"
+                    aria-label="Remove / cancel import"
+                    title="Remove / cancel import"
                     disabled={action.isPending || dirty}
-                    onClick={() => setCancelOpen(true)}
+                    onClick={() => {
+                      setCancelReason('');
+                      setCancelOpen(true);
+                    }}
                   >
-                    Remove / cancel import
+                    <Trash2 className="size-4" aria-hidden="true" />
                   </Button>
                   {cancelOpen && (
                     <div

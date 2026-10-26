@@ -40,28 +40,35 @@ function submitRosterPreview() {
   fireEvent.submit(form);
 }
 describe('school setup UI', () => {
-  it('requires a fresh reason and acknowledgement before deleting a class', async () => {
-    const { user } = setup();
-    const triggers = await screen.findAllByRole('button', { name: /^Delete class: / });
-    const trigger = triggers[0];
-    if (!trigger) throw new Error('Missing class delete icon');
-    expect(trigger.textContent).toBe('');
-    await user.click(trigger);
-    const dialog = screen.getByRole('alertdialog');
-    expect(within(dialog).getByText(/Students’ accounts/)).toBeInTheDocument();
-    const confirm = within(dialog).getByRole('button', { name: /^Delete class$/ });
-    expect(confirm).toBeDisabled();
-    await user.type(within(dialog).getByLabelText('Reason'), 'Class created by mistake');
-    expect(confirm).toBeDisabled();
-    await user.click(within(dialog).getByRole('checkbox'));
-    expect(confirm).toBeEnabled();
-    await user.click(within(dialog).getByRole('button', { name: 'Keep class' }));
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    await user.click(trigger);
-    expect(screen.getByLabelText('Reason')).toHaveValue('');
-    expect(screen.getByRole('checkbox')).not.toBeChecked();
-    expect(screen.getByRole('button', { name: /^Delete class$/ })).toBeDisabled();
-  });
+  it.each(['class', 'subject'])(
+    'requires a fresh reason and acknowledgement before deleting a %s',
+    async (kind) => {
+      const { user } = setup();
+      if (kind === 'subject')
+        await user.click(await screen.findByRole('tab', { name: 'Subjects' }));
+      const triggers = await screen.findAllByRole('button', {
+        name: new RegExp(`^Delete ${kind}: `),
+      });
+      const trigger = triggers[0];
+      if (!trigger) throw new Error('Missing class delete icon');
+      expect(trigger.textContent).toBe('');
+      await user.click(trigger);
+      const dialog = screen.getByRole('alertdialog');
+      expect(within(dialog).getByText(/exam records/)).toBeInTheDocument();
+      const confirm = within(dialog).getByRole('button', { name: `Delete ${kind}` });
+      expect(confirm).toBeDisabled();
+      await user.type(within(dialog).getByLabelText('Reason'), 'Class created by mistake');
+      expect(confirm).toBeDisabled();
+      await user.click(within(dialog).getByRole('checkbox'));
+      expect(confirm).toBeEnabled();
+      await user.click(within(dialog).getByRole('button', { name: `Keep ${kind}` }));
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      await user.click(trigger);
+      expect(screen.getByLabelText('Reason')).toHaveValue('');
+      expect(screen.getByRole('checkbox')).not.toBeChecked();
+      expect(screen.getByRole('button', { name: `Delete ${kind}` })).toBeDisabled();
+    },
+  );
 
   it('shows the saved AI generation policy and requires a reason for enabling it', async () => {
     const { user, store } = setup();

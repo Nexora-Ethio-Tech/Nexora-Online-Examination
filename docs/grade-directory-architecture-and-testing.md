@@ -27,3 +27,7 @@ Migration 025 was applied to the manual and disposable local PostgreSQL database
 5. Submit papers from different grades/teachers. In Exam approvals and schedules, verify each filter separately and together, including Submitted from/until in EAT.
 
 Automated evidence: real local integration includes grade mismatch rejection, assignment filtering and retained class deletion. Number allocation concurrency, rollback, rollover and tenant isolation run against PostgreSQL. Frontend tests cover revised creation and editing workflows. Physical mobile acceptance remains a separate check.
+
+## Consistent removal controls
+
+Classes, subjects, student/staff accounts and teaching assignments use small accessible trash icons. Each opens a warning naming the record and explaining retained exam history. A reason and acknowledgement are required; cancelling and reopening clears both. Teacher draft removal follows the same dialog pattern; import cancellation uses an icon with its existing warning and reason. API removal rules are unchanged.

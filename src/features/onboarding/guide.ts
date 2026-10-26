@@ -21,7 +21,7 @@ export const guides: Record<Role, GuideStep[]> = {
     {
       title: 'Set up your school',
       targets: ['[data-tour="school-classes"]'],
-      body: 'Create classes using Grade and Section, then create subjects for each grade and assign teachers. Find assignments by grade, class, subject or teacher. Use Accounts → Invigilators to create limited accounts for non-teaching staff. Use the small trash icon to delete a class. Read the warning, enter a reason and confirm your choice; student accounts and previous exam results remain.',
+      body: 'Create classes using Grade and Section, then create subjects for each grade and assign teachers. Find assignments by grade, class, subject or teacher. Use Accounts → Invigilators to create limited accounts for non-teaching staff. Use the small trash icons to remove classes, subjects, accounts or teaching assignments. Read the warning, enter a reason and confirm your choice; student accounts and previous exam results remain.',
       path: '/admin/school?tab=classes',
     },
     {
@@ -58,7 +58,7 @@ export const guides: Record<Role, GuideStep[]> = {
     {
       title: 'Upload and manage questions',
       targets: ['[data-tour="question-template"]', '[data-tour="questions-tab"]'],
-      body: 'Use a Word or Excel template with answer keys. File reading happens before AI suggestions. If a file stays waiting to be read, contact your administrator. A stuck import can be cancelled; questions already read stay in the draft. Unneeded drafts can be removed.',
+      body: 'Use a Word or Excel template with answer keys. File reading happens before AI suggestions. If a file stays waiting to be read, contact your administrator. A stuck import can be cancelled; questions already read stay in the draft. Use the small trash icon to remove unneeded drafts; read the warning, enter a reason and acknowledge the removal. Import cancellation also uses a small trash icon with a warning and reason.',
       path: '/teacher',
     },
     {
