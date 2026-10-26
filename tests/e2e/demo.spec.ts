@@ -68,13 +68,13 @@ test('portal management: class cards, unused record deletion and reopenable onbo
   await page.getByLabel('Grade', { exact: true }).fill('8');
   await page.getByLabel('Section', { exact: true }).fill('Z');
   await page.getByLabel('Academic year', { exact: true }).fill('2026');
-  await page.getByLabel('Reason', { exact: true }).fill('Browser removal test');
+  await expect(page.getByLabel('Reason', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Save class', exact: true }).click();
   await page.getByRole('button', { name: 'Delete class: Grade 8 Z', exact: true }).click();
-  const removal = page.getByRole('region', { name: 'Remove Grade 8 Z' });
+  const removal = page.getByRole('alertdialog', { name: 'Delete class “Grade 8 Z”?' });
   await removal.getByLabel('Reason', { exact: true }).fill('Unused test class');
   await removal.getByRole('checkbox').check();
-  await removal.getByRole('button', { name: 'Confirm removal' }).click();
+  await removal.getByRole('button', { name: 'Delete class', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Grade 8 Z' })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Accounts', exact: true }).click();
   await expect(
@@ -133,7 +133,7 @@ test('portal management: cancel import, bulk review and remove a draft', async (
     .setInputFiles('public/templates/nexora-questions.xlsx');
   await page.getByRole('button', { name: 'Upload and prepare questions' }).click();
   await page.getByRole('button', { name: 'Remove / cancel import' }).click();
-  await page.getByLabel('Cancellation reason').fill('Selected the wrong file');
+  await page.getByLabel('Note (optional)').fill('Selected the wrong file');
   await page.getByRole('button', { name: 'Confirm cancel import' }).click();
   await expect(page.getByRole('button', { name: 'Remove / cancel import' })).toHaveCount(0);
   await page
@@ -156,7 +156,8 @@ test('portal management: cancel import, bulk review and remove a draft', async (
   ).toBeDisabled();
   await accessible(page);
   await page.getByRole('button', { name: 'Delete / archive draft' }).click();
-  await page.getByLabel('Removal reason').fill('Finished synthetic test');
+  await page.getByLabel('Note (optional)').fill('Finished synthetic test');
+  await page.getByRole('checkbox', { name: 'I understand and want to remove this draft.' }).check();
   await page.getByRole('button', { name: 'Confirm draft removal' }).click();
   await expect(page.getByRole('heading', { name: 'My exam papers', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Lifecycle paper', exact: true })).toHaveCount(0);
@@ -306,7 +307,9 @@ test('teacher import and review through admin approval, scheduling and extra tim
   await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await login(page, 'ADMIN');
   await page.getByRole('link', { name: 'Review and schedule' }).click();
-  await page.getByLabel('Review comment or required corrections').fill('Reviewed and approved.');
+  await page
+    .getByLabel('Review note (optional for approval; required when returning)')
+    .fill('Reviewed and approved.');
   await page.getByRole('checkbox', { name: /I reviewed the questions/ }).check();
   await page.getByRole('button', { name: 'Approve paper', exact: true }).click();
   const prep = page.getByRole('group', { name: 'Preparation date and time (EAT)', exact: true });
@@ -356,7 +359,9 @@ test('teacher import and review through admin approval, scheduling and extra tim
   await page.getByRole('button', { name: 'Confirm schedule', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Assign invigilators' })).toBeVisible();
   await page.getByRole('button', { name: 'Assign invigilator', exact: true }).first().click();
-  await page.getByLabel('Assignment change reason').fill('Assigned to supervise this sitting.');
+  const assignmentReason = page.getByLabel('Assignment change reason');
+  if (await assignmentReason.count())
+    await assignmentReason.fill('Assigned to supervise this sitting.');
   await page.getByRole('button', { name: 'Confirm assignment change' }).click();
   await expect(page.locator('#main-content').getByText('Staff assignment saved.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Revoke assignment' })).toBeVisible();
@@ -508,9 +513,7 @@ test('synthetic recovery acceptance retains evidence and produces an exportable 
   await navigateWorkspace(page, 'Practice release');
   await page.getByRole('checkbox', { name: 'Enable practice', exact: true }).check();
   await fillEatDateTime(page, 'Practice release date and time (EAT)', release);
-  await page
-    .getByLabel('Reason for practice settings')
-    .fill('Release the reviewed synthetic paper.');
+  await page.getByLabel('Note (optional)').fill('Release the reviewed synthetic paper.');
   await page.getByRole('checkbox', { name: /I checked the paper/ }).check();
   await page.getByRole('button', { name: 'Save practice settings' }).click();
   await expect(page.getByText(/Practice available/)).toBeVisible();
@@ -539,7 +542,7 @@ test('school admin enables AI exam drafts and teachers retain upload and review 
   await navigateWorkspace(page, 'School setup');
   await page.getByRole('tab', { name: 'AI settings' }).click();
   await expect(page.getByText('AI exam generation is off for this school.')).toBeVisible();
-  await page.getByLabel('Reason', { exact: true }).fill('Enable AI drafting for our teachers');
+  await page.getByLabel('Note (optional)').fill('Enable AI drafting for our teachers');
   await page.getByRole('button', { name: 'Turn on AI exam generation' }).click();
   await expect(page.getByText('AI exam generation is on for this school.')).toBeVisible();
   await accessible(page);

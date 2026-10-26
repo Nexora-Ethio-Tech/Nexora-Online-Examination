@@ -298,6 +298,10 @@ export function createDemoTransport(
         if (role !== 'school_admin')
           return error(403, 'FORBIDDEN', 'Administrator access required.');
         const sitting = staffMatch[1];
+        const scheduled = sitting ? store.sessions.get(sitting) : undefined;
+        const reasonRequired = scheduled
+          ? Date.parse(scheduled.session.startsAt) <= Date.now()
+          : false;
         const people = [...store.directory.accounts.values()].filter(
           (a) => a.role !== 'student' && a.status === 'active',
         );
@@ -312,7 +316,7 @@ export function createDemoTransport(
             reason?: string;
           };
           const target = people.find((a) => store.staffAliases.get(a.userId) === b.staffId);
-          if (!target || typeof b.active !== 'boolean' || !b.reason?.trim())
+          if (!target || typeof b.active !== 'boolean' || (reasonRequired && !b.reason?.trim()))
             return error(422, 'VALIDATION_ERROR', 'Choose staff and enter a reason.');
           const k = sitting + '/' + target.userId;
           const old = store.invigilation.get(k);
@@ -321,6 +325,7 @@ export function createDemoTransport(
           store.invigilation.set(k, { active: b.active, revision: (old?.revision ?? 0) + 1 });
         }
         return json({
+          reasonRequired,
           staff: people.map((a) => ({
             id: store.staffAliases.get(a.userId),
             displayName: a.displayName,

@@ -68,7 +68,7 @@ describe('owner portal', () => {
     await user.type(screen.getByLabelText("Grandfather's name"), 'Test');
     await user.type(screen.getByLabelText('Phone number'), '+251911111111');
     await user.type(screen.getByLabelText('Recovery email'), 'admin@example.test');
-    await user.type(screen.getByLabelText('Reason'), 'Verified school registration');
+    expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument();
     await user.type(screen.getByLabelText('Fresh owner authenticator code'), '654321');
     await user.click(screen.getByRole('button', { name: 'Confirm owner action' }));
     await screen.findByRole('alert');

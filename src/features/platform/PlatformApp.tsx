@@ -410,6 +410,7 @@ function OwnerActions({
               disabled={busy}
               onChange={(e) => {
                 setAction(e.target.value);
+                setReason('');
                 setResult(null);
                 setConfirmed(false);
               }}
@@ -545,34 +546,36 @@ function OwnerActions({
             </span>
           </label>
         )}
-        <label className="block">
-          Reason
-          <textarea
-            className={inputClass}
-            required
-            minLength={5}
-            maxLength={500}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </label>
+        {(action === 'status' || action === 'reset_admin' || action === 'subscription') && (
+          <label className="block">
+            {action === 'subscription' ? 'Note (optional)' : 'Reason'}
+            <textarea
+              className={inputClass}
+              required={action !== 'subscription'}
+              minLength={action === 'subscription' ? undefined : 5}
+              maxLength={500}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </label>
+        )}
         {school && (action === 'reset_admin' || action === 'edit_admin') && (
           <div className="space-y-3">
             <Button
               type="button"
               variant="outline"
-              disabled={busy || reason.trim().length < 5}
+              disabled={busy}
               onClick={() => {
                 setBusy(true);
                 setError('');
                 void platformApi(client)
-                  .inspect(school.id, reason)
+                  .inspect(school.id, '')
                   .then((r) => setAdmins(r.admins))
                   .catch((e) => setError(errorMessage(e)))
                   .finally(() => setBusy(false));
               }}
             >
-              Load administrators for this reason
+              Load administrators
             </Button>
             <label className="block">
               Administrator

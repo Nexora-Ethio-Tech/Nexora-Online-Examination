@@ -46,9 +46,13 @@ describe('school setup UI', () => {
       const { user } = setup();
       if (kind === 'subject')
         await user.click(await screen.findByRole('tab', { name: 'Subjects' }));
-      const triggers = await screen.findAllByRole('button', {
-        name: new RegExp(`^Delete ${kind}: `),
-      });
+      const triggers = await screen.findAllByRole(
+        'button',
+        {
+          name: new RegExp(`^Delete ${kind}: `),
+        },
+        { timeout: 5000 },
+      );
       const trigger = triggers[0];
       if (!trigger) throw new Error('Missing class delete icon');
       expect(trigger.textContent).toBe('');
@@ -70,20 +74,20 @@ describe('school setup UI', () => {
     },
   );
 
-  it('shows the saved AI generation policy and requires a reason for enabling it', async () => {
+  it('saves AI generation settings without requiring an optional note', async () => {
     const { user, store } = setup();
     await user.click(await screen.findByRole('tab', { name: 'AI settings' }));
     expect(
       await screen.findByText('AI exam generation is off for this school.'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Turn on AI exam generation' })).toBeDisabled();
-    await user.type(screen.getByLabelText('Reason'), 'Enable exam drafting');
+    expect(screen.getByRole('button', { name: 'Turn on AI exam generation' })).toBeEnabled();
+    expect(screen.getByLabelText('Note (optional)')).toHaveValue('');
     await user.click(screen.getByRole('button', { name: 'Turn on AI exam generation' }));
     expect(
       await screen.findByText('AI exam generation is on for this school.'),
     ).toBeInTheDocument();
     expect(store.directory.aiExamSettings).toEqual({ aiExamGenerationEnabled: true, revision: 2 });
-    expect(screen.getByRole('button', { name: 'Turn off AI exam generation' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Turn off AI exam generation' })).toBeEnabled();
   });
   it('creates a class and subject and records who changed them', async () => {
     const { user, store } = setup();
@@ -91,7 +95,7 @@ describe('school setup UI', () => {
     await user.type(await screen.findByLabelText('Grade'), '9');
     await user.type(screen.getByLabelText('Section'), 'B');
     await user.type(screen.getByLabelText('Academic year'), '2026');
-    await user.type(screen.getByLabelText('Reason'), 'New intake');
+    expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save class' }));
     expect(await screen.findByRole('heading', { name: 'Grade 9 B' })).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Subjects' }));
@@ -99,12 +103,16 @@ describe('school setup UI', () => {
     await user.type(screen.getByLabelText('Subject name'), 'Physics');
     await user.type(screen.getByLabelText('Grade'), '10');
     await user.type(screen.getByLabelText('Subject code'), 'PHY');
-    await user.type(screen.getByLabelText('Reason'), 'New subject');
+    expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save subject' }));
     expect(await screen.findByRole('heading', { name: 'Physics' })).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Activity' }));
-    expect(await screen.findByText('New subject')).toBeInTheDocument();
-    expect(store.directory.audit[0]).toMatchObject({ actorName: 'Hana', targetLabel: 'Physics' });
+    await screen.findByRole('heading', { name: 'School setup activity' });
+    expect(store.directory.audit[0]).toMatchObject({
+      actorName: 'Hana',
+      targetLabel: 'Physics',
+      reason: '',
+    });
   });
   it('blocks invalid imports and issues valid roster credentials only after explicit confirmation', async () => {
     const { user, store, cache } = setup();
@@ -124,7 +132,7 @@ describe('school setup UI', () => {
     );
     submitRosterPreview();
     await screen.findByText(/All rows passed validation/);
-    await user.type(screen.getByLabelText('Reason'), 'Test intake');
+    expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Import validated students' })).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /I checked every row/ }));
     await user.click(screen.getByRole('button', { name: 'Import validated students' }));
@@ -134,7 +142,7 @@ describe('school setup UI', () => {
     await user.click(
       await screen.findByRole('checkbox', { name: 'Select Test Student for login details' }),
     );
-    await user.type(screen.getByLabelText('Reason'), 'Distribute privately');
+    expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Create login details for selected accounts' }),
     ).toBeDisabled();
@@ -213,7 +221,7 @@ describe('school setup UI', () => {
     await user.type(screen.getByLabelText('First name'), 'Teacher');
     await user.type(screen.getByLabelText("Father's name"), 'Example');
     await user.type(screen.getByLabelText("Grandfather's name"), 'Family');
-    await user.type(screen.getByLabelText('Reason'), 'New staff');
+    expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Create teacher and login details' }));
     await waitFor(() => expect(keys).toHaveLength(1));
     await waitFor(() =>
@@ -243,7 +251,7 @@ describe('school setup UI', () => {
     await user.selectOptions(await screen.findByLabelText('Teacher'), 'demo-teacher');
     await user.selectOptions(screen.getByLabelText('Class'), 'demo-class-10a');
     await user.selectOptions(screen.getByLabelText('Subject'), subject.subjectId);
-    await user.type(screen.getByLabelText('Reason'), 'Assign physics');
+    expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save assignment' }));
     expect(
       await screen.findByRole('heading', { name: 'Dawit · Grade 10 A · Physics' }),

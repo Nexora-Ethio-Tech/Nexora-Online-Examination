@@ -92,21 +92,26 @@ export function InvigilatorAssignments({ id }: { id: string }) {
               {selected?.active ? 'Remove invigilator assignment' : 'Assign invigilator'}
             </DialogTitle>
             <DialogDescription>
-              {selected?.displayName}. Enter a reason before confirming this change.
+              {selected?.displayName}. Confirm this assignment change.{' '}
+              {staff.data?.reasonRequired && 'The exam has started; explain this change.'}
             </DialogDescription>
           </DialogHeader>
-          <label>
-            Assignment change reason
-            <input
-              className="mt-1 min-h-11 w-full rounded border bg-background p-2"
-              value={reason}
-              maxLength={500}
-              disabled={busy}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </label>
+          {staff.data?.reasonRequired && (
+            <label>
+              Assignment change reason
+              <input
+                className="mt-1 min-h-11 w-full rounded border bg-background p-2"
+                value={reason}
+                maxLength={500}
+                disabled={busy}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </label>
+          )}
           <Button
-            disabled={busy || !reason.trim()}
+            disabled={
+              busy || !staff.data || !!staff.error || (staff.data.reasonRequired && !reason.trim())
+            }
             onClick={() =>
               selected && void assign(selected.id, !selected.active, selected.revision)
             }

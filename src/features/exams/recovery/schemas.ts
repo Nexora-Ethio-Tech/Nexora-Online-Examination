@@ -30,7 +30,7 @@ export const recoveryListSchema = z.object({
 });
 export const recoveryDetailSchema = recoverySummarySchema.extend({
   serverNow: time,
-  reason: id,
+  reason: z.string(),
   deadlineAt: time,
   finalAcceptUntil: time,
   snapshotDigest: z.string().regex(/^[a-f0-9]{64}$/),

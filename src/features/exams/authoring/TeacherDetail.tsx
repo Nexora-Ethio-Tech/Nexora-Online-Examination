@@ -372,7 +372,7 @@ export function TeacherDetail() {
                 cannot be deleted here.
               </AlertDialogDescription>
               <label className="block py-3">
-                Removal reason
+                Note (optional)
                 <Input
                   maxLength={500}
                   value={removeReason}
@@ -391,7 +391,7 @@ export function TeacherDetail() {
               <Failure error={action.error} />
               <Button
                 variant="destructive"
-                disabled={action.isPending || !removeReason.trim() || !removeConfirmed}
+                disabled={action.isPending || !removeConfirmed}
                 onClick={() =>
                   run(async () => {
                     await api.removeDraft(
@@ -618,7 +618,7 @@ export function TeacherDetail() {
                         finish, but its result will not be applied.
                       </p>
                       <label className="block">
-                        Cancellation reason
+                        Note (optional)
                         <Input
                           value={cancelReason}
                           onChange={(e) => setCancelReason(e.target.value)}
@@ -627,7 +627,7 @@ export function TeacherDetail() {
                       </label>
                       <Button
                         variant="destructive"
-                        disabled={!cancelReason.trim() || action.isPending}
+                        disabled={action.isPending}
                         onClick={() =>
                           run(() =>
                             api.cancelImport(

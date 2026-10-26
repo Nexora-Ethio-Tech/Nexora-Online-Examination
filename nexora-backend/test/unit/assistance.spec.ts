@@ -335,14 +335,14 @@ it.each(['teacher', 'invigilator', 'school_admin'])(
         return {
           rows: [{ role: staffRead++ === 0 ? 'school_admin' : role, mfa_enrolled_at: null }],
         };
-      if (sql.includes('FROM exam_sessions')) return { rows: [{ id: sessionId }] };
+      if (sql.includes('FROM exam_sessions'))
+        return { rows: [{ id: sessionId, starts_at: new Date(now.getTime() + 600_000) }] };
       return { rows: [] };
     });
     await service.assignments(req('school_admin'), sessionId, {
       staffId: teacher,
       active: true,
       expectedRevision: 0,
-      reason: 'Assigned before the sitting',
     });
     expect(
       mocks.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO sitting_staff_assignments')),
@@ -362,4 +362,50 @@ it('does not let an assigned staff member without enrolled MFA approve a request
     code: 'FORBIDDEN',
   });
   expect(mocks.decrypt).not.toHaveBeenCalled();
+});
+
+it('requires an explanation for invigilator changes at exam start', async () => {
+  mocks.query.mockImplementation(async (sql: string) => {
+    if (sql.includes('FROM users'))
+      return { rows: [{ role: 'school_admin', mfa_enrolled_at: now }] };
+    if (sql.includes('FROM exam_sessions')) return { rows: [{ starts_at: now }] };
+    return { rows: [] };
+  });
+  await expect(
+    service.assignments(req('school_admin'), sessionId, {
+      staffId: teacher,
+      active: true,
+      expectedRevision: 0,
+    }),
+  ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  expect(
+    mocks.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO sitting_staff_assignments')),
+  ).toBe(false);
+});
+it('requires a reason to reject reopening before consuming an authenticator code', async () => {
+  await expect(
+    service.decide(req('teacher'), requestId, { action: 'reject', code: '654321' }),
+  ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  expect(mocks.rate).not.toHaveBeenCalled();
+});
+
+it('rechecks invigilator reason requirements after waiting for an assignment lock', async () => {
+  const start = new Date(now.getTime() + 1000);
+  mocks.query.mockImplementation(async (sql: string) => {
+    if (sql.includes('FROM users'))
+      return { rows: [{ role: 'school_admin', mfa_enrolled_at: now }] };
+    if (sql.includes('FROM exam_sessions')) return { rows: [{ starts_at: start }] };
+    if (sql.includes('pg_advisory_xact_lock')) clock.setMockTime(start);
+    return { rows: [] };
+  });
+  await expect(
+    service.assignments(req('school_admin'), sessionId, {
+      staffId: teacher,
+      active: true,
+      expectedRevision: 0,
+    }),
+  ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  expect(
+    mocks.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO sitting_staff_assignments')),
+  ).toBe(false);
 });

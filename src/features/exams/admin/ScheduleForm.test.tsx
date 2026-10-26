@@ -169,7 +169,7 @@ it('includes approved extra time in rescheduling preview and planned-results val
   expect(
     screen.getByText(/Planned results must be at or after the latest student deadline/),
   ).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText('Reason for changing the schedule'), {
+  fireEvent.change(screen.getByLabelText('Note (optional)'), {
     target: { value: 'Room change' },
   });
   fireEvent.click(screen.getByRole('checkbox'));

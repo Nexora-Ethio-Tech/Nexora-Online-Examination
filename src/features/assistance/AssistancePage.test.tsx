@@ -9,7 +9,7 @@ import { ApiClient } from '@/lib/api-client';
 import { createDemoTransport } from '@/mocks/auth';
 
 describe('staff assistance screen', () => {
-  it('requires a reason and code, clears the code on failure, and does not cache credentials', async () => {
+  it('allows reopening approval without a note, requires a rejection reason and clears failed codes', async () => {
     const sessionId = '11111111-1111-4111-8111-111111111111';
     const requestId = '22222222-2222-4222-8222-222222222222';
     const demo = createDemoTransport('teacher');
@@ -56,14 +56,13 @@ describe('staff assistance screen', () => {
     expect(screen.getByLabelText('Filter by exam (optional)')).toHaveValue('');
     const approve = await screen.findByRole('button', { name: 'Approve reopening' });
     expect(approve).toBeDisabled();
-    await user.type(screen.getByLabelText('Decision reason'), 'Student identity verified');
     await user.type(screen.getByLabelText('Your authenticator code'), '654321');
+    expect(approve).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Reject request' })).toBeDisabled();
     await user.click(approve);
     await screen.findByText('Incorrect code');
     expect(screen.getByLabelText('Your authenticator code')).toHaveValue('');
-    expect(sent).toEqual([
-      { action: 'approve', reason: 'Student identity verified', code: '654321' },
-    ]);
+    expect(sent).toEqual([{ action: 'approve', reason: '', code: '654321' }]);
     expect(
       JSON.stringify(
         queryClient

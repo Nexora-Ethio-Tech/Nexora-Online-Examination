@@ -592,7 +592,7 @@ export class RunnerEngine {
     }
   }
   async recover(reason: string) {
-    if (!this.view.row?.final || this.submitting || this.view.uploading || !reason.trim()) return;
+    if (!this.view.row?.final || this.submitting || this.view.uploading) return;
     this.submitting = true;
     this.set({ uploading: true });
     try {

@@ -132,7 +132,7 @@ function Decision({
         Workstation generation {request.deviceGeneration} · Expires {eatTime(request.expiresAt)}
       </p>
       <label className="block">
-        Decision reason
+        Decision note (optional for approval; required for rejection)
         <textarea
           className="mt-1 w-full rounded border bg-background p-2"
           maxLength={500}
@@ -157,10 +157,7 @@ function Decision({
         Use a fresh code from your confirmed authenticator. Never enter it on the student's device.
       </p>
       <div className="flex flex-wrap gap-3">
-        <Button
-          disabled={busy || !reason.trim() || !/^\d{6}$/.test(code)}
-          onClick={() => void decide('approve')}
-        >
+        <Button disabled={busy || !/^\d{6}$/.test(code)} onClick={() => void decide('approve')}>
           Approve reopening
         </Button>
         <Button

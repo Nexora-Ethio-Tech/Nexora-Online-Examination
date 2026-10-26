@@ -122,10 +122,6 @@ export function ScheduleForm({
           setError('Correct the highlighted scheduling fields before confirming.');
           return;
         }
-        if (initial && !reason.trim()) {
-          setError('Explain why the schedule is changing.');
-          return;
-        }
         setError('');
         if (confirmed) onSave(iso, result, reason.trim(), preparationMinutes);
       }}
@@ -213,10 +209,9 @@ export function ScheduleForm({
         />
         {initial && (
           <label className="space-y-2 xl:col-span-2">
-            Reason for changing the schedule
+            Note (optional)
             <textarea
               className={control}
-              required
               maxLength={2000}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -442,7 +437,7 @@ export function AdminExamDetail() {
             correction.
           </p>
           <label className="block text-sm">
-            Review comment or required corrections
+            Review note (optional for approval; required when returning)
             <textarea
               className={`${control} mt-2`}
               rows={3}
@@ -468,13 +463,7 @@ export function AdminExamDetail() {
           <div className="flex flex-wrap gap-3">
             <Button
               className="min-h-11"
-              disabled={
-                pending ||
-                !!query.error ||
-                !comment.trim() ||
-                confirmedRevision !== e.revision ||
-                !reviewed
-              }
+              disabled={pending || !!query.error || confirmedRevision !== e.revision || !reviewed}
               onClick={() => {
                 const body = { revision: e.revision, comment: comment.trim() };
                 run(() => api.decide(examId, 'approve', body, key('approve', body)));

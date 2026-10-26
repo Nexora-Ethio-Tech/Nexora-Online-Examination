@@ -42,7 +42,7 @@ function AccessForm({ access }: { access: PracticeAccess }) {
       className={`${panel} space-y-4`}
       onSubmit={(e) => {
         e.preventDefault();
-        if (confirmed && reason.trim() && (!enabled || releaseAt))
+        if (confirmed && (!enabled || releaseAt))
           mutation.mutate({
             revision: access.revision,
             examVersion: access.examVersion,
@@ -99,7 +99,7 @@ function AccessForm({ access }: { access: PracticeAccess }) {
         <p className="text-destructive">Enter a valid EAT release date and time.</p>
       )}
       <label className="block">
-        Reason for practice settings
+        Note (optional)
         <textarea
           className={control}
           maxLength={2000}
@@ -119,9 +119,7 @@ function AccessForm({ access }: { access: PracticeAccess }) {
       </label>
       <Failure error={mutation.error} />
       {mutation.isSuccess && <p role="status">Practice settings saved.</p>}
-      <Button
-        disabled={mutation.isPending || !reason.trim() || !confirmed || (enabled && !releaseAt)}
-      >
+      <Button disabled={mutation.isPending || !confirmed || (enabled && !releaseAt)}>
         {mutation.isPending ? 'Saving…' : 'Save practice settings'}
       </Button>
       {access.history.length > 0 && (

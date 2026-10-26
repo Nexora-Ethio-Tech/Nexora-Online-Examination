@@ -5,7 +5,7 @@ import { control, panel } from '@/features/exams/authoring/TeacherPage';
 import { eatTime } from '@/features/exams/ExamsPage';
 import { schoolApi } from './api';
 import type { RosterPreview } from './schemas';
-import { Field, Reason, useSchoolOperation, useSchoolPage } from './SchoolSetupPage';
+import { Field, useSchoolOperation, useSchoolPage } from './SchoolSetupPage';
 
 export function RosterImport() {
   const api = schoolApi(useApiClient());
@@ -15,7 +15,7 @@ export function RosterImport() {
   const [classId, setClassId] = useState('');
   const [file, setFile] = useState<{ file: File; token: string } | null>(null);
   const [preview, setPreview] = useState<RosterPreview | null>(null);
-  const [reason, setReason] = useState('');
+  const reason = '';
   const [confirmed, setConfirmed] = useState(false);
   const [limit, setLimit] = useState(25);
   const [created, setCreated] = useState<number | null>(null);
@@ -168,7 +168,6 @@ export function RosterImport() {
               }}
             >
               <fieldset disabled={commit.pending || !preview.canCommit} className="space-y-3">
-                <Reason value={reason} onChange={setReason} />
                 <label className="flex gap-3">
                   <input
                     type="checkbox"
@@ -177,7 +176,7 @@ export function RosterImport() {
                   />
                   I checked every row and the intended class.
                 </label>
-                <Button className="min-h-11" disabled={!confirmed || !reason.trim()}>
+                <Button className="min-h-11" disabled={!confirmed}>
                   Import validated students
                 </Button>
               </fieldset>

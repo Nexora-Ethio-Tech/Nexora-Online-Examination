@@ -3,6 +3,7 @@ const id = z.string().min(1);
 const name = z.string().trim().min(1).max(160);
 const revision = z.number().int().positive();
 const time = z.iso.datetime();
+export const optionalNoteSchema = z.string().trim().max(2000).default('');
 export const reasonSchema = z.string().trim().min(1, 'Enter a reason.').max(2000);
 export const classInputSchema = z.object({
   name,
@@ -50,7 +51,7 @@ export const accountEditSchema = z.object({
   displayName: name,
   classId: id.nullable(),
   status: z.enum(['active', 'inactive']),
-  reason: reasonSchema,
+  reason: optionalNoteSchema,
 });
 export const assignmentInputSchema = z.object({ teacherId: id, classId: id, subjectId: id });
 export const assignmentSchema = assignmentInputSchema.extend({
@@ -68,7 +69,7 @@ export const auditSchema = z.object({
   target: id,
   targetLabel: id,
   actorName: name,
-  reason: id,
+  reason: z.string(),
   at: time,
 });
 export function pageSchema<T extends z.ZodType>(item: T) {

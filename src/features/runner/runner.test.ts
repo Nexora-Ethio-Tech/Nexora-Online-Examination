@@ -483,19 +483,26 @@ describe('runner durability and final submission', () => {
     await sync;
     expect(engine.snapshot().status).toBe('submitted');
   });
-  it('freezes at the deadline and sends late evidence to review without inventing a receipt', async () => {
-    const { make, advance } = await setup();
-    const engine = make();
-    await engine.start();
-    await answer(engine);
-    advance(190_000);
-    await engine.sync();
-    expect(engine.snapshot().status).toBe('pending');
-    expect(engine.snapshot().row?.final).not.toBeNull();
-    await engine.recover('Connection failed at the deadline.');
-    expect(engine.snapshot().status).toBe('recovery');
-    expect(engine.snapshot().row?.receipt).toBeNull();
-  });
+  it.each(['', 'Connection failed at the deadline.'])(
+    'freezes at the deadline and sends late evidence with optional note %j without inventing a receipt',
+    async (note) => {
+      const { make, advance } = await setup();
+      const engine = make();
+      await engine.start();
+      await answer(engine);
+      advance(190_000);
+      await engine.sync();
+      expect(engine.snapshot().status).toBe('pending');
+      expect(engine.snapshot().row?.final).not.toBeNull();
+      await engine.recover(note);
+      expect(engine.snapshot().row?.recovery?.reason).toBe(note);
+      const frozen = engine.snapshot().row?.recovery;
+      await engine.recover('Changed note on retry');
+      expect(engine.snapshot().row?.recovery).toEqual(frozen);
+      expect(engine.snapshot().status).toBe('recovery');
+      expect(engine.snapshot().row?.receipt).toBeNull();
+    },
+  );
   it('rejects a receipt for different answers', async () => {
     const { make } = await setup(async (url, init, next) => {
       const response = await next(url, init);

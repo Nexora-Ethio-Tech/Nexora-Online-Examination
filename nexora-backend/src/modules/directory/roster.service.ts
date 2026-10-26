@@ -150,7 +150,7 @@ export class RosterService {
       z
         .object({
           revision: z.number().int().positive(),
-          reason: z.string().trim().min(1).max(2000),
+          reason: z.string().trim().max(2000).default(''),
         })
         .strict(),
       input,

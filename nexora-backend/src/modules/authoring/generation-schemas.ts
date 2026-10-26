@@ -7,7 +7,7 @@ export const aiExamSettingsSchema = z.object({
 });
 export const aiExamSettingsInputSchema = aiExamSettingsSchema
   .extend({
-    reason: z.string().trim().min(1).max(2000),
+    reason: z.string().trim().max(2000).default(''),
   })
   .strict();
 export const generationInputSchema = z

@@ -338,7 +338,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
                 accept your saved answers.
               </p>
               <label className="block text-sm" htmlFor="recovery-reason">
-                Reason for school review
+                Note for school review (optional)
               </label>
               <textarea
                 id="recovery-reason"
@@ -349,7 +349,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
               />
               <Button
                 className="mt-3 min-h-11"
-                disabled={view.uploading || (!reason.trim() && !view.row.recovery)}
+                disabled={view.uploading}
                 onClick={() => {
                   void engine.recover(view.row?.recovery?.reason ?? reason);
                 }}

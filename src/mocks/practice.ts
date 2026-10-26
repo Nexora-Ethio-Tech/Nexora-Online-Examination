@@ -197,7 +197,7 @@ export function createPracticeDemo(store: AuthoringStore, clock = Date.now) {
     if (admin) {
       const parsed = practiceSettingsSchema.safeParse(body);
       if (!parsed.success)
-        return error('VALIDATION_ERROR', 'Check the version, release time and reason.', 422);
+        return error('VALIDATION_ERROR', 'Check the version, release time and optional note.', 422);
       const input = parsed.data;
       if (input.revision !== access.revision || input.examVersion !== approved.version)
         return error('REVISION_CONFLICT', 'Practice settings changed. Refresh before saving.');

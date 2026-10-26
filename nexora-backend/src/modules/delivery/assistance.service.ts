@@ -148,7 +148,7 @@ export class AssistanceService {
                 staffId: uuid,
                 active: z.boolean(),
                 expectedRevision: z.number().int().nonnegative(),
-                reason: z.string().trim().min(1).max(500),
+                reason: z.string().trim().max(500).default(''),
               })
               .strict(),
             input,
@@ -156,15 +156,13 @@ export class AssistanceService {
     return this.db.withTenantTransaction(school, async (c) => {
       const acting = await this.staff(c, school, user.id);
       if (acting.role !== 'school_admin') throw DomainException.forbidden();
-      if (
-        !(
-          await c.query('SELECT id FROM exam_sessions WHERE school_id=$1 AND id=$2', [
-            school,
-            sessionId,
-          ])
-        ).rows.length
-      )
-        throw DomainException.notFound();
+      const sitting = (
+        await c.query<{ starts_at: Date }>(
+          'SELECT starts_at FROM exam_sessions WHERE school_id=$1 AND id=$2 FOR SHARE',
+          [school, sessionId],
+        )
+      ).rows[0];
+      if (!sitting) throw DomainException.notFound();
       if (command) {
         // Serialize absent-row insertion and concurrent assignment edits.
         await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
@@ -181,6 +179,10 @@ export class AssistanceService {
           throw DomainException.conflict(
             'REVISION_CONFLICT',
             'Refresh staff assignments before changing them',
+          );
+        if (this.clock.now().getTime() >= sitting.starts_at.getTime() && !command.reason.trim())
+          throw DomainException.validationError(
+            'Enter a reason for changing invigilators after the exam starts',
           );
         await c.query(
           `INSERT INTO sitting_staff_assignments(school_id,session_id,staff_id,active,revision) VALUES($1,$2,$3,$4,1)
@@ -208,7 +210,10 @@ export class AssistanceService {
          ORDER BY u.display_name,u.id`,
         [school, sessionId],
       );
-      return { staff: rows.rows };
+      return {
+        staff: rows.rows,
+        reasonRequired: this.clock.now().getTime() >= sitting.starts_at.getTime(),
+      };
     });
   }
 
@@ -360,12 +365,14 @@ export class AssistanceService {
       z
         .object({
           action: z.enum(['approve', 'reject']),
-          reason: z.string().trim().min(1).max(500),
+          reason: z.string().trim().max(500).default(''),
           code: z.string().regex(/^\d{6}$/),
         })
         .strict(),
       input,
     );
+    if (command.action === 'reject' && !command.reason.trim())
+      throw DomainException.validationError('Enter a reason for rejecting reopening');
     // Charged outside the transaction so failed codes cannot roll back the attempt limit.
     await requestLimit(this.db, `assistance-decision:${school}:${user.id}`, 5, 60);
     const outcome = await this.db.withTenantTransaction(school, async (c) => {

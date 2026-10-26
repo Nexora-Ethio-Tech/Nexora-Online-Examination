@@ -7,7 +7,9 @@ import { App } from '@/app/App';
 import { routes } from '@/app/router';
 import { ApiClient } from '@/lib/api-client';
 import { createDemoTransport } from '@/mocks/auth';
-it('opens assignment confirmation before requiring a reason and uses the same flow for removal', async () => {
+it('refreshes the reason requirement at exam start and preserves assignment confirmations', async () => {
+  let reasonRequired = false;
+  let revision = 0;
   const session = '11111111-1111-4111-8111-111111111111',
     staff = '22222222-2222-4222-8222-222222222222';
   let active = false;
@@ -23,8 +25,10 @@ it('opens assignment confirmation before requiring a reason and uses the same fl
         const body = JSON.parse(String(init.body));
         sent.push(body);
         active = body.active;
+        revision++;
       }
       return Response.json({
+        reasonRequired,
         staff: [
           {
             id: staff,
@@ -32,7 +36,7 @@ it('opens assignment confirmation before requiring a reason and uses the same fl
             role: 'teacher',
             mfaEnrolled: true,
             active,
-            revision: active ? 1 : 0,
+            revision,
           },
         ],
       });
@@ -50,24 +54,41 @@ it('opens assignment confirmation before requiring a reason and uses the same fl
     />,
   );
   const user = userEvent.setup();
-  await screen.findByRole('option', { name: /Exam —/ });
+  await screen.findByRole('option', { name: /Exam —/ }, { timeout: 5000 });
   await user.selectOptions(screen.getByLabelText('Filter by exam (optional)'), session);
-  const assign = await screen.findByRole('button', { name: 'Assign invigilator' });
-  expect(assign).toBeEnabled();
-  expect(screen.queryByLabelText('Assignment change reason')).not.toBeInTheDocument();
-  await user.click(assign);
-  let dialog = screen.getByRole('dialog');
-  expect(within(dialog).getByRole('button', { name: 'Confirm assignment change' })).toBeDisabled();
-  await user.type(within(dialog).getByLabelText('Assignment change reason'), 'Supervise this exam');
-  await user.click(within(dialog).getByRole('button', { name: 'Confirm assignment change' }));
-  await user.click(await screen.findByRole('button', { name: 'Revoke assignment' }));
-  dialog = screen.getByRole('dialog');
-  await user.type(within(dialog).getByLabelText('Assignment change reason'), 'Staff replacement');
-  await user.click(within(dialog).getByRole('button', { name: 'Confirm assignment change' }));
-  await screen.findByRole('button', { name: 'Assign invigilator' });
+  for (const started of [false, true]) {
+    reasonRequired = started;
+    if (started) await user.click(screen.getByRole('button', { name: 'Refresh invigilators' }));
+    const assign = await screen.findByRole('button', { name: 'Assign invigilator' });
+    await user.click(assign);
+    let dialog = screen.getByRole('dialog');
+    const confirm = within(dialog).getByRole('button', { name: 'Confirm assignment change' });
+    if (started) {
+      expect(confirm).toBeDisabled();
+      await user.type(
+        within(dialog).getByLabelText('Assignment change reason'),
+        'Supervise this exam',
+      );
+    } else {
+      expect(within(dialog).queryByLabelText('Assignment change reason')).not.toBeInTheDocument();
+      expect(confirm).toBeEnabled();
+    }
+    await user.click(confirm);
+    await user.click(await screen.findByRole('button', { name: 'Revoke assignment' }));
+    dialog = screen.getByRole('dialog');
+    if (started)
+      await user.type(
+        within(dialog).getByLabelText('Assignment change reason'),
+        'Staff replacement',
+      );
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm assignment change' }));
+    await screen.findByRole('button', { name: 'Assign invigilator' });
+  }
   expect(sent).toEqual([
-    { staffId: staff, active: true, expectedRevision: 0, reason: 'Supervise this exam' },
-    { staffId: staff, active: false, expectedRevision: 1, reason: 'Staff replacement' },
+    { staffId: staff, active: true, expectedRevision: 0, reason: '' },
+    { staffId: staff, active: false, expectedRevision: 1, reason: '' },
+    { staffId: staff, active: true, expectedRevision: 2, reason: 'Supervise this exam' },
+    { staffId: staff, active: false, expectedRevision: 3, reason: 'Staff replacement' },
   ]);
   queryClient.clear();
 });

@@ -6,6 +6,7 @@ import {
   assignmentInputSchema,
   classInputSchema,
   reasonSchema,
+  optionalNoteSchema,
   subjectInputSchema,
   targetsSchema,
   type Account,
@@ -17,7 +18,8 @@ import { demoPasswordHash } from './directory-store';
 import { parseRosterCsv } from './roster-csv';
 const text = z.string().trim().min(1).max(160);
 const edit = z.object({ revision: z.number().int().positive(), reason: reasonSchema });
-const switchSchema = edit.extend({ active: z.boolean() });
+const optionalEdit = edit.extend({ reason: optionalNoteSchema });
+const switchSchema = optionalEdit.extend({ active: z.boolean() });
 const normalize = (s: string) => s.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
   const d = store.directory;
@@ -278,7 +280,8 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
     }
     if (path === '/school/ai-exam-settings' && method === 'PATCH') {
       const parsed = aiExamSettingsInputSchema.safeParse(body);
-      if (!parsed.success) return fail('Check the setting and reason.', 'VALIDATION_ERROR', 422);
+      if (!parsed.success)
+        return fail('Check the setting and optional note.', 'VALIDATION_ERROR', 422);
       if (parsed.data.revision !== d.aiExamSettings.revision)
         return fail('School settings changed; refresh before saving.');
       d.aiExamSettings = {
@@ -381,9 +384,8 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
     if (importMatch && method === 'POST') {
       const record = d.previews.get(importMatch[1] ?? '');
       if (!record) return fail('Import not found.', 'NOT_FOUND', 404);
-      const parsed = edit.strict().safeParse(body);
-      if (!parsed.success)
-        return fail('Enter a reason and preview revision.', 'VALIDATION_ERROR', 422);
+      const parsed = optionalEdit.strict().safeParse(body);
+      if (!parsed.success) return fail('Check the preview revision.', 'VALIDATION_ERROR', 422);
       if (record.committed) return commit(record.committed);
       const p = record.preview;
       const cls = d.classes.get(p.classId);
@@ -423,12 +425,12 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         const parsed = (
           id
             ? classInputSchema.merge(switchSchema)
-            : classInputSchema.extend({ reason: reasonSchema })
+            : classInputSchema.extend({ reason: optionalNoteSchema })
         )
           .strict()
           .safeParse(body);
         if (!parsed.success)
-          return fail('Enter the class name, year and reason.', 'VALIDATION_ERROR', 422);
+          return fail('Enter the class name and academic year.', 'VALIDATION_ERROR', 422);
         const old = id ? d.classes.get(id) : undefined;
         if (id && !old) return fail('Class not found.', 'NOT_FOUND', 404);
         const fields = parsed.data;
@@ -474,12 +476,12 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
       const parsed = (
         id
           ? subjectInputSchema.merge(switchSchema)
-          : subjectInputSchema.extend({ reason: reasonSchema })
+          : subjectInputSchema.extend({ reason: optionalNoteSchema })
       )
         .strict()
         .safeParse(body);
       if (!parsed.success)
-        return fail('Enter a subject name, valid code and reason.', 'VALIDATION_ERROR', 422);
+        return fail('Enter a subject name and valid code.', 'VALIDATION_ERROR', 422);
       const old = id ? d.subjects.get(id) : undefined;
       if (id && !old) return fail('Subject not found.', 'NOT_FOUND', 404);
       const fields = parsed.data;
@@ -525,11 +527,11 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
           firstName: text.optional(),
           fatherName: text.optional(),
           grandfatherName: text.optional(),
-          reason: reasonSchema,
+          reason: optionalNoteSchema,
         })
         .strict()
         .safeParse(body);
-      if (!parsed.success) return fail('Enter a teacher name and reason.', 'VALIDATION_ERROR', 422);
+      if (!parsed.success) return fail('Enter the staff name.', 'VALIDATION_ERROR', 422);
       const account = makeAccount(
         path === '/invigilators' ? 'invigilator' : 'teacher',
         parsed.data.displayName,
@@ -542,11 +544,10 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
     }
     if (path === '/students/generate-credentials' && method === 'POST') {
       const parsed = z
-        .object({ targets: targetsSchema, reason: reasonSchema })
+        .object({ targets: targetsSchema, reason: optionalNoteSchema })
         .strict()
         .safeParse(body);
-      if (!parsed.success)
-        return fail('Select 1–500 students and enter a reason.', 'VALIDATION_ERROR', 422);
+      if (!parsed.success) return fail('Select 1–500 students.', 'VALIDATION_ERROR', 422);
       const { targets, reason } = parsed.data;
       const accounts = targets.map((t) => d.accounts.get(t.userId));
       if (accounts.some((a) => !a || a.role !== 'student'))
@@ -587,7 +588,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
               : 'invigilator')
       )
         return fail('Account not found.', 'NOT_FOUND', 404);
-      const parsed = edit.safeParse(body);
+      const parsed = (accountMatch[3] ? edit : optionalEdit).safeParse(body);
       if (!parsed.success)
         return fail('Enter the account revision and reason.', 'VALIDATION_ERROR', 422);
       if (account.revision !== parsed.data.revision)
@@ -614,6 +615,8 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
             'VALIDATION_ERROR',
             422,
           );
+        if (account.status !== input.data.status && !input.data.reason.trim())
+          return fail('Enter a reason for changing account status.', 'VALIDATION_ERROR', 422);
         const loginChanged = !!input.data.loginId && input.data.loginId !== account.loginId;
         if (
           [...d.accounts.values()].some(
@@ -638,15 +641,11 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
     }
     if (path === '/teacher-assignments' && method === 'POST') {
       const parsed = assignmentInputSchema
-        .extend({ reason: reasonSchema })
+        .extend({ reason: optionalNoteSchema })
         .strict()
         .safeParse(body);
       if (!parsed.success)
-        return fail(
-          'Select a teacher, class, subject and enter a reason.',
-          'VALIDATION_ERROR',
-          422,
-        );
+        return fail('Select a teacher, class and subject.', 'VALIDATION_ERROR', 422);
       const { teacherId, classId, subjectId, reason } = parsed.data;
       const teacher = d.accounts.get(teacherId);
       const cls = d.classes.get(classId);
@@ -688,7 +687,7 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
       if (!a) return fail('Assignment not found.', 'NOT_FOUND', 404);
       const parsed = switchSchema.strict().safeParse(body);
       if (!parsed.success)
-        return fail('Enter the revision, active state and reason.', 'VALIDATION_ERROR', 422);
+        return fail('Check the revision and active state.', 'VALIDATION_ERROR', 422);
       if (a.revision !== parsed.data.revision) return fail('Assignment changed. Refresh first.');
       if (
         !parsed.data.active &&

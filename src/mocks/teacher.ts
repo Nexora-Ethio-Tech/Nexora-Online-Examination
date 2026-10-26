@@ -256,10 +256,10 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
       if (method === 'POST' && part === 'remove') {
         if (
           !z
-            .object({ confirmed: z.literal(true), reason: z.string().trim().min(1) })
+            .object({ confirmed: z.literal(true), reason: z.string().trim().max(500).default('') })
             .safeParse(body).success
         )
-          return fail('Confirm removal with a reason.', 'VALIDATION_ERROR', 422);
+          return fail('Confirm draft removal.', 'VALIDATION_ERROR', 422);
         if (d.importId) due.delete(d.importId);
         drafts.delete(d.examId);
         return commit({ id: d.examId, outcome: 'archived' });
@@ -420,7 +420,10 @@ export function createTeacherDemo(clock: () => number = Date.now, store = create
       if (method === 'POST' && jobMatch[2] === 'cancel') {
         const d = drafts.get(j.examId);
         const b = z
-          .object({ revision: z.number().int().positive(), reason: z.string().trim().min(1) })
+          .object({
+            revision: z.number().int().positive(),
+            reason: z.string().trim().max(500).default(''),
+          })
           .safeParse(body);
         if (
           !d ||

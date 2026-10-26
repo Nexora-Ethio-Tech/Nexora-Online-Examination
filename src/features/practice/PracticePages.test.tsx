@@ -31,16 +31,13 @@ describe('practice screens', () => {
     expect(screen.queryByRole('button', { name: 'Start new practice' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Practice release' })).not.toBeInTheDocument();
   });
-  it('requires an admin reason and review confirmation, then displays blockers and audit history', async () => {
+  it('saves without an optional note while requiring review confirmation', async () => {
     const c = await practiceFixture(false);
     const user = show(c.admin.client, '/admin/practice');
     const save = await screen.findByRole('button', { name: 'Save practice settings' });
     expect(save).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: 'Enable practice' }));
-    await user.type(
-      screen.getByLabelText('Reason for practice settings'),
-      'Reviewed practice release.',
-    );
+    expect(screen.getByLabelText('Note (optional)')).toHaveValue('');
     expect(save).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /I checked the paper/ }));
     await user.click(save);

@@ -30,4 +30,16 @@ Automated evidence: real local integration includes grade mismatch rejection, as
 
 ## Consistent removal controls
 
-Classes, subjects, student/staff accounts and teaching assignments use small accessible trash icons. Each opens a warning naming the record and explaining retained exam history. A reason and acknowledgement are required; cancelling and reopening clears both. Teacher draft removal follows the same dialog pattern; import cancellation uses an icon with its existing warning and reason. API removal rules are unchanged.
+Classes, subjects, student/staff accounts and teaching assignments use small accessible trash icons. Each opens a warning naming the record and explaining retained exam history. A reason and acknowledgement are required; cancelling and reopening clears both. Teacher draft removal keeps its warning and acknowledgement, with an optional note; import cancellation uses an icon with its warning and optional note. API removal rules are unchanged.
+
+## Reason and note policy (26 October 2026)
+
+Routine creation has no reason field: classes, subjects, teacher/invigilator accounts, roster imports, initial student login details and teaching assignments. Editing class/subject or ordinary account details has **Note (optional)**. Account activation/deactivation, password resets and directory deletions still require a reason. Deletion warnings and acknowledgements remain mandatory. Audits retain the actor, action, resource and time even when no note is supplied; blank notes are not replaced with invented explanations.
+
+Elsewhere, approval comments, schedule changes, AI settings, practice settings, teacher draft removal, import cancellation and student recovery uploads accept optional notes. Returning a paper, resolving flagged questions, extra-time changes, device replacement, supervision decisions, rejection of reopening and recovery review decisions require explanations. Student recovery retry preserves its original frozen request and note, including an empty note.
+
+Invigilator assignment reads now return `reasonRequired`, calculated from authoritative exam start and server time. Before start there is no reason input; at/after start a reason is required. The backend checks this again on writes. The visible directory refresh brings the UI up to date; a request crossing the start boundary can be rejected with an explanation to refresh and supply a reason.
+
+Platform owner provisioning, adding administrators, editing administrator information and inspecting the administrator directory require no reason. Subscription notes are optional. School suspension/reactivation and administrator recovery retain mandatory reasons and authenticator verification. Reading administrator details continues to produce an audit event.
+
+Verification: create/import/issue credentials with no reason; save ordinary edits with blank notes; confirm that active-status changes, deletion and password reset remain blocked without a reason. Approve a paper without a note, then separately confirm returning requires corrections. Check invigilator assignment both before start and exactly at start. Optional notes must accept blank input and preserve entered notes in history. Backend unit tests and frontend/demo tests support this policy; database integration and production rollout require separate evidence.

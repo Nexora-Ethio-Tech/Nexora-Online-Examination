@@ -22,12 +22,20 @@ export function Field({ label, children }: { label: string; children: ReactNode 
     </label>
   );
 }
-export function Reason({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function Reason({
+  value,
+  onChange,
+  optional = false,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  optional?: boolean;
+}) {
   return (
-    <Field label="Reason">
+    <Field label={optional ? 'Note (optional)' : 'Reason'}>
       <textarea
         className={control}
-        required
+        required={!optional}
         maxLength={2000}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -401,14 +409,13 @@ function StructureForm({
             Active {kind}
           </label>
         )}
-        <Reason value={reason} onChange={setReason} />
+        {selected && <Reason optional value={reason} onChange={setReason} />}
         <div className="flex gap-3">
           <Button
             className="min-h-11"
             disabled={
               (!(kind === 'class' && grade.trim() && section.trim()) && !name.trim()) ||
-              !detail.trim() ||
-              !reason.trim()
+              !detail.trim()
             }
           >
             Save {kind}
@@ -617,12 +624,10 @@ function AccountList({
                 onChange={(e) => setGrandfatherName(e.target.value)}
               />
             </Field>
-            <Reason value={reason} onChange={setReason} />
+
             <Button
               className="min-h-11"
-              disabled={
-                !name.trim() || !fatherName.trim() || !grandfatherName.trim() || !reason.trim()
-              }
+              disabled={!name.trim() || !fatherName.trim() || !grandfatherName.trim()}
             >
               {role === 'invigilator'
                 ? 'Create invigilator and login details'
@@ -750,7 +755,6 @@ function AccountList({
             Create login details for {checked.length} students
           </h2>
           <fieldset disabled={op.pending} className="space-y-3">
-            <Reason value={reason} onChange={setReason} />
             <label className="flex gap-3">
               <input
                 type="checkbox"
@@ -759,10 +763,7 @@ function AccountList({
               />
               I checked the selected students and am ready to save their login details.
             </label>
-            <Button
-              className="min-h-11"
-              disabled={!reason.trim() || !confirmed || checked.length > 500}
-            >
+            <Button className="min-h-11" disabled={!confirmed || checked.length > 500}>
               Create login details for selected accounts
             </Button>
           </fieldset>
@@ -980,7 +981,11 @@ function AccountEditor({
           />
           Account active
         </label>
-        <Reason value={reason} onChange={setReason} />
+        <Reason
+          optional={active === (account.status === 'active')}
+          value={reason}
+          onChange={setReason}
+        />
         <label className="flex gap-3">
           <input
             type="checkbox"
@@ -990,7 +995,13 @@ function AccountEditor({
           I checked the account changes.
         </label>
         <div className="flex gap-3">
-          <Button disabled={!confirmed || !name.trim() || !reason.trim()}>
+          <Button
+            disabled={
+              !confirmed ||
+              !name.trim() ||
+              (active !== (account.status === 'active') && !reason.trim())
+            }
+          >
             Save account changes
           </Button>
           <Button type="button" variant="outline" onClick={close}>
@@ -1028,7 +1039,7 @@ function AssignmentsPage() {
   const [teacherId, setTeacher] = useState('');
   const [classId, setClass] = useState('');
   const [subjectId, setSubject] = useState('');
-  const [reason, setReason] = useState('');
+  const reason = '';
   return (
     <div className="space-y-5">
       <form
@@ -1103,10 +1114,8 @@ function AssignmentsPage() {
             </select>
           </Field>
           {subjects.controls}
-          <Reason value={reason} onChange={setReason} />
-          <Button disabled={!teacherId || !classId || !subjectId || !reason.trim()}>
-            Save assignment
-          </Button>
+
+          <Button disabled={!teacherId || !classId || !subjectId}>Save assignment</Button>
         </fieldset>
         {op.feedback}
       </form>
@@ -1261,8 +1270,8 @@ function AssignmentRow({ assignment: a }: { assignment: import('./schemas').Assi
             );
           }}
         >
-          <Reason value={reason} onChange={setReason} />
-          <Button disabled={op.pending || !reason.trim()}>Confirm assignment change</Button>
+          <Reason optional value={reason} onChange={setReason} />
+          <Button disabled={op.pending}>Confirm assignment change</Button>
         </form>
       )}
       {op.feedback}
@@ -1345,8 +1354,8 @@ function AiExamSettings() {
             questions. Existing papers remain available.
           </p>
           <fieldset disabled={op.pending} className="space-y-4">
-            <Reason value={reason} onChange={setReason} />
-            <Button disabled={!reason.trim()}>
+            <Reason optional value={reason} onChange={setReason} />
+            <Button>
               {query.data.aiExamGenerationEnabled
                 ? 'Turn off AI exam generation'
                 : 'Turn on AI exam generation'}
