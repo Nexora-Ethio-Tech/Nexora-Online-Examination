@@ -1,3 +1,4 @@
+import { structureSchema, type Structure } from './content-schema';
 import { fromBuffer, Entry } from 'yauzl';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 import { randomUUID } from 'crypto';
@@ -298,11 +299,26 @@ export async function parseTemplateRows(
   return rows;
 }
 
-export async function parseQuestionFile(source: Buffer): Promise<Item[]> {
-  const rows = await parseTemplateRows(source);
-  if (rows[0]?.length !== HEADERS.length || rows[0].some((v, i) => v.trim() !== HEADERS[i]))
+export async function parseStructuredQuestionFile(
+  source: Buffer,
+): Promise<{ items: Item[]; structure: Structure }> {
+  const rows = await parseTemplateRows(source, {
+    sheetName: 'Questions',
+    columns: 13,
+    maxRows: 201,
+    allowDocx: true,
+  });
+  const optional = ['section', 'section_instructions', 'passage_title', 'passage_text'];
+  const header = rows[0] ?? [];
+  const structured = header.slice(9).some((v) => v.trim());
+  if (
+    header.slice(0, 9).some((v, i) => v.trim() !== HEADERS[i]) ||
+    header.length < 9 ||
+    (structured && optional.some((v, i) => header[9 + i]?.trim() !== v))
+  )
     fail('Column headers must match the downloadable template');
   if (rows.length < 2 || rows.length > 201) fail('Use between 1 and 200 questions');
+  const structure: Structure = { sections: [], passages: [] };
   const diagnostics: ImportDiagnostic[] = [],
     items: Item[] = [],
     ids = new Set<string>();
@@ -311,10 +327,12 @@ export async function parseQuestionFile(source: Buffer): Promise<Item[]> {
       values = cells.map((v) => v.trim());
     const [externalId, type, stem, a, b, c, d, answer, marks] = values;
     const error = (field: string, message: string) => diagnostics.push({ row, field, message });
-    if (values.length !== 9) {
-      error('row', 'Expected nine cells');
+    if (![9, 13].includes(values.length)) {
+      error('row', 'Expected nine columns, or thirteen with section and passage columns');
       return;
     }
+    if (!structured && values.slice(9).some(Boolean))
+      error('row', 'Add the four section and passage headers before using extra columns.');
     if (ids.has(externalId)) error('external_id', 'External IDs must be unique');
     ids.add(externalId);
     let options: { id: string; text: string }[] = [],
@@ -335,7 +353,56 @@ export async function parseQuestionFile(source: Buffer): Promise<Item[]> {
       if (!a || !b || (!c && d)) error('options', 'Use at least A and B with no gaps');
     } else error('type', 'Use mcq_single or true_false');
     if (!/^[1-9]\d*$/.test(marks)) error('marks', 'Marks must be a positive integer');
+    let sectionId: string | null = null,
+      passageId: string | null = null;
+    if (structured) {
+      const [sectionTitle, instructions, passageTitle, passageText] = values.slice(9);
+      if (!sectionTitle) error('section', 'Every question needs a section name.');
+      let section = structure.sections.find((s) => s.title === sectionTitle);
+      if (!section) {
+        section = {
+          id: randomUUID(),
+          title: sectionTitle || '',
+          type: type === 'true_false' ? 'true_false' : 'mcq_single',
+          shuffle: true,
+          blocks: instructions ? [{ id: randomUUID(), kind: 'text', text: instructions }] : [],
+        };
+        structure.sections.push(section);
+      }
+      if (section.type !== type)
+        error('section', 'Use separate sections for different question types.');
+      if (
+        JSON.stringify(section.blocks.map((b) => (b.kind === 'text' ? b.text : ''))) !==
+        JSON.stringify(instructions ? [instructions] : [])
+      )
+        error('section_instructions', 'Repeat identical instructions for the same section.');
+      sectionId = section.id;
+      if (passageTitle || passageText) {
+        if (!passageTitle || !passageText) error('passage', 'Supply both passage title and text.');
+        let passage = structure.passages.find(
+          (p) => p.sectionId === sectionId && p.title === passageTitle,
+        );
+        if (!passage) {
+          passage = {
+            id: randomUUID(),
+            sectionId,
+            title: passageTitle || '',
+            blocks: [{ id: randomUUID(), kind: 'text', text: passageText || '' }],
+          };
+          structure.passages.push(passage);
+        }
+        if (
+          JSON.stringify(passage.blocks.map((b) => (b.kind === 'text' ? b.text : ''))) !==
+          JSON.stringify([passageText])
+        )
+          error('passage_text', 'Repeat identical text for the same passage.');
+        passageId = passage.id;
+      }
+    }
     const item = {
+      sectionId,
+      passageId,
+      content: [],
       itemId: randomUUID(),
       externalId,
       type,
@@ -356,6 +423,16 @@ export async function parseQuestionFile(source: Buffer): Promise<Item[]> {
       for (const issue of valid.error.issues) error(issue.path.join('.') || 'row', issue.message);
     else items.push(valid.data);
   });
+  const validStructure = structureSchema.safeParse(structure);
+  if (!validStructure.success)
+    diagnostics.push({
+      row: 1,
+      field: 'structure',
+      message: 'Sections or passages exceed supported limits.',
+    });
   if (diagnostics.length) throw new ImportFormatError(diagnostics);
-  return items;
+  return { items, structure };
+}
+export async function parseQuestionFile(source: Buffer): Promise<Item[]> {
+  return (await parseStructuredQuestionFile(source)).items;
 }

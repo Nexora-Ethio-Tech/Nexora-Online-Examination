@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { DbService } from '../../common/db/db.service';
 import { computeCanonicalDigest } from '../../common/crypto/canonical-digest';
-import { parseQuestionFile, ImportFormatError } from './import-parser';
+import { parseStructuredQuestionFile, ImportFormatError } from './import-parser';
 import {
   aiConfiguration,
   AiProviderError,
@@ -153,7 +153,10 @@ export class ImportWorkerService {
             generationInputSchema.parse(job.generation_request),
           )
         : null;
-      const items = generated?.items ?? (await parseQuestionFile(job.source_bytes));
+      const parsed = generated
+        ? { items: generated.items, structure: { sections: [], passages: [] } }
+        : await parseStructuredQuestionFile(job.source_bytes);
+      const items = parsed.items;
       await this.db.withTenantTransaction(school, async (c) => {
         const exam = await this.authoring.owned(c, school, job.owner_id, job.exam_id, true);
         const lease = (
@@ -177,6 +180,11 @@ export class ImportWorkerService {
           'before_import_replace',
           await this.authoring.items(c, school, job.exam_id),
         );
+        await c.query('UPDATE exams SET structure=$1 WHERE school_id=$2 AND id=$3', [
+          JSON.stringify(parsed.structure),
+          school,
+          job.exam_id,
+        ]);
         await c.query(
           'DELETE FROM exam_items WHERE school_id=$1 AND exam_id=$2 AND exam_version_id IS NULL',
           [school, job.exam_id],
@@ -196,6 +204,16 @@ export class ImportWorkerService {
             question: {
               type: item.type,
               stem: item.stem,
+              context: [
+                ...parsed.structure.sections
+                  .filter((s) => s.id === item.sectionId)
+                  .flatMap((s) => s.blocks),
+                ...parsed.structure.passages
+                  .filter((p) => p.id === item.passageId)
+                  .flatMap((p) => p.blocks),
+              ]
+                .map((b) => (b.kind === 'text' ? b.text : ''))
+                .join('\n'),
               options: item.options,
               correctOptionId: item.correctOptionId,
             },
@@ -218,6 +236,10 @@ export class ImportWorkerService {
               generated ? item.primaryTopic : '',
               generated ? item.explanation : '',
             ],
+          );
+          await c.query(
+            'UPDATE exam_items SET section_id=$1,passage_id=$2 WHERE school_id=$3 AND exam_id=$4 AND exam_version_id IS NULL AND item_id=$5',
+            [item.sectionId ?? null, item.passageId ?? null, school, job.exam_id, item.itemId],
           );
           if (!generated)
             await c.query(
