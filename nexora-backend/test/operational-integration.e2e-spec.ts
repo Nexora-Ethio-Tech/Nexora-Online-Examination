@@ -1,3 +1,4 @@
+import { platformKey } from '../src/platform/platform-db';
 import { PlatformModule } from '../src/platform/platform.module';
 import { ownerDispatch } from '../src/combined-routing';
 import type { RequestHandler } from 'express';
@@ -225,8 +226,17 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         .compile();
       app = module.createNestApplication();
       if (process.env.NEXORA_LOCAL_INTEGRATION === 'true') {
-        const ownerModule = await Test.createTestingModule({ imports: [PlatformModule] }).compile();
-        ownerApp = ownerModule.createNestApplication();
+        const previousPoolMax = process.env.DB_POOL_MAX;
+        try {
+          process.env.DB_POOL_MAX = '1';
+          const ownerModule = await Test.createTestingModule({
+            imports: [PlatformModule],
+          }).compile();
+          ownerApp = ownerModule.createNestApplication();
+        } finally {
+          if (previousPoolMax === undefined) delete process.env.DB_POOL_MAX;
+          else process.env.DB_POOL_MAX = previousPoolMax;
+        }
         ownerApp.use(cookieParser());
         ownerApp.setGlobalPrefix('platform-api/v1');
         ownerApp.useLogger(false);
@@ -537,6 +547,84 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
           .set('X-CSRF-Token', bootstrap.body.csrfToken)
           .send({})
           .expect(403);
+      },
+    );
+    it.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
+      'requires MFA after identifying an owner and rejects expired challenges',
+      async () => {
+        if (!app || !pool) throw new Error('Not started');
+        const ownerId = randomUUID(),
+          secret = newMfaSecret(),
+          version = randomUUID();
+        await pool.query(
+          "INSERT INTO platform.accounts(id,login_id,display_name,password_hash,active,mfa_secret_enc,mfa_version,enrolled_at) VALUES($1::uuid,$1::text,'Synthetic owner',$2,true,$3,$4,clock_timestamp()-interval '1 minute')",
+          [
+            ownerId,
+            await hashPassword(loginPassword),
+            encryptMfaSecret(
+              secret,
+              { schoolId: 'platform', userId: ownerId, version },
+              platformKey(),
+            ),
+            version,
+          ],
+        );
+        try {
+          const server = app.getHttpServer();
+          const boot = await request(server).get('/platform-api/v1/auth/csrf').expect(200);
+          const bootCookie = responseCookie(boot, 'nexora_platform');
+          ownerSessionHashes.push(hashSha256(bootCookie.split('=')[1]));
+          const send = (path: string, cookie: string, csrfToken: string, body: object) =>
+            request(server)
+              .post('/platform-api/v1' + path)
+              .set('Cookie', cookie)
+              .set('Origin', 'http://localhost:5173')
+              .set('X-CSRF-Token', csrfToken)
+              .send(body);
+          await send('/auth/identify', bootCookie, 'wrong', {
+            loginId: ownerId,
+            password: loginPassword,
+          }).expect(403);
+          const wrong = await send('/auth/identify', bootCookie, boot.body.csrfToken, {
+            loginId: ownerId,
+            password: 'wrong',
+          }).expect(200);
+          expect(wrong.body).toEqual({ status: 'school' });
+          const identified = await send('/auth/identify', bootCookie, boot.body.csrfToken, {
+            loginId: ownerId,
+            password: loginPassword,
+          }).expect(200);
+          expect(identified.body.status).toBe('owner_mfa_required');
+          const pending = responseCookie(identified, 'nexora_platform');
+          await request(server).get('/platform-api/v1/schools').set('Cookie', pending).expect(401);
+          const time = (await pool.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
+          const code = totpCode(secret, Math.floor(time.getTime() / 30000));
+          const verified = await send('/auth/verify', pending, identified.body.csrfToken, {
+            code,
+          }).expect(200);
+          const authenticated = responseCookie(verified, 'nexora_platform');
+          await request(server)
+            .get('/platform-api/v1/auth/me')
+            .set('Cookie', authenticated)
+            .expect(200);
+          await request(server).get('/api/v1/auth/me').set('Cookie', authenticated).expect(401);
+          await send('/auth/verify', pending, identified.body.csrfToken, { code }).expect(401);
+          const next = await send('/auth/identify', authenticated, verified.body.csrfToken, {
+            loginId: ownerId,
+            password: loginPassword,
+          }).expect(200);
+          const nextCookie = responseCookie(next, 'nexora_platform');
+          await send('/auth/verify', nextCookie, next.body.csrfToken, { code }).expect(403);
+          await pool.query(
+            "UPDATE platform.sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE owner_id=$1",
+            [ownerId],
+          );
+          await send('/auth/verify', nextCookie, next.body.csrfToken, { code }).expect(401);
+        } finally {
+          await pool.query('DELETE FROM platform.sessions WHERE owner_id=$1', [ownerId]);
+          await pool.query('DELETE FROM platform.audit WHERE owner_id=$1', [ownerId]);
+          await pool.query('DELETE FROM platform.accounts WHERE id=$1', [ownerId]);
+        }
       },
     );
     it('enforces teacher draft revisions and freezes reviewed submission', async () => {
@@ -1649,6 +1737,8 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
               ...process.env,
               API_PROXY_TARGET: apiUrl,
               VITE_USE_MOCKS: 'false',
+              VITE_APP_SURFACE: 'combined',
+              VITE_PLATFORM_API_BASE_URL: '/platform-api/v1',
               VITE_API_BASE_URL: '/api/v1',
             },
             stdio: ['ignore', 'pipe', 'pipe'],
@@ -1690,6 +1780,79 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
               }),
             );
           browserProcess = await chromium.launch();
+          if (process.env.NEXORA_LOCAL_INTEGRATION === 'true') {
+            const ownerId = randomUUID(),
+              secret = newMfaSecret(),
+              version = randomUUID();
+            await pool.query(
+              "INSERT INTO platform.accounts(id,login_id,display_name,password_hash,active,mfa_secret_enc,mfa_version,enrolled_at) VALUES($1::uuid,$1::text,'Browser owner',$2,true,$3,$4,clock_timestamp()-interval '1 minute')",
+              [
+                ownerId,
+                await hashPassword(loginPassword),
+                encryptMfaSecret(
+                  secret,
+                  { schoolId: 'platform', userId: ownerId, version },
+                  platformKey(),
+                ),
+                version,
+              ],
+            );
+            const context = await browserProcess.newContext();
+            try {
+              const page = await context.newPage();
+              const loginResponses: string[] = [];
+              page.on('response', (r) => {
+                if (r.url().includes('/auth/'))
+                  loginResponses.push(r.status() + ' ' + new URL(r.url()).pathname);
+              });
+              await page.goto('http://127.0.0.1:5184/login');
+              await page.getByLabel('User ID', { exact: true }).fill(ownerId);
+              await page.getByLabel('Password', { exact: true }).fill(loginPassword);
+              await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+              await browserExpect(page.getByRole('heading', { name: 'One more step' }))
+                .toBeVisible()
+                .catch(async () => {
+                  throw new Error(
+                    JSON.stringify({
+                      responses: loginResponses,
+                      alerts: await page.getByRole('alert').allTextContents(),
+                      url: page.url(),
+                    }),
+                  );
+                });
+              const time = (await pool.query('SELECT clock_timestamp() AS now')).rows[0]
+                .now as Date;
+              await page
+                .getByLabel('Verification code')
+                .fill(totpCode(secret, Math.floor(time.getTime() / 30000)));
+              await page.getByRole('button', { name: 'Verify and continue' }).click();
+              await browserExpect(page).toHaveURL('http://127.0.0.1:5184/platform');
+              await browserExpect(
+                page.getByText('Signed in as Browser owner.', { exact: false }),
+              ).toBeVisible();
+            } finally {
+              await context.close();
+              await pool.query('DELETE FROM platform.sessions WHERE owner_id=$1', [ownerId]);
+              await pool.query('DELETE FROM platform.audit WHERE owner_id=$1', [ownerId]);
+              await pool.query('DELETE FROM platform.accounts WHERE id=$1', [ownerId]);
+            }
+          }
+          if (process.env.NEXORA_LOCAL_INTEGRATION === 'true') {
+            const context = await browserProcess.newContext();
+            try {
+              const page = await context.newPage();
+              await page.goto('http://127.0.0.1:5184/login');
+              await page.getByLabel('User ID', { exact: true }).fill(student);
+              await page.getByLabel('Password', { exact: true }).fill(loginPassword);
+              await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+              await browserExpect(page).toHaveURL(/\/student$/);
+              for (const cookie of await context.cookies())
+                if (cookie.name === 'nexora_platform')
+                  ownerSessionHashes.push(hashSha256(cookie.value));
+            } finally {
+              await context.close();
+            }
+          }
           for (const [token, path, title, endpoint] of [
             [adminToken, '/admin/school', 'School setup', '/classes'],
             [teacherToken, '/teacher/results', 'Official results', '/results/sessions'],

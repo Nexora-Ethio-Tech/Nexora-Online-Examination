@@ -5,7 +5,7 @@ You and Yonas use platform-owner accounts. A school administrator uses a separat
 Each staff account normally has one authenticator entry that works across all its assigned exams. Choosing an exam does not create another authenticator.
 
 ## 1. Open the owner portal
-For the current live setup use https://nexora-owner.vercel.app/.
+After combined hosting is deployed, use https://nexora-online-examination.vercel.app/login for both owners and school users. Enter your own ID and password, then your authenticator code when asked. The verified account determines the workspace. Until that rollout is verified, the existing owner website remains available.
 After the combined deployment is activated, use https://nexora-online-examination.vercel.app/platform instead. Until that change is deployed, continue using the current address.
 Sign in with your owner ID, password and the current six-digit code from your authenticator. Wait for a fresh code before performing another protected action.
 

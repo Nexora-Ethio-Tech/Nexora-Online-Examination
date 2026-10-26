@@ -51,7 +51,7 @@ let session = {
   id: sessionId,
   owner_id: id,
   csrf_token: 'csrf',
-  authenticated_at: new Date('2029-02-01'),
+  authenticated_at: new Date('2029-02-01') as Date | null,
 };
 let existingOperation: { fingerprint: string; result: Record<string, unknown> } | undefined;
 const service = new PlatformService(new PlatformDb());
@@ -88,6 +88,7 @@ beforeEach(async () => {
   mocks.query.mockImplementation(async (sql: string) => {
     if (sql.includes('nexora_take_request_limit')) return { rows: [{ retry: 0 }] };
     if (sql.includes('FROM platform.sessions')) return { rows: [session] };
+    if (sql.includes('SELECT a.* FROM platform.accounts')) return { rows: [account] };
     if (sql.includes('SELECT * FROM platform.accounts')) return { rows: [account] };
     if (sql === 'SELECT clock_timestamp() AS now') return { rows: [{ now }] };
     if (sql.includes('FROM platform.operations'))
@@ -327,4 +328,71 @@ describe('subscription scheduling policy', () => {
       expect(query.mock.calls[1][0]).not.toContain('FOR SHARE');
     },
   );
+});
+
+describe('shared sign-in', () => {
+  it('creates only a short-lived unauthenticated challenge after a valid password', async () => {
+    const response = res();
+    const result = await service.identify(req('POST'), response, {
+      loginId: 'OWNER',
+      password: 'synthetic-owner-password',
+    });
+    expect(result.status).toBe('owner_mfa_required');
+    expect(response.cookie).toHaveBeenCalledWith(
+      'nexora_platform',
+      expect.any(String),
+      expect.objectContaining({ httpOnly: true, maxAge: 300000 }),
+    );
+    const inserts = mocks.query.mock.calls.filter(([sql]) =>
+      sql.startsWith('INSERT INTO platform.sessions'),
+    );
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0][0]).not.toContain('authenticated_at');
+    session.authenticated_at = null;
+    await expect(service.me(req())).rejects.toMatchObject({ code: 'AUTH_REQUIRED' });
+    await expect(service.schools(req())).rejects.toMatchObject({ code: 'AUTH_REQUIRED' });
+  });
+  it('does not recognize an owner from ID alone or issue a cookie for a wrong password', async () => {
+    const response = res();
+    expect(
+      await service.identify(req('POST'), response, { loginId: 'OWNER', password: 'wrong' }),
+    ).toEqual({ status: 'school' });
+    expect(response.cookie).not.toHaveBeenCalled();
+    account.active = false;
+    expect(
+      await service.identify(req('POST'), response, {
+        loginId: 'OWNER',
+        password: 'synthetic-owner-password',
+      }),
+    ).toEqual({ status: 'school' });
+  });
+  it('requires CSRF before checking credentials', async () => {
+    const r = req('POST');
+    r.headers['x-csrf-token'] = 'wrong';
+    await expect(
+      service.identify(r, res(), { loginId: 'OWNER', password: 'synthetic-owner-password' }),
+    ).rejects.toMatchObject({ code: 'CSRF_INVALID' });
+  });
+  it('verifies MFA and rotates the pending session', async () => {
+    session.authenticated_at = null;
+    expect(await service.verifyLogin(req('POST'), res(), { code })).toMatchObject({
+      displayName: 'Owner',
+    });
+    expect(
+      mocks.query.mock.calls.some(
+        ([sql]) =>
+          sql.startsWith('INSERT INTO platform.sessions') && sql.includes('authenticated_at'),
+      ),
+    ).toBe(true);
+  });
+  it('rejects MFA replay and authenticated sessions used as challenges', async () => {
+    await expect(service.verifyLogin(req('POST'), res(), { code })).rejects.toMatchObject({
+      code: 'AUTH_REQUIRED',
+    });
+    session.authenticated_at = null;
+    account.last_step = String(step);
+    await expect(service.verifyLogin(req('POST'), res(), { code })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  });
 });

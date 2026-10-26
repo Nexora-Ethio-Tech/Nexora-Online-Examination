@@ -75,11 +75,11 @@ export function LoginPage() {
             <GraduationCap aria-hidden="true" /> Nexora
           </div>
           <p className="mb-3 text-xs font-semibold tracking-widest text-muted-foreground">
-            YOUR SCHOOL WORKSPACE
+            YOUR NEXORA WORKSPACE
           </p>
           <h2 className="text-3xl font-semibold tracking-tight">Welcome back</h2>
           <p className="mt-3 mb-8 text-sm leading-relaxed text-muted-foreground">
-            Sign in with the user ID and password provided by your school.
+            Sign in with your user ID and password. We’ll open the right workspace for your account.
           </p>
           <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-5">
             <FormField id="login-id" label="User ID" error={form.formState.errors.loginId?.message}>
@@ -141,9 +141,14 @@ export function LoginPage() {
           <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
             Forgot your password? Ask your school administrator to reset it.
           </p>
-          <a href="/platform" className="mt-3 inline-flex min-h-11 items-center text-sm underline">
-            Platform owner sign-in
-          </a>
+          {import.meta.env.VITE_APP_SURFACE !== 'combined' && (
+            <a
+              href="/platform"
+              className="mt-3 inline-flex min-h-11 items-center text-sm underline"
+            >
+              Platform owner sign-in
+            </a>
+          )}
           <div className="mt-12 flex items-start gap-2 border-t pt-6 text-xs leading-relaxed text-muted-foreground">
             <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
             <p>Using a shared device? Sign out when you’re finished.</p>

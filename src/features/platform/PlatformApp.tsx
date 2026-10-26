@@ -41,6 +41,7 @@ export function PlatformApp({ client: provided }: { client?: ApiClient }) {
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 401)) throw e;
         setOwner(null);
+        if (import.meta.env.VITE_APP_SURFACE === 'combined') window.location.replace('/login');
       }
     } catch (e) {
       setError(errorMessage(e));
@@ -66,7 +67,7 @@ export function PlatformApp({ client: provided }: { client?: ApiClient }) {
           </div>
           {import.meta.env.VITE_APP_SURFACE !== 'platform' && (
             <a className="underline" href="/">
-              School sign-in
+              Sign-in page
             </a>
           )}
         </header>

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiClient, ApiError } from '@/lib/api-client';
 import { createAuthApi } from './api';
+import { ownerSignIn, sharedLogin } from './owner-sign-in';
 import type { LoginInput, MfaInput } from './schemas';
 
 const sessionKey = ['auth', 'session'];
@@ -10,6 +11,12 @@ function useAuthController(client: ApiClient) {
   const queries = useQueryClient();
   const api = useMemo(() => createAuthApi(client), [client]);
   const [challenge, setChallenge] = useState(false);
+  const [ownerChallenge, setOwnerChallenge] = useState(false);
+  const ownerApi = useMemo(
+    () =>
+      ownerSignIn(new ApiClient(import.meta.env.VITE_PLATFORM_API_BASE_URL || '/platform-api/v1')),
+    [],
+  );
   const sessionQuery = useQuery({
     queryKey: sessionKey,
     queryFn: ({ signal }) => api.session(signal),
@@ -62,7 +69,18 @@ function useAuthController(client: ApiClient) {
       await queries.cancelQueries();
       clearPrivateQueries();
       queries.setQueryData(sessionKey, null);
-      const result = await api.login(input);
+      setOwnerChallenge(false);
+      const result = await sharedLogin(
+        api,
+        ownerApi,
+        input,
+        import.meta.env.VITE_APP_SURFACE === 'combined',
+      );
+      if (result.status === 'owner_mfa_required') {
+        setOwnerChallenge(true);
+        setChallenge(true);
+        return;
+      }
       if (result.status === 'mfa_required') setChallenge(true);
       else await restore();
     },
@@ -71,6 +89,11 @@ function useAuthController(client: ApiClient) {
   });
   const verify = useMutation({
     mutationFn: async (input: MfaInput) => {
+      if (ownerChallenge) {
+        await ownerApi.verify(input);
+        window.location.replace('/platform');
+        return;
+      }
       await api.verify(input);
       await restore();
       setChallenge(false);
@@ -99,6 +122,7 @@ function useAuthController(client: ApiClient) {
     verify,
     logout,
     resetChallenge: () => {
+      setOwnerChallenge(false);
       setChallenge(false);
       client.setCsrfToken(null);
       verify.reset();

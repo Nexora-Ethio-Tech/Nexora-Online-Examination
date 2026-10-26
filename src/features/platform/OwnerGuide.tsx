@@ -3,7 +3,7 @@ import { tourPresentation } from '@/features/onboarding/tour-appearance';
 export const ownerSteps = [
   {
     title: 'Your schools',
-    body: 'Each school card shows its permanent numeric school code. Choose a school to manage its subscription, access and administrators. Use Next page to see more schools.',
+    body: 'Use the shared sign-in page with your own ID, password and authenticator code. Your account opens this owner workspace automatically. Each school card shows its permanent numeric school code. Choose a school to manage its subscription, access and administrators. Use Next page to see more schools.',
     target: '#owner-schools h2',
   },
   {

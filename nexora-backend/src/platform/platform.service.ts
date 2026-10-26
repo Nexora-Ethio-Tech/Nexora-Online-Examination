@@ -137,6 +137,91 @@ export class PlatformService {
     res.cookie(cookie(), raw, { ...options(), maxAge: 600_000 });
     return { csrfToken: csrf };
   }
+  // Password routing grants no access: owner sessions stay unauthenticated until MFA.
+  async identify(req: Request, res: Response, input: unknown) {
+    const body = loginSchema.omit({ code: true }).parse(input);
+    await this.limit(`identify-ip:${req.ip ?? 'unknown'}`, 20);
+    await this.limit(`login:${body.loginId}`);
+    const result = await this.db.transaction(async (c) => {
+      const old = await this.session(c, req);
+      const owner = (
+        await c.query<Owner>('SELECT * FROM platform.accounts WHERE login_id=$1 FOR UPDATE', [
+          body.loginId,
+        ])
+      ).rows[0];
+      const fallbackHash = await this.dummyHash;
+      const valid = await verifyPassword(owner?.password_hash ?? fallbackHash, body.password);
+      if (!owner?.active || !owner.enrolled_at || !valid) return null;
+      const raw = generateOpaqueToken(),
+        csrfToken = generateOpaqueToken();
+      await c.query('UPDATE platform.sessions SET revoked_at=clock_timestamp() WHERE id=$1', [
+        old.id,
+      ]);
+      await c.query(
+        "INSERT INTO platform.sessions(id,token_hash,csrf_token,owner_id,expires_at) VALUES($1,$2,$3,$4,clock_timestamp()+interval '5 minutes')",
+        [randomUUID(), hashSha256(raw), csrfToken, owner.id],
+      );
+      return { raw, csrfToken };
+    });
+    if (!result) return { status: 'school' as const };
+    res.cookie(cookie(), result.raw, { ...options(), maxAge: 300_000 });
+    return { status: 'owner_mfa_required' as const, csrfToken: result.csrfToken };
+  }
+  private readonly dummyHash = hashPassword(generateOpaqueToken());
+  async verifyLogin(req: Request, res: Response, input: unknown) {
+    const { code } = loginSchema.pick({ code: true }).parse(input);
+    await this.limit(`verify-ip:${req.ip ?? 'unknown'}`, 20);
+    await this.limit(`verify-session:${sessionToken(req) ?? 'missing'}`);
+    // Take the owner limit before acquiring the transaction's connection: Vercel pools may have one slot.
+    const pending = (
+      await this.db.query<{ owner_id: string | null }>(
+        'SELECT owner_id FROM platform.sessions WHERE token_hash=$1 AND authenticated_at IS NULL AND revoked_at IS NULL AND expires_at>clock_timestamp()',
+        [hashSha256(sessionToken(req) ?? '')],
+      )
+    ).rows[0];
+    if (pending?.owner_id) await this.limit(`verify-owner:${pending.owner_id}`);
+    const result = await this.db
+      .transaction(async (c) => {
+        const old = await this.session(c, req);
+        if (!old.owner_id || old.authenticated_at) throw DomainException.authRequired();
+        if (old.owner_id !== pending?.owner_id) throw DomainException.authRequired();
+        const owner = (
+          await c.query<Owner>(
+            "SELECT a.* FROM platform.accounts a JOIN platform.sessions s ON s.owner_id=a.id WHERE s.id=$1 AND a.enrolled_at <= s.expires_at - interval '5 minutes' FOR UPDATE OF a",
+            [old.id],
+          )
+        ).rows[0];
+        if (!owner?.active || !owner.enrolled_at) throw DomainException.authRequired();
+        await this.verifyCode(c, owner, code);
+        const raw = generateOpaqueToken(),
+          csrfToken = generateOpaqueToken();
+        await c.query('UPDATE platform.sessions SET revoked_at=clock_timestamp() WHERE id=$1', [
+          old.id,
+        ]);
+        await c.query(
+          "INSERT INTO platform.sessions(id,token_hash,csrf_token,owner_id,authenticated_at,expires_at) VALUES($1,$2,$3,$4,clock_timestamp(),clock_timestamp()+interval '30 minutes')",
+          [randomUUID(), hashSha256(raw), csrfToken, owner.id],
+        );
+        await this.audit(
+          c,
+          owner.id,
+          null,
+          'owner_login',
+          'Password and MFA verified through shared sign-in',
+        );
+        return { raw, csrfToken, displayName: owner.display_name };
+      })
+      .catch(async (error: unknown) => {
+        if (error instanceof DomainException)
+          await this.db.query(
+            "INSERT INTO platform.audit(action,reason,details) VALUES('owner_login_failed','Shared sign-in MFA rejected',$1)",
+            [{ code: error.code }],
+          );
+        throw error;
+      });
+    res.cookie(cookie(), result.raw, { ...options(), maxAge: 1_800_000 });
+    return { csrfToken: result.csrfToken, displayName: result.displayName };
+  }
   async login(req: Request, res: Response, input: unknown) {
     const body = loginSchema.parse(input);
     await this.limit(`login-ip:${req.ip ?? 'unknown'}`, 20);

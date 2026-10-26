@@ -1,3 +1,7 @@
+## Shared sign-in update
+
+Combined hosting now uses one /login form: verified owner credentials create a five-minute unauthenticated challenge, /platform-api/v1/auth/verify completes owner MFA, and school credentials retain existing authentication and role destinations. No additional migration for this flow. See [architecture and acceptance](combined-deployment-architecture-and-testing.md). Production rollout remains separate from the source change.
+
 ## 26 October 2026 implementation update
 
 Additive migration 034 introduces structured exam content. Deploy the coordinated frontend/backend after applying it. The authoring outline endpoint is POST /exams/:id/outline with revision, structure and items, using existing CSRF/idempotency conventions. Read [architecture and tests](structured-content-architecture-and-testing.md). Combined hosting is opt-in through NEXORA_SERVICE=combined; see [rollout guide](combined-deployment-architecture-and-testing.md). Production has not been changed by this implementation.

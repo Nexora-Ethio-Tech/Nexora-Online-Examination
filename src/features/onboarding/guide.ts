@@ -7,7 +7,7 @@ export const guides: Record<Role, GuideStep[]> = {
     {
       title: 'Set up your authenticator',
       targets: ['[data-tour="authenticator-setup"]', '[data-tour="authenticator-heading"]'],
-      body: 'In Exam assistance, set up your authenticator on your own device before supervising. Keep the setup key private.',
+      body: 'Sign in with your staff ID on the shared sign-in page. In Exam assistance, set up your authenticator on your own device before supervising. Keep the setup key private.',
       path: '/invigilator',
     },
     {
