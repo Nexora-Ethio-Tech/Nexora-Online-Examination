@@ -1,3 +1,4 @@
+import { QuestionContext } from '@/features/exams/content/Content';
 import { errorMessage } from '@/lib/api-client';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link, useBlocker, useParams } from 'react-router';
@@ -189,6 +190,7 @@ function RunnerScreen({ engine, reopen }: { engine: RunnerEngine; reopen: () => 
             <p className="mb-3 text-xs text-muted-foreground">
               Question {index + 1} of {view.paper.items.length} · {item.marks} marks
             </p>
+            <QuestionContext structure={view.paper.structure} item={item} />
             <fieldset disabled={view.saving || view.seconds === 0}>
               <legend className="exam-question-text mb-5 text-lg font-medium">{item.stem}</legend>
               <div className="space-y-3">

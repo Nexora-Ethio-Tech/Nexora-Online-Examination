@@ -1,3 +1,4 @@
+import { QuestionContext } from '@/features/exams/content/Content';
 import { InvigilatorAssignments } from '@/features/assistance/InvigilatorAssignments';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { EthiopianDateTimeField } from '@/components/shared/EthiopianDateTimeField';
@@ -401,6 +402,7 @@ export function AdminExamDetail() {
             </h3>
             <div className="mt-4 grid gap-5 lg:grid-cols-2">
               <div>
+                <QuestionContext structure={d.exam.structure} item={item} />
                 <p className="whitespace-pre-wrap text-sm">{item.stem}</p>
                 <ul className="mt-3 space-y-2 text-sm">
                   {item.options.map((o) => (

@@ -1,3 +1,5 @@
+import { validateImages } from './image-validation';
+import { structureSchema, structureProblems } from './content-schema';
 import { Injectable } from '@nestjs/common';
 import { Request } from 'express';
 import { PoolClient } from 'pg';
@@ -29,6 +31,7 @@ export type Exam = {
   return_comment: string | null;
   created_at: Date;
   concluded?: boolean;
+  structure?: unknown;
 };
 export function teacherIdentity(req: Request) {
   if (!req.sessionUser || !req.school) throw DomainException.authRequired();
@@ -48,7 +51,7 @@ const listInput = z
     cursor: z.string().max(1200).optional(),
   })
   .strict();
-const itemSelect = `SELECT item_id "itemId",external_id "externalId",type,stem,options,correct_key "correctOptionId",marks,primary_topic "primaryTopic",secondary_topics "secondaryTopics",explanation,key_consistent "keyConsistent",review_flags "reviewFlags",reviewed,review_note "reviewNote" FROM exam_items WHERE school_id=$1 AND exam_id=$2 AND exam_version_id IS NULL ORDER BY position,item_id`;
+const itemSelect = `SELECT item_id "itemId",external_id "externalId",type,stem,section_id "sectionId",passage_id "passageId",content,options,correct_key "correctOptionId",marks,primary_topic "primaryTopic",secondary_topics "secondaryTopics",explanation,key_consistent "keyConsistent",review_flags "reviewFlags",reviewed,review_note "reviewNote" FROM exam_items WHERE school_id=$1 AND exam_id=$2 AND exam_version_id IS NULL ORDER BY position,item_id`;
 
 @Injectable()
 export class AuthoringService {
@@ -73,6 +76,7 @@ export class AuthoringService {
   async draftData(c: PoolClient, school: string, e: Exam) {
     const items = await this.items(c, school, e.id);
     return {
+      structure: structureSchema.parse(e.structure ?? { sections: [], passages: [] }),
       examId: e.id,
       createdAt: e.created_at?.toISOString(),
       concluded: e.concluded,
@@ -315,6 +319,127 @@ export class AuthoringService {
       });
     });
   }
+  async saveOutline(req: Request, id: string, input: unknown, key: unknown) {
+    const { school, user } = teacherIdentity(req);
+    parse(uuid, id);
+    const body = parse(
+      z
+        .object({ revision, structure: structureSchema, items: z.array(itemSchema).max(200) })
+        .strict(),
+      input,
+    );
+    try {
+      validateImages(body.structure, body.items);
+    } catch {
+      throw DomainException.validationError(
+        'An image is damaged or unsupported. Upload it again using Add image.',
+      );
+    }
+    const problems = structureProblems(body.structure, body.items);
+    if (problems.length) throw DomainException.validationError(problems.join(' '));
+    if (Buffer.byteLength(JSON.stringify(body)) > 4 * 1024 * 1024)
+      throw DomainException.validationError('The paper and images must fit within 4 MB.');
+    return this.db.withTenantTransaction(school.id, async (c) => {
+      const e = await this.owned(c, school.id, user.id, id, true);
+      return mutate(c, school.id, user.id, `exam:${id}:outline`, key, body, async () => {
+        await this.mutable(c, school.id, e, body.revision);
+        const pending = await c.query(
+          "SELECT id FROM import_jobs WHERE school_id=$1 AND exam_id=$2 AND state IN ('queued','parsing','ai_queued','ai_running') LIMIT 1",
+          [school.id, id],
+        );
+        if (pending.rowCount)
+          throw DomainException.conflict(
+            'REVISION_CONFLICT',
+            'Wait for processing or cancel the import before restructuring.',
+          );
+        const oldItems = await this.items(c, school.id, id);
+        const oldStructure = structureSchema.parse(e.structure ?? { sections: [], passages: [] });
+        await this.snapshot(c, school.id, user.id, e, 'before_outline_edit', oldItems);
+        const kept = body.items.map((i) => i.itemId);
+        await c.query(
+          'DELETE FROM exam_items WHERE school_id=$1 AND exam_id=$2 AND exam_version_id IS NULL AND NOT (item_id=ANY($3::text[]))',
+          [school.id, id, kept],
+        );
+        for (const [position, item] of body.items.entries()) {
+          const old = oldItems.find((i) => i.itemId === item.itemId);
+          const context = (v: typeof item, st: typeof body.structure) => ({
+            section: st.sections.find((s) => s.id === v.sectionId),
+            passage: st.passages.find((p) => p.id === v.passageId),
+          });
+          const changed =
+            !old ||
+            JSON.stringify({ ...old, reviewed: undefined, reviewNote: undefined }) !==
+              JSON.stringify({ ...item, reviewed: undefined, reviewNote: undefined }) ||
+            JSON.stringify(context(old, oldStructure)) !==
+              JSON.stringify(context(item, body.structure));
+          if (
+            old &&
+            (JSON.stringify(old.reviewFlags) !== JSON.stringify(item.reviewFlags) ||
+              old.keyConsistent !== item.keyConsistent)
+          )
+            throw DomainException.validationError('AI review evidence cannot be changed.');
+          if (!old && (item.keyConsistent !== null || item.reviewFlags.length))
+            throw DomainException.validationError('New questions cannot claim AI review evidence.');
+          if (old) {
+            await c.query(
+              'UPDATE exam_items SET position=$1,section_id=$2,passage_id=$3,content=$4,reviewed=CASE WHEN $5 THEN false ELSE reviewed END,reviewed_by=CASE WHEN $5 THEN NULL ELSE reviewed_by END,reviewed_at=CASE WHEN $5 THEN NULL ELSE reviewed_at END WHERE school_id=$6 AND exam_id=$7 AND exam_version_id IS NULL AND item_id=$8',
+              [
+                position,
+                item.sectionId ?? null,
+                item.passageId ?? null,
+                JSON.stringify(item.content ?? []),
+                changed,
+                school.id,
+                id,
+                item.itemId,
+              ],
+            );
+            // Existing text/answers are edited using the established question review form.
+            if (
+              old.stem !== item.stem ||
+              old.type !== item.type ||
+              JSON.stringify(old.options) !== JSON.stringify(item.options) ||
+              old.correctOptionId !== item.correctOptionId ||
+              old.externalId !== item.externalId ||
+              old.marks !== item.marks
+            )
+              throw DomainException.validationError(
+                'Edit existing question text and answers in question review.',
+              );
+          } else {
+            await c.query(
+              `INSERT INTO exam_items(school_id,exam_id,item_id,external_id,position,type,stem,options,correct_key,marks,primary_topic,secondary_topics,explanation,key_consistent,review_flags,reviewed,review_note,section_id,passage_id,content) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULL,'[]',false,'',$14,$15,$16)`,
+              [
+                school.id,
+                id,
+                item.itemId,
+                item.externalId,
+                position,
+                item.type,
+                item.stem,
+                JSON.stringify(item.options),
+                item.correctOptionId,
+                item.marks,
+                item.primaryTopic,
+                JSON.stringify(item.secondaryTopics),
+                item.explanation,
+                item.sectionId ?? null,
+                item.passageId ?? null,
+                JSON.stringify(item.content ?? []),
+              ],
+            );
+          }
+        }
+        const updated = (
+          await c.query<Exam>(
+            'UPDATE exams SET structure=$1,revision=revision+1,updated_at=now() WHERE school_id=$2 AND id=$3 RETURNING *',
+            [JSON.stringify(body.structure), school.id, id],
+          )
+        ).rows[0];
+        return this.dto(c, school.id, updated);
+      });
+    });
+  }
   async saveItem(req: Request, id: string, input: unknown, key: unknown) {
     const { school, user } = teacherIdentity(req);
     parse(uuid, id);
@@ -328,6 +453,9 @@ export class AuthoringService {
           item = body.item;
         if (!old) throw DomainException.notFound();
         if (
+          JSON.stringify(old.content ?? []) !== JSON.stringify(item.content ?? []) ||
+          (old.sectionId ?? null) !== (item.sectionId ?? null) ||
+          (old.passageId ?? null) !== (item.passageId ?? null) ||
           old.externalId !== item.externalId ||
           old.type !== item.type ||
           JSON.stringify(old.options.map((o) => o.id)) !==

@@ -19,6 +19,16 @@ import { AuthoringService } from './authoring.service';
 @Roles('teacher')
 export class AuthoringController {
   constructor(private readonly authoring: AuthoringService) {}
+  @Post('exams/:id/outline')
+  @HttpCode(200)
+  outline(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: unknown,
+  ) {
+    return this.authoring.saveOutline(req, id, body, key);
+  }
   @Get('me/teaching-assignments')
   assignments(@Req() req: Request, @Query() query: unknown) {
     return this.authoring.assignments(req, query);

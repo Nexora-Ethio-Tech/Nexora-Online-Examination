@@ -55,3 +55,16 @@ test('rejects missing targets, insecure origins and proxy loops', () => {
   ])
     assert.notEqual(config(values).status, 0);
 });
+
+test('combined frontend routes both APIs to the same backend without merging namespaces', () => {
+  const result = config({
+    VITE_APP_SURFACE: 'combined',
+    API_PROXY_TARGET: 'https://school.example',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const routes = JSON.parse(result.stdout).routes;
+  assert.equal(
+    routes.find((r: { src?: string }) => r.src === '^(/platform-api/v1(?:/.*)?)$').dest,
+    'https://school.example$1',
+  );
+});

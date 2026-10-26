@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Pool, type PoolClient } from 'pg';
+import { Pool, type QueryResult, type PoolClient } from 'pg';
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import { databasePoolConfig } from '../src/common/db/database-config';
 import { allocateStudentNumbers, studentLoginId } from '../src/modules/directory/student-numbering';
@@ -66,7 +66,7 @@ describe.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
       const found: string[] = [];
       let cursor: string | null = null;
       do {
-        const page = await runtime.query<{ id: string }>(
+        const page: QueryResult<{ id: string }> = await runtime.query<{ id: string }>(
           'SELECT id FROM public.nexora_worker_schools($1)',
           [cursor],
         );

@@ -18,7 +18,7 @@ const fixture = z
     finalizedStudents: z.array(
       z.object({
         studentId: z.string(),
-        answers: z.record(z.string().nullable()),
+        answers: z.record(z.string(), z.string().nullable()),
         expectedScore: z.number(),
         expectedRank: z.number(),
       }),

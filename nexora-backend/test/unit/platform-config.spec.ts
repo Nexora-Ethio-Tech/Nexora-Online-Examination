@@ -47,3 +47,23 @@ describe('isolated platform runtime configuration', () => {
     ).toBeUndefined();
   });
 });
+
+describe('combined backend configuration', () => {
+  const env = {
+    NODE_ENV: 'production',
+    NEXORA_SERVICE: 'combined',
+    PLATFORM_DATABASE_URL: url,
+    DATABASE_URL: 'postgresql://nexora_runtime@db.example.test/db',
+    MFA_ENCRYPTION_KEY: 'school-key',
+    PLATFORM_MFA_ENCRYPTION_KEY: 'owner-key',
+  };
+  it('allows two runtime pools but never migration credentials', () => {
+    expect(platformPoolConfig(env).connectionString).toContain('nexora_platform');
+    expect(() => platformPoolConfig({ ...env, MIGRATION_DATABASE_URL: url })).toThrow();
+  });
+  it('rejects sharing the school encryption key', () => {
+    expect(() => platformPoolConfig({ ...env, PLATFORM_MFA_ENCRYPTION_KEY: 'school-key' })).toThrow(
+      'separate',
+    );
+  });
+});

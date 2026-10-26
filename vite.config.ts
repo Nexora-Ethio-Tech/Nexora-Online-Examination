@@ -17,6 +17,7 @@ export default defineConfig(({ command, mode }) => {
   // Keep API requests out of Vite's SPA fallback, including local preview.
   const apiProxy = {
     '/api/v1': { target: apiTarget, changeOrigin: false },
+    '/platform-api/v1': { target: apiTarget, changeOrigin: false },
   };
   if (
     command === 'build' &&

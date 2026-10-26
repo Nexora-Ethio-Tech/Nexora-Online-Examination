@@ -76,6 +76,7 @@ const inputSchema = z
     topicNames: z.array(text.max(200)).max(200),
     question: z
       .object({
+        context: z.string().max(40000).optional(),
         type: z.enum(['mcq_single', 'true_false']),
         stem: text.max(10000),
         options: z

@@ -217,12 +217,6 @@ test('student answers offline, navigates questions and receives a confirmed subm
   await page.getByRole('radio').first().click();
   await expect(page.getByRole('radio').first()).toBeChecked();
   await expect(page.getByText(/1 answers saved on this device/)).toBeVisible();
-  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-  await expect(page.locator('fieldset')).toBeHidden();
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(page.locator('fieldset')).toBeHidden();
-  await page.getByRole('button', { name: 'Acknowledge & Resume Exam' }).click();
-  await expect(page.getByRole('radio').first()).toBeChecked();
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('#root')).toBeHidden();
   await page.emulateMedia({ media: 'screen' });
@@ -629,4 +623,29 @@ test('student exam categories stay usable on every screen size', async ({ page }
     path: testInfo.outputPath('student-exam-categories.png'),
     fullPage: true,
   });
+});
+
+// Offline interruption locking is independent of the uninterrupted submission journey.
+test('offline focus loss preserves saved answers and cannot be resumed by returning focus', async ({
+  page,
+  context,
+}) => {
+  await login(page, 'STUDENT');
+  const card = page
+    .locator('article')
+    .filter({ has: page.getByRole('heading', { name: 'English · current window' }) });
+  await card.getByRole('link').click();
+  await page.getByRole('button', { name: 'Download exam' }).click();
+  await page.getByRole('button', { name: 'Start exam', exact: true }).click();
+  await context.setOffline(true);
+  await page.getByRole('radio').first().click();
+  await expect(page.getByText(/1 answers saved on this device/)).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+  await expect(page.getByRole('heading', { name: 'Editing is paused' })).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.getByRole('radio')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Resume/ })).toHaveCount(0);
+  await expect(page.getByText(/1 answers saved on this device/)).toBeVisible();
+  await context.setOffline(false);
+  await expect(page.getByRole('heading', { name: 'Editing is paused' })).toBeVisible();
 });

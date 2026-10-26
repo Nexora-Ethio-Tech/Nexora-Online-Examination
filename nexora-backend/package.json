@@ -1,7 +1,7 @@
 {
   "name": "nexora-backend",
   "version": "1.0.0",
-  "description": "Nexora School Exam Platform \u2014 Master Backend API",
+  "description": "Nexora School Exam Platform — Master Backend API",
   "main": "dist/src/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -32,17 +32,19 @@
     "fast-xml-parser": "^5.11.2",
     "otplib": "^12.0.1",
     "pg": "^8.13.1",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "uuid": "^11.0.5",
     "yauzl": "^3.4.0",
-    "zod": "^3.24.1"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@nestjs/testing": "11.2.7",
     "@types/cookie-parser": "^1.4.8",
     "@types/node": "^22.10.7",
     "@types/pg": "^8.11.10",
+    "@types/qrcode": "^1.5.6",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
     "@types/yauzl": "^3.4.0",
@@ -50,9 +52,13 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "unplugin-swc": "^2.0.0",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   },
   "engines": {
     "node": ">=24"
+  },
+  "overrides": {
+    "multer": "2.5.0",
+    "body-parser": "2.4.0"
   }
 }

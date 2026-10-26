@@ -1,9 +1,12 @@
 import { Test } from '@nestjs/testing';
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { AppModule } from '../../src/app.module';
 import { DbService } from '../../src/common/db/db.service';
 
+afterEach(() => vi.unstubAllEnvs());
+
 it('creates and initializes one database provider for the entire application', async () => {
+  vi.stubEnv('MFA_ENCRYPTION_KEY', Buffer.alloc(32, 7).toString('base64url'));
   const initialize = vi.fn();
   const destroy = vi.fn();
   const createDatabase = vi.fn(() => ({ onModuleInit: initialize, onModuleDestroy: destroy }));

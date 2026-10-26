@@ -7,7 +7,7 @@ export const guides: Record<Role, GuideStep[]> = {
     {
       title: 'Set up your authenticator',
       targets: ['[data-tour="authenticator-setup"]', '[data-tour="authenticator-heading"]'],
-      body: 'In Exam assistance, set up your authenticator on your own device before supervising. Keep the setup key private.',
+      body: 'Sign in with your staff ID on the shared sign-in page. In Exam assistance, set up your authenticator on your own device before supervising. Keep the setup key private.',
       path: '/invigilator',
     },
     {
@@ -64,7 +64,7 @@ export const guides: Record<Role, GuideStep[]> = {
     {
       title: 'Review in one action',
       targets: ['[data-tour="bulk-review"]', '[data-tour="review-tab"]'],
-      body: 'Use Confirm all questions without warnings for complete questions. Questions with warnings need individual attention. Review one question card at a time. Numbered buttons show reviewed questions in green and warnings in amber. Use Previous question, Next question, or Save and next. Save your edits before moving on; Next alone does not mark a question reviewed.',
+      body: 'Use Confirm all questions without warnings for complete questions. Questions with warnings need individual attention. Review one question card at a time. Numbered buttons show reviewed questions in green and warnings in amber. Use Previous question, Next question, or Save and next. Save your edits before moving on; Next alone does not mark a question reviewed. In Sections, passages and question content, add sections by question type, shared passages, pictures and tables. Assign each question to its section and optional passage, then save. Shared-content edits require another review of affected questions.',
       path: '/teacher',
     },
     {

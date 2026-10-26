@@ -64,10 +64,7 @@ export const attemptResponseSchema = z
   })
   .strict();
 
-export function parsePreparationInput<T>(
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
-  value: unknown,
-): T {
+export function parsePreparationInput<T>(schema: z.ZodType<T, unknown>, value: unknown): T {
   const result = schema.safeParse(value);
   if (!result.success) {
     throw DomainException.validation(

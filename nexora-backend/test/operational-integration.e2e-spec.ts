@@ -1,3 +1,7 @@
+import { platformKey } from '../src/platform/platform-db';
+import { PlatformModule } from '../src/platform/platform.module';
+import { ownerDispatch } from '../src/combined-routing';
+import type { RequestHandler } from 'express';
 import { newMfaSecret, encryptMfaSecret, totpCode } from '../src/common/crypto/mfa';
 import { unwrapPackageKey } from '../src/common/crypto/package-key';
 import { chromium, expect as browserExpect } from '@playwright/test';
@@ -63,6 +67,8 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       attemptId = '',
       checksum = '';
     let app: INestApplication | undefined;
+    let ownerApp: INestApplication | undefined;
+    const ownerSessionHashes: string[] = [];
     let pool: Pool | undefined;
     let report: unknown;
     let reviewedExamId = '';
@@ -219,6 +225,25 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         .useValue(clock)
         .compile();
       app = module.createNestApplication();
+      if (process.env.NEXORA_LOCAL_INTEGRATION === 'true') {
+        const previousPoolMax = process.env.DB_POOL_MAX;
+        try {
+          process.env.DB_POOL_MAX = '1';
+          const ownerModule = await Test.createTestingModule({
+            imports: [PlatformModule],
+          }).compile();
+          ownerApp = ownerModule.createNestApplication();
+        } finally {
+          if (previousPoolMax === undefined) delete process.env.DB_POOL_MAX;
+          else process.env.DB_POOL_MAX = previousPoolMax;
+        }
+        ownerApp.use(cookieParser());
+        ownerApp.setGlobalPrefix('platform-api/v1');
+        ownerApp.useLogger(false);
+        await ownerApp.init();
+        const handler: RequestHandler = ownerApp.getHttpAdapter().getInstance();
+        app.use(ownerDispatch(handler));
+      }
       app.use(cookieParser());
       app.setGlobalPrefix('api/v1');
       app.useLogger(false);
@@ -234,10 +259,14 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
     }, 60000);
     afterAll(async () => {
       if (app) await app.close();
+      if (ownerApp) await ownerApp.close();
       if (pool) {
         const c = await pool.connect();
         try {
           await c.query('BEGIN');
+          await c.query('DELETE FROM platform.sessions WHERE token_hash=ANY($1::text[])', [
+            ownerSessionHashes,
+          ]);
           for (const table of [
             'exam_assistance_requests',
             'sitting_staff_assignments',
@@ -482,6 +511,122 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         await read('/auth/me', cookie).expect(401);
       }
     }, 60000);
+    it.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
+      'serves both APIs without accepting school credentials as owner authority',
+      async () => {
+        if (!app) throw new Error('Not started');
+        const server = app.getHttpServer();
+        const bootstrap = await request(server).get('/platform-api/v1/auth/csrf').expect(200);
+        const ownerCookie = responseCookie(bootstrap, 'nexora_platform');
+        ownerSessionHashes.push(hashSha256(ownerCookie.split('=')[1]));
+        await request(server)
+          .get('/platform-api/v1/auth/me')
+          .set('Cookie', teacherCookie)
+          .expect(401);
+        await request(server).get('/api/v1/auth/me').set('Cookie', ownerCookie).expect(401);
+        await request(server)
+          .post('/platform-api/v1/actions')
+          .set('Cookie', teacherCookie)
+          .set('Origin', 'http://localhost:5173')
+          .set('X-CSRF-Token', csrf)
+          .send({
+            action: 'subscription',
+            schoolId: school,
+            state: 'trial',
+            expiresAt: null,
+            expectedRevision: 0,
+            requestId: randomUUID(),
+            reason: 'Boundary test',
+            code: '123456',
+          })
+          .expect(401);
+        await request(server)
+          .post('/platform-api/v1/auth/logout')
+          .set('Cookie', ownerCookie)
+          .set('Origin', 'https://untrusted.invalid')
+          .set('X-CSRF-Token', bootstrap.body.csrfToken)
+          .send({})
+          .expect(403);
+      },
+    );
+    it.runIf(process.env.NEXORA_LOCAL_INTEGRATION === 'true')(
+      'requires MFA after identifying an owner and rejects expired challenges',
+      async () => {
+        if (!app || !pool) throw new Error('Not started');
+        const ownerId = randomUUID(),
+          secret = newMfaSecret(),
+          version = randomUUID();
+        await pool.query(
+          "INSERT INTO platform.accounts(id,login_id,display_name,password_hash,active,mfa_secret_enc,mfa_version,enrolled_at) VALUES($1::uuid,$1::text,'Synthetic owner',$2,true,$3,$4,clock_timestamp()-interval '1 minute')",
+          [
+            ownerId,
+            await hashPassword(loginPassword),
+            encryptMfaSecret(
+              secret,
+              { schoolId: 'platform', userId: ownerId, version },
+              platformKey(),
+            ),
+            version,
+          ],
+        );
+        try {
+          const server = app.getHttpServer();
+          const boot = await request(server).get('/platform-api/v1/auth/csrf').expect(200);
+          const bootCookie = responseCookie(boot, 'nexora_platform');
+          ownerSessionHashes.push(hashSha256(bootCookie.split('=')[1]));
+          const send = (path: string, cookie: string, csrfToken: string, body: object) =>
+            request(server)
+              .post('/platform-api/v1' + path)
+              .set('Cookie', cookie)
+              .set('Origin', 'http://localhost:5173')
+              .set('X-CSRF-Token', csrfToken)
+              .send(body);
+          await send('/auth/identify', bootCookie, 'wrong', {
+            loginId: ownerId,
+            password: loginPassword,
+          }).expect(403);
+          const wrong = await send('/auth/identify', bootCookie, boot.body.csrfToken, {
+            loginId: ownerId,
+            password: 'wrong',
+          }).expect(200);
+          expect(wrong.body).toEqual({ status: 'school' });
+          const identified = await send('/auth/identify', bootCookie, boot.body.csrfToken, {
+            loginId: ownerId,
+            password: loginPassword,
+          }).expect(200);
+          expect(identified.body.status).toBe('owner_mfa_required');
+          const pending = responseCookie(identified, 'nexora_platform');
+          await request(server).get('/platform-api/v1/schools').set('Cookie', pending).expect(401);
+          const time = (await pool.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
+          const code = totpCode(secret, Math.floor(time.getTime() / 30000));
+          const verified = await send('/auth/verify', pending, identified.body.csrfToken, {
+            code,
+          }).expect(200);
+          const authenticated = responseCookie(verified, 'nexora_platform');
+          await request(server)
+            .get('/platform-api/v1/auth/me')
+            .set('Cookie', authenticated)
+            .expect(200);
+          await request(server).get('/api/v1/auth/me').set('Cookie', authenticated).expect(401);
+          await send('/auth/verify', pending, identified.body.csrfToken, { code }).expect(401);
+          const next = await send('/auth/identify', authenticated, verified.body.csrfToken, {
+            loginId: ownerId,
+            password: loginPassword,
+          }).expect(200);
+          const nextCookie = responseCookie(next, 'nexora_platform');
+          await send('/auth/verify', nextCookie, next.body.csrfToken, { code }).expect(403);
+          await pool.query(
+            "UPDATE platform.sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE owner_id=$1",
+            [ownerId],
+          );
+          await send('/auth/verify', nextCookie, next.body.csrfToken, { code }).expect(401);
+        } finally {
+          await pool.query('DELETE FROM platform.sessions WHERE owner_id=$1', [ownerId]);
+          await pool.query('DELETE FROM platform.audit WHERE owner_id=$1', [ownerId]);
+          await pool.query('DELETE FROM platform.accounts WHERE id=$1', [ownerId]);
+        }
+      },
+    );
     it('enforces teacher draft revisions and freezes reviewed submission', async () => {
       if (!app || !pool) throw new Error('Not started');
       const server = app.getHttpServer();
@@ -573,6 +718,123 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       );
       expect(evidence.rows.map((r) => r.kind).sort()).toEqual(['before_item_edit', 'submitted']);
     }, 90000);
+    it('saves structured questions with revision, review and tenant protections', async () => {
+      if (!pool) throw new Error('Not started');
+      const created = await post(
+        '/exams',
+        {
+          title: 'Structured local test',
+          instructions: 'Read carefully',
+          assignmentId: assignment,
+          language: 'en',
+          durationMinutes: 30,
+          passPercent: 50,
+          ordering: 'shuffle_questions_and_options',
+        },
+        teacherCookie,
+      ).expect(201);
+      const id = created.body.examId;
+      const structure = {
+        sections: [
+          {
+            id: 'section-a',
+            title: 'Reading',
+            type: 'mcq_single',
+            shuffle: true,
+            blocks: [{ id: 'instructions', kind: 'text', text: 'Choose one answer' }],
+          },
+        ],
+        passages: [
+          {
+            id: 'passage-a',
+            sectionId: 'section-a',
+            title: 'Passage',
+            blocks: [{ id: 'text', kind: 'text', text: 'Water freezes at zero degrees Celsius.' }],
+          },
+        ],
+      };
+      const item = {
+        itemId: randomUUID(),
+        externalId: 'Manual-1',
+        type: 'mcq_single',
+        stem: 'At what temperature?',
+        options: [
+          { id: 'a', text: '0 C' },
+          { id: 'b', text: '100 C' },
+        ],
+        correctOptionId: 'a',
+        marks: 1,
+        primaryTopic: 'Water',
+        secondaryTopics: [],
+        explanation: 'Water freezes at 0 C.',
+        keyConsistent: null,
+        reviewFlags: [],
+        reviewed: false,
+        reviewNote: '',
+        sectionId: 'section-a',
+        passageId: 'passage-a',
+        content: [{ id: 'table', kind: 'table', headers: ['Unit'], rows: [['Celsius']] }],
+      };
+      const body = { revision: 1, structure, items: [item] };
+      await post(`/exams/${id}/outline`, body, studentCookie).expect(403);
+      await post(`/exams/${id}/outline`, body, foreignCookie).expect(403);
+      const key = randomUUID();
+      const saved = await post(`/exams/${id}/outline`, body, teacherCookie, browser, key).expect(
+        200,
+      );
+      expect(saved.body.revision).toBe(2);
+      expect(
+        (await post(`/exams/${id}/outline`, body, teacherCookie, browser, key).expect(200)).body,
+      ).toEqual(saved.body);
+      await post(`/exams/${id}/outline`, body, teacherCookie).expect(409);
+      await post(`/exams/${id}/review-all`, { revision: 2, confirmed: true }, teacherCookie).expect(
+        200,
+      );
+      const changed = {
+        ...structure,
+        passages: structure.passages.map((p) => ({ ...p, title: 'Revised passage' })),
+      };
+      await post(
+        `/exams/${id}/outline`,
+        { revision: 3, structure: changed, items: [{ ...item, reviewed: true }] },
+        teacherCookie,
+      ).expect(200);
+      const readItems = await read(`/exams/${id}/items`, teacherCookie).expect(200);
+      expect(readItems.body.items[0]).toMatchObject({
+        reviewed: false,
+        sectionId: 'section-a',
+        passageId: 'passage-a',
+        content: item.content,
+      });
+      await post(`/exams/${id}/review-all`, { revision: 4, confirmed: true }, teacherCookie).expect(
+        200,
+      );
+      await post(`/exams/${id}/submit-for-approval`, { revision: 5 }, teacherCookie).expect(200);
+      await post(
+        `/exams/${id}/approve`,
+        { revision: 6, comment: 'Checked structured paper' },
+        adminCookie,
+      ).expect(200);
+      const row = (
+        await pool.query(
+          'SELECT p.* FROM exam_packages p JOIN exam_versions v ON v.id=p.exam_version_id WHERE v.school_id=$1 AND v.exam_id=$2',
+          [school, id],
+        )
+      ).rows[0];
+      const paper = decryptExamPackage<{ structure: unknown; items: Record<string, unknown>[] }>(
+        row.ciphertext_base64url,
+        row.iv_base64url,
+        unwrapPackageKey(row.key_enc, school, row.exam_version_id),
+      );
+      expect(paper.structure).toEqual(changed);
+      expect(paper.items[0].content).toEqual(item.content);
+      expect(paper.items[0]).not.toHaveProperty('correctOptionId');
+      await post(
+        `/exams/${id}/outline`,
+        { revision: 7, structure, items: [item] },
+        teacherCookie,
+      ).expect(409);
+    });
     it('approves a frozen paper, builds a private package and schedules accommodated delivery', async () => {
       if (!app || !pool) throw new Error('Not started');
       const id = reviewedExamId,
@@ -1423,7 +1685,7 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
     it.runIf(process.env.RUN_REAL_BROWSER === 'true')(
       'renders the real frontend and completes practice through browser controls',
       async () => {
-        if (!app) throw new Error('Not started');
+        if (!app || !pool) throw new Error('Not started');
         clock.setMockTime(new Date(end.getTime() + 60000));
         const candidate = await read(`/sessions/${session}/results`).expect(200);
         if (!candidate.body.summary.publication)
@@ -1475,6 +1737,8 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
               ...process.env,
               API_PROXY_TARGET: apiUrl,
               VITE_USE_MOCKS: 'false',
+              VITE_APP_SURFACE: 'combined',
+              VITE_PLATFORM_API_BASE_URL: '/platform-api/v1',
               VITE_API_BASE_URL: '/api/v1',
             },
             stdio: ['ignore', 'pipe', 'pipe'],
@@ -1516,6 +1780,79 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
               }),
             );
           browserProcess = await chromium.launch();
+          if (process.env.NEXORA_LOCAL_INTEGRATION === 'true') {
+            const ownerId = randomUUID(),
+              secret = newMfaSecret(),
+              version = randomUUID();
+            await pool.query(
+              "INSERT INTO platform.accounts(id,login_id,display_name,password_hash,active,mfa_secret_enc,mfa_version,enrolled_at) VALUES($1::uuid,$1::text,'Browser owner',$2,true,$3,$4,clock_timestamp()-interval '1 minute')",
+              [
+                ownerId,
+                await hashPassword(loginPassword),
+                encryptMfaSecret(
+                  secret,
+                  { schoolId: 'platform', userId: ownerId, version },
+                  platformKey(),
+                ),
+                version,
+              ],
+            );
+            const context = await browserProcess.newContext();
+            try {
+              const page = await context.newPage();
+              const loginResponses: string[] = [];
+              page.on('response', (r) => {
+                if (r.url().includes('/auth/'))
+                  loginResponses.push(r.status() + ' ' + new URL(r.url()).pathname);
+              });
+              await page.goto('http://127.0.0.1:5184/login');
+              await page.getByLabel('User ID', { exact: true }).fill(ownerId);
+              await page.getByLabel('Password', { exact: true }).fill(loginPassword);
+              await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+              await browserExpect(page.getByRole('heading', { name: 'One more step' }))
+                .toBeVisible()
+                .catch(async () => {
+                  throw new Error(
+                    JSON.stringify({
+                      responses: loginResponses,
+                      alerts: await page.getByRole('alert').allTextContents(),
+                      url: page.url(),
+                    }),
+                  );
+                });
+              const time = (await pool.query('SELECT clock_timestamp() AS now')).rows[0]
+                .now as Date;
+              await page
+                .getByLabel('Verification code')
+                .fill(totpCode(secret, Math.floor(time.getTime() / 30000)));
+              await page.getByRole('button', { name: 'Verify and continue' }).click();
+              await browserExpect(page).toHaveURL('http://127.0.0.1:5184/platform');
+              await browserExpect(
+                page.getByText('Signed in as Browser owner.', { exact: false }),
+              ).toBeVisible();
+            } finally {
+              await context.close();
+              await pool.query('DELETE FROM platform.sessions WHERE owner_id=$1', [ownerId]);
+              await pool.query('DELETE FROM platform.audit WHERE owner_id=$1', [ownerId]);
+              await pool.query('DELETE FROM platform.accounts WHERE id=$1', [ownerId]);
+            }
+          }
+          if (process.env.NEXORA_LOCAL_INTEGRATION === 'true') {
+            const context = await browserProcess.newContext();
+            try {
+              const page = await context.newPage();
+              await page.goto('http://127.0.0.1:5184/login');
+              await page.getByLabel('User ID', { exact: true }).fill(student);
+              await page.getByLabel('Password', { exact: true }).fill(loginPassword);
+              await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+              await browserExpect(page).toHaveURL(/\/student$/);
+              for (const cookie of await context.cookies())
+                if (cookie.name === 'nexora_platform')
+                  ownerSessionHashes.push(hashSha256(cookie.value));
+            } finally {
+              await context.close();
+            }
+          }
           for (const [token, path, title, endpoint] of [
             [adminToken, '/admin/school', 'School setup', '/classes'],
             [teacherToken, '/teacher/results', 'Official results', '/results/sessions'],
@@ -1587,6 +1924,50 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
               await browserExpect(
                 page.getByRole('heading', { name: 'Practice completed', exact: true }),
               ).toBeVisible();
+            }
+            if (token === teacherToken) {
+              const created = await post(
+                '/exams',
+                {
+                  title: 'Mobile editor test',
+                  instructions: 'Read',
+                  assignmentId: assignment,
+                  language: 'en',
+                  durationMinutes: 30,
+                  passPercent: 50,
+                  ordering: 'fixed',
+                },
+                teacherCookie,
+              ).expect(201);
+              await page.setViewportSize({ width: 360, height: 800 });
+              await page.goto('http://127.0.0.1:5184/teacher/exams/' + created.body.examId);
+              await page.getByRole('tab', { name: 'Review questions', exact: true }).click();
+              await page.getByRole('button', { name: 'Add section', exact: true }).click();
+              await page.getByLabel('Section title', { exact: true }).fill('Reading');
+              await page.getByRole('button', { name: 'Add passage', exact: true }).click();
+              await page.getByLabel('Passage title', { exact: true }).fill('Water');
+              await page
+                .getByRole('button', { name: 'Add multiple-choice question', exact: true })
+                .click();
+              await page
+                .getByRole('button', { name: 'Save sections and content', exact: true })
+                .click();
+              await browserExpect(page.getByText('Changes saved.', { exact: true })).toBeVisible();
+              await page.reload();
+              await page.getByRole('tab', { name: 'Review questions', exact: true }).click();
+              await browserExpect(page.getByLabel('Section title', { exact: true })).toHaveValue(
+                'Reading',
+              );
+              await browserExpect(page.getByLabel('Passage title', { exact: true })).toHaveValue(
+                'Water',
+              );
+              expect(
+                await page.evaluate(() => document.documentElement.scrollWidth),
+              ).toBeLessThanOrEqual(360);
+              await page.screenshot({
+                path: resolve('../../outputs/structured-editor-mobile.png'),
+                fullPage: true,
+              });
             }
             expect(failures).toEqual([]);
             await context.close();
