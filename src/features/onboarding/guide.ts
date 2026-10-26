@@ -64,7 +64,7 @@ export const guides: Record<Role, GuideStep[]> = {
     {
       title: 'Review in one action',
       targets: ['[data-tour="bulk-review"]', '[data-tour="review-tab"]'],
-      body: 'Use Confirm all questions without warnings for complete questions. Questions with warnings need individual attention. Review one question card at a time. Numbered buttons show reviewed questions in green and warnings in amber. Use Previous question, Next question, or Save and next. Save your edits before moving on; Next alone does not mark a question reviewed.',
+      body: 'Use Confirm all questions without warnings for complete questions. Questions with warnings need individual attention. Review one question card at a time. Numbered buttons show reviewed questions in green and warnings in amber. Use Previous question, Next question, or Save and next. Save your edits before moving on; Next alone does not mark a question reviewed. In Sections, passages and question content, add sections by question type, shared passages, pictures and tables. Assign each question to its section and optional passage, then save. Shared-content edits require another review of affected questions.',
       path: '/teacher',
     },
     {
