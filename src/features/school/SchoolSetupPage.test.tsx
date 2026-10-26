@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { createMemoryRouter } from 'react-router';
@@ -40,6 +40,29 @@ function submitRosterPreview() {
   fireEvent.submit(form);
 }
 describe('school setup UI', () => {
+  it('requires a fresh reason and acknowledgement before deleting a class', async () => {
+    const { user } = setup();
+    const triggers = await screen.findAllByRole('button', { name: /^Delete class: / });
+    const trigger = triggers[0];
+    if (!trigger) throw new Error('Missing class delete icon');
+    expect(trigger.textContent).toBe('');
+    await user.click(trigger);
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText(/Students’ accounts/)).toBeInTheDocument();
+    const confirm = within(dialog).getByRole('button', { name: /^Delete class$/ });
+    expect(confirm).toBeDisabled();
+    await user.type(within(dialog).getByLabelText('Reason'), 'Class created by mistake');
+    expect(confirm).toBeDisabled();
+    await user.click(within(dialog).getByRole('checkbox'));
+    expect(confirm).toBeEnabled();
+    await user.click(within(dialog).getByRole('button', { name: 'Keep class' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    await user.click(trigger);
+    expect(screen.getByLabelText('Reason')).toHaveValue('');
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    expect(screen.getByRole('button', { name: /^Delete class$/ })).toBeDisabled();
+  });
+
   it('shows the saved AI generation policy and requires a reason for enabling it', async () => {
     const { user, store } = setup();
     await user.click(await screen.findByRole('tab', { name: 'AI settings' }));

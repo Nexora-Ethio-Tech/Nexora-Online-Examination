@@ -21,7 +21,7 @@ export const guides: Record<Role, GuideStep[]> = {
     {
       title: 'Set up your school',
       targets: ['[data-tour="school-classes"]'],
-      body: 'Create classes using Grade and Section, then create subjects for each grade and assign teachers. Find assignments by grade, class, subject or teacher. Use Accounts → Invigilators to create limited accounts for non-teaching staff. Delete class removes it from current use while previous exam results remain.',
+      body: 'Create classes using Grade and Section, then create subjects for each grade and assign teachers. Find assignments by grade, class, subject or teacher. Use Accounts → Invigilators to create limited accounts for non-teaching staff. Use the small trash icon to delete a class. Read the warning, enter a reason and confirm your choice; student accounts and previous exam results remain.',
       path: '/admin/school?tab=classes',
     },
     {
