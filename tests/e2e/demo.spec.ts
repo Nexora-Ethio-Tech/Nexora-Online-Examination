@@ -534,11 +534,12 @@ test('school admin enables AI exam drafts and teachers retain upload and review 
 }) => {
   await login(page, 'ADMIN');
   await navigateWorkspace(page, 'School setup');
-  await page.getByRole('tab', { name: 'AI settings' }).click();
-  await expect(page.getByText('AI exam generation is off for this school.')).toBeVisible();
-  await page.getByLabel('Note (optional)').fill('Enable AI drafting for our teachers');
-  await page.getByRole('button', { name: 'Turn on AI exam generation' }).click();
-  await expect(page.getByText('AI exam generation is on for this school.')).toBeVisible();
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const aiToggle = page.getByRole('switch', { name: 'AI exam generation' });
+  await expect(aiToggle).toBeEnabled();
+  await expect(aiToggle).not.toBeChecked();
+  await aiToggle.click();
+  await expect(aiToggle).toBeChecked();
   await accessible(page);
   await page.getByRole('button', { name: 'Open account menu' }).click();
   await page.getByRole('menuitem', { name: 'Sign out' }).click();
