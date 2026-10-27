@@ -538,40 +538,36 @@ export function AdminExamDetail() {
       )}
       {d.sessions.map((s) => (
         <section key={s.sessionId} className={panel}>
-          <h2 className="text-lg font-semibold">Scheduled sitting · {s.rosterCount} students</h2>
-          <Link
-            className="mt-2 inline-flex min-h-11 items-center text-sm underline"
-            to={`/admin/monitor/${encodeURIComponent(s.sessionId)}`}
-          >
-            Monitor this sitting
-          </Link>
-          <Link
-            className="ml-4 underline"
-            to={`/admin/sessions/${encodeURIComponent(s.sessionId)}/accommodations`}
-          >
-            Manage extra time
-          </Link>
-          <dl className="mt-3 space-y-2 text-sm">
-            <div>
-              <dt>Preparation</dt>
-              <dd>{eatTime(s.preparationVisibleAt)}</dd>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <h2 className="text-lg font-semibold">Scheduled sitting · {s.rosterCount} students</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="outline" className="min-h-11">
+                <Link to={`/admin/monitor/${encodeURIComponent(s.sessionId)}`}>
+                  Monitor this sitting
+                </Link>
+              </Button>
+              <Button asChild variant="ghost" className="min-h-11">
+                <Link to={`/admin/sessions/${encodeURIComponent(s.sessionId)}/accommodations`}>
+                  Manage extra time
+                </Link>
+              </Button>
             </div>
-            <div>
-              <dt>Common start</dt>
-              <dd>{eatTime(s.startsAt)}</dd>
-            </div>
-            <div>
-              <dt>Common end</dt>
-              <dd>{eatTime(s.endsAt)}</dd>
-            </div>
-            <div>
-              <dt>Latest student deadline (including extra time)</dt>
-              <dd>{eatTime(s.latestDeadlineAt)}</dd>
-            </div>
-            <div>
-              <dt>Planned results (publication approval still required)</dt>
-              <dd>{eatTime(s.resultsReleaseAt)}</dd>
-            </div>
+          </div>
+          <dl className="mt-4 grid gap-x-6 gap-y-4 border-y py-4 text-sm sm:grid-cols-2 xl:grid-cols-3">
+            {[
+              { label: 'Preparation', value: s.preparationVisibleAt },
+              { label: 'Common start', value: s.startsAt },
+              { label: 'Common end', value: s.endsAt },
+              { label: 'Latest deadline · includes extra time', value: s.latestDeadlineAt },
+              { label: 'Scheduled results', value: s.resultsReleaseAt },
+            ].map(({ label, value }) => (
+              <div key={label} className="min-w-0 space-y-1">
+                <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+                <dd className="font-medium">
+                  <time dateTime={value}>{eatTime(value)}</time>
+                </dd>
+              </div>
+            ))}
           </dl>
           <InvigilatorAssignments id={s.sessionId} />
           <p className="mt-3 text-xs text-muted-foreground">
