@@ -74,9 +74,23 @@ describe('school setup UI', () => {
     },
   );
 
+  it('renames the school and refreshes the portal header', async () => {
+    const { user } = setup();
+    await user.click(await screen.findByRole('tab', { name: 'Settings' }));
+    const name = await screen.findByRole('textbox', { name: 'School name' });
+    await screen.findByDisplayValue('Nexora Demo School');
+    await user.clear(name);
+    expect(screen.getByRole('button', { name: 'Save school name' })).toBeDisabled();
+    await user.type(name, 'Adama School');
+    await user.click(screen.getByRole('button', { name: 'Save school name' }));
+    expect(
+      await screen.findByText('Adama School', { selector: '.brand-heading' }),
+    ).toBeInTheDocument();
+    expect(name).toHaveValue('Adama School');
+  });
   it('saves AI generation settings without requiring an optional note', async () => {
     const { user, store } = setup();
-    await user.click(await screen.findByRole('tab', { name: 'AI settings' }));
+    await user.click(await screen.findByRole('tab', { name: 'Settings' }));
     expect(
       await screen.findByText('AI exam generation is off for this school.'),
     ).toBeInTheDocument();

@@ -1,3 +1,9 @@
+## 27 October 2026 school settings and invigilator corrections
+
+The `corrections` branch adds school-admin GET/PATCH `/school/settings`. GET returns `{ name }`; PATCH accepts `{ name, expectedName }` with a UUID Idempotency-Key. Name is trimmed, required and limited to 200 characters. Server session supplies school identity; existing MFA, Origin and CSRF guards apply. School-row locking, tenant transactions and actor-bound idempotency preserve identical retries; concurrent name changes return REVISION_CONFLICT. Updates write an audit record. No migration is required. The existing AI generation policy API and enforcement remain unchanged.
+
+Invigilator assignment no longer requires a reason at exam start. The compatibility `reasonRequired` response is false; current-revision checks, staff eligibility, audit writes and assistance-decision requirements remain. These are local source changes, not a production deployment. See [settings verification](school-settings-architecture-and-testing.md).
+
 ## Shared sign-in update
 
 Combined hosting now uses one /login form: verified owner credentials create a five-minute unauthenticated challenge, /platform-api/v1/auth/verify completes owner MFA, and school credentials retain existing authentication and role destinations. No additional migration for this flow. See [architecture and acceptance](combined-deployment-architecture-and-testing.md). Production rollout remains separate from the source change.

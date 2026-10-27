@@ -7,7 +7,7 @@ import { App } from '@/app/App';
 import { routes } from '@/app/router';
 import { ApiClient } from '@/lib/api-client';
 import { createDemoTransport } from '@/mocks/auth';
-it('refreshes the reason requirement at exam start and preserves assignment confirmations', async () => {
+it('assigns and revokes without reasons before and after exam start', async () => {
   let reasonRequired = false;
   let revision = 0;
   const session = '11111111-1111-4111-8111-111111111111',
@@ -63,32 +63,19 @@ it('refreshes the reason requirement at exam start and preserves assignment conf
     await user.click(assign);
     let dialog = screen.getByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: 'Confirm assignment change' });
-    if (started) {
-      expect(confirm).toBeDisabled();
-      await user.type(
-        within(dialog).getByLabelText('Assignment change reason'),
-        'Supervise this exam',
-      );
-    } else {
-      expect(within(dialog).queryByLabelText('Assignment change reason')).not.toBeInTheDocument();
-      expect(confirm).toBeEnabled();
-    }
+    expect(within(dialog).queryByLabelText('Assignment change reason')).not.toBeInTheDocument();
+    expect(confirm).toBeEnabled();
     await user.click(confirm);
     await user.click(await screen.findByRole('button', { name: 'Revoke assignment' }));
     dialog = screen.getByRole('dialog');
-    if (started)
-      await user.type(
-        within(dialog).getByLabelText('Assignment change reason'),
-        'Staff replacement',
-      );
     await user.click(within(dialog).getByRole('button', { name: 'Confirm assignment change' }));
     await screen.findByRole('button', { name: 'Assign invigilator' });
   }
   expect(sent).toEqual([
     { staffId: staff, active: true, expectedRevision: 0, reason: '' },
     { staffId: staff, active: false, expectedRevision: 1, reason: '' },
-    { staffId: staff, active: true, expectedRevision: 2, reason: 'Supervise this exam' },
-    { staffId: staff, active: false, expectedRevision: 3, reason: 'Staff replacement' },
+    { staffId: staff, active: true, expectedRevision: 2, reason: '' },
+    { staffId: staff, active: false, expectedRevision: 3, reason: '' },
   ]);
   queryClient.clear();
 });

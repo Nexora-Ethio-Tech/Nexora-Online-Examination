@@ -1,3 +1,4 @@
+import { schoolProfileInputSchema } from '@/features/school/schemas';
 import type { Transport } from '@/lib/api-client';
 import { loginSchema, mfaSchema, type Role, type Session } from '@/features/auth/schemas';
 import { createExamDemo } from './exams';
@@ -57,6 +58,8 @@ export function createDemoTransport(
   const adminDemo = createAdminDemo(store, clock);
   const accommodationDemo = createAccommodationDemo(store, clock);
   const schoolDemo = createSchoolDemo(store, clock);
+  let schoolName = 'Nexora Demo School';
+  const profileReplays = new Map<string, { signature: string; name: string }>();
   let role = initialRole;
   let actorId = initialRole ? `demo-${initialRole}` : undefined;
   let passwordGeneration = actorId ? (store.directory.passwords.get(actorId)?.generation ?? 0) : 0;
@@ -97,6 +100,7 @@ export function createDemoTransport(
       return role
         ? json({
             ...demoSession(role),
+            school: { ...demoSession(role).school, name: schoolName },
             ...(actorId && store.directory.accounts.has(actorId)
               ? {
                   user: {
@@ -163,6 +167,28 @@ export function createDemoTransport(
     }
     if (!role) return error(401, 'AUTH_REQUIRED', 'Please sign in.');
     const apiPath = path.replace(/^\/api\/v1/, '');
+    if (apiPath === '/school/settings') {
+      if (role !== 'school_admin') return error(403, 'FORBIDDEN', 'Administrator access required.');
+      if (method === 'GET') return json({ name: schoolName });
+      if (method === 'PATCH') {
+        const parsed = schoolProfileInputSchema.safeParse(body);
+        if (!parsed.success) return error(422, 'VALIDATION_ERROR', 'Enter a school name.');
+        const key = new Headers(init.headers).get('Idempotency-Key');
+        if (!key) return error(422, 'VALIDATION_ERROR', 'Missing request identity.');
+        const signature = JSON.stringify(parsed.data);
+        const replayKey = actorId + '/' + key;
+        const previous = profileReplays.get(replayKey);
+        if (previous)
+          return previous.signature === signature
+            ? json({ name: previous.name })
+            : error(409, 'REVISION_CONFLICT', 'Request identity reused.');
+        if (parsed.data.expectedName !== schoolName)
+          return error(409, 'REVISION_CONFLICT', 'School name changed; refresh before saving.');
+        schoolName = parsed.data.name;
+        profileReplays.set(replayKey, { signature, name: schoolName });
+        return json({ name: schoolName });
+      }
+    }
     if (apiPath === '/demo/monitor-example' && method === 'POST') {
       if (role !== 'school_admin')
         return error(403, 'FORBIDDEN', 'Administrator access is required.');
@@ -298,10 +324,7 @@ export function createDemoTransport(
         if (role !== 'school_admin')
           return error(403, 'FORBIDDEN', 'Administrator access required.');
         const sitting = staffMatch[1];
-        const scheduled = sitting ? store.sessions.get(sitting) : undefined;
-        const reasonRequired = scheduled
-          ? Date.parse(scheduled.session.startsAt) <= Date.now()
-          : false;
+        const reasonRequired = false;
         const people = [...store.directory.accounts.values()].filter(
           (a) => a.role !== 'student' && a.status === 'active',
         );
@@ -316,8 +339,8 @@ export function createDemoTransport(
             reason?: string;
           };
           const target = people.find((a) => store.staffAliases.get(a.userId) === b.staffId);
-          if (!target || typeof b.active !== 'boolean' || (reasonRequired && !b.reason?.trim()))
-            return error(422, 'VALIDATION_ERROR', 'Choose staff and enter a reason.');
+          if (!target || typeof b.active !== 'boolean')
+            return error(422, 'VALIDATION_ERROR', 'Choose staff.');
           const k = sitting + '/' + target.userId;
           const old = store.invigilation.get(k);
           if ((old?.revision ?? 0) !== b.expectedRevision)

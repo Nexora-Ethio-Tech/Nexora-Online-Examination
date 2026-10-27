@@ -38,8 +38,14 @@ Routine creation has no reason field: classes, subjects, teacher/invigilator acc
 
 Elsewhere, approval comments, schedule changes, AI settings, practice settings, teacher draft removal, import cancellation and student recovery uploads accept optional notes. Returning a paper, resolving flagged questions, extra-time changes, device replacement, supervision decisions, rejection of reopening and recovery review decisions require explanations. Student recovery retry preserves its original frozen request and note, including an empty note.
 
-Invigilator assignment reads now return `reasonRequired`, calculated from authoritative exam start and server time. Before start there is no reason input; at/after start a reason is required. The backend checks this again on writes. The visible directory refresh brings the UI up to date; a request crossing the start boundary can be rejected with an explanation to refresh and supply a reason.
+Invigilator assignment changes require confirmation and the current revision, without a reason before or after exam start. The compatibility `reasonRequired` field is always false. Assignment audit records remain; assistance decisions keep their existing requirements.
 
 Platform owner provisioning, adding administrators, editing administrator information and inspecting the administrator directory require no reason. Subscription notes are optional. School suspension/reactivation and administrator recovery retain mandatory reasons and authenticator verification. Reading administrator details continues to produce an audit event.
 
 Verification: create/import/issue credentials with no reason; save ordinary edits with blank notes; confirm that active-status changes, deletion and password reset remain blocked without a reason. Approve a paper without a note, then separately confirm returning requires corrections. Check invigilator assignment both before start and exactly at start. Optional notes must accept blank input and preserve entered notes in history. Backend unit tests and frontend/demo tests support this policy; database integration and production rollout require separate evidence.
+
+## Compact assignment form
+
+Teacher, Class and Subject share one row from tablet widths; the save button joins that row on wide screens. Phones keep full-width stacked fields and a 44px minimum save target. Per-directory refresh controls and truthful last-successful-update times remain available under “Refresh options & update times”. Initial loading and directory errors remain visible outside the disclosure. Class changes still clear the selected subject and retain grade compatibility filtering.
+
+Verify the form at 360px and desktop widths, keyboard access to the disclosure and selectors, refresh failure feedback, and selecting a different class before saving. Existing school workflow tests cover assignment creation and grade filtering; synthetic checks do not establish production API acceptance.

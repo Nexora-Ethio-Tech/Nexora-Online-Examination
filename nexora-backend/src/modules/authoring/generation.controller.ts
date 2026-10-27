@@ -6,6 +6,20 @@ import { GenerationService } from './generation.service';
 @Controller()
 export class GenerationController {
   constructor(private readonly generation: GenerationService) {}
+  @Get('school/settings')
+  @Roles('school_admin')
+  profile(@Req() req: Request) {
+    return this.generation.profile(req);
+  }
+  @Patch('school/settings')
+  @Roles('school_admin')
+  saveProfile(
+    @Req() req: Request,
+    @Body() body: unknown,
+    @Headers('idempotency-key') key: unknown,
+  ) {
+    return this.generation.saveProfile(req, body, key);
+  }
   @Get('school/ai-exam-settings')
   @Roles('teacher', 'school_admin')
   settings(@Req() req: Request) {

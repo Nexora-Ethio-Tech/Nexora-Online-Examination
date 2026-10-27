@@ -173,10 +173,10 @@ export function DashboardLayout() {
               <GraduationCap className="size-8 shrink-0" aria-hidden="true" />
               <div className="min-w-0 overflow-hidden">
                 <p className="brand-heading truncate text-2xl font-semibold tracking-tight">
-                  Nexora
+                  {school.name}
                 </p>
                 <p className="max-w-32 truncate text-xs text-muted-foreground sm:max-w-md">
-                  {school.name}
+                  Nexora
                 </p>
               </div>
             </div>

@@ -5,6 +5,8 @@ import {
 import { z } from 'zod';
 import type { ApiClient } from '@/lib/api-client';
 import {
+  schoolProfileSchema,
+  schoolProfileInputSchema,
   accountSchema,
   assignmentSchema,
   auditSchema,
@@ -27,6 +29,16 @@ export function schoolApi(client: ApiClient) {
     method: 'POST' | 'PATCH' = 'POST',
   ) => client.request(path, schema, { method, body, idempotencyKey: key });
   return {
+    profile: (signal?: AbortSignal) =>
+      client.request('/school/settings', schoolProfileSchema, { signal }),
+    saveProfile: (body: z.infer<typeof schoolProfileInputSchema>, key: string) =>
+      write(
+        '/school/settings',
+        schoolProfileSchema,
+        schoolProfileInputSchema.parse(body),
+        key,
+        'PATCH',
+      ),
     remove: (
       kind:
         'classes' | 'subjects' | 'students' | 'teachers' | 'invigilators' | 'teacher-assignments',
