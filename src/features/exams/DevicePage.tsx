@@ -72,7 +72,7 @@ export function DevicePage() {
           existing attempt. Your original deadline stays the same and only answers already received
           by your school can be restored automatically. Keep the old browser’s saved work.
         </p>
-        <Failure error={error} />
+        <Failure action error={error} />
         {!rejectedId && (
           <Button className="min-h-11" disabled={pending} onClick={() => void register()}>
             {pending

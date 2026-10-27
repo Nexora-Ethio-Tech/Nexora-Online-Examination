@@ -563,7 +563,11 @@ export class AuthoringService {
     parse(uuid, id);
     const body = parse(
       z
-        .object({ revision, reason: z.string().trim().min(1).max(500), confirmed: z.literal(true) })
+        .object({
+          revision,
+          reason: z.string().trim().max(500).default(''),
+          confirmed: z.literal(true),
+        })
         .strict(),
       input,
     );

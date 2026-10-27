@@ -1,3 +1,8 @@
+import { ReadError } from '@/components/shared/ReadError';
+import { EditDialog } from '@/components/shared/EditDialog';
+import { Pagination, useCursorPages } from '@/components/shared/Pagination';
+import { ConnectionStatus } from '@/components/shared/ConnectionStatus';
+import { searchCache } from '@/lib/query-policy';
 import { EthiopianDateTimeField } from '@/components/shared/EthiopianDateTimeField';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -25,7 +30,7 @@ export function PlatformApp({ client: provided }: { client?: ApiClient }) {
   const [queries] = useState(
     () =>
       new QueryClient({
-        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+        defaultOptions: { queries: { retry: false, ...searchCache }, mutations: { retry: false } },
       }),
   );
   const [owner, setOwner] = useState<string | null>(null),
@@ -59,6 +64,7 @@ export function PlatformApp({ client: provided }: { client?: ApiClient }) {
   }, [client, queries, initialize]);
   return (
     <QueryClientProvider client={queries}>
+      <ConnectionStatus client={client} />
       <main className="mx-auto min-h-svh max-w-6xl space-y-6 p-4 sm:p-8">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -116,6 +122,7 @@ function OwnerLogin({ client, onLogin }: { client: ApiClient; onLogin: (name: st
     [busy, setBusy] = useState(false);
   return (
     <form
+      data-saving={busy}
       className="max-w-md space-y-4 rounded-xl border p-5"
       onSubmit={(e) => {
         e.preventDefault();
@@ -139,7 +146,7 @@ function OwnerLogin({ client, onLogin }: { client: ApiClient; onLogin: (name: st
         Use your separately enrolled owner account and a fresh authenticator code.
       </p>
       <label className="block">
-        Owner ID
+        <span className="field-label">Owner ID</span>
         <input
           className={inputClass}
           autoComplete="username"
@@ -150,7 +157,7 @@ function OwnerLogin({ client, onLogin }: { client: ApiClient; onLogin: (name: st
         />
       </label>
       <label className="block">
-        Password
+        <span className="field-label">Password</span>
         <input
           type="password"
           className={inputClass}
@@ -162,7 +169,7 @@ function OwnerLogin({ client, onLogin }: { client: ApiClient; onLogin: (name: st
         />
       </label>
       <label className="block">
-        Authenticator code
+        <span className="field-label">Authenticator code</span>
         <input
           className={inputClass}
           inputMode="numeric"
@@ -180,8 +187,9 @@ function OwnerLogin({ client, onLogin }: { client: ApiClient; onLogin: (name: st
   );
 }
 function Dashboard({ client }: { client: ApiClient }) {
-  const [cursor, setCursor] = useState<string | null>(null),
-    [selected, setSelected] = useState<School | null>(null),
+  const pages = useCursorPages();
+  const cursor = pages.cursor;
+  const [selected, setSelected] = useState<School | null>(null),
     [creating, setCreating] = useState(false);
   const schools = useQuery({
     queryKey: ['platform', 'schools', cursor],
@@ -207,7 +215,7 @@ function Dashboard({ client }: { client: ApiClient }) {
           </Button>
         </div>
         {schools.isPending && <p role="status">Loading schools…</p>}
-        {schools.error && <p role="alert">{errorMessage(schools.error)}</p>}
+        {schools.error && <ReadError error={schools.error} />}
         {schools.data?.schools.length === 0 && <p>No schools on this page.</p>}
         <div className="grid gap-3 md:grid-cols-2">
           {schools.data?.schools.map((s) => (
@@ -231,29 +239,34 @@ function Dashboard({ client }: { client: ApiClient }) {
             </button>
           ))}
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" disabled={!cursor} onClick={() => setCursor(null)}>
-            First page
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!schools.data?.nextCursor}
-            onClick={() => setCursor(schools.data?.nextCursor ?? null)}
-          >
-            Next page
-          </Button>
-        </div>
+        <Pagination
+          page={pages.number}
+          hasNext={!!schools.data?.nextCursor}
+          busy={schools.isFetching}
+          previous={pages.previous}
+          next={() => {
+            if (schools.data?.nextCursor) pages.next(schools.data.nextCursor);
+          }}
+        />
       </section>
       {(creating || selected) && (
-        <OwnerActions
-          key={selected?.id ?? 'new'}
-          client={client}
-          school={selected}
+        <EditDialog
+          title={selected ? `Manage ${selected.name}` : 'Add school'}
           close={() => {
             setSelected(null);
             setCreating(false);
           }}
-        />
+        >
+          <OwnerActions
+            key={selected?.id ?? 'new'}
+            client={client}
+            school={selected}
+            close={() => {
+              setSelected(null);
+              setCreating(false);
+            }}
+          />
+        </EditDialog>
       )}
       <Health client={client} />
       <Audit client={client} />
@@ -396,6 +409,7 @@ function OwnerActions({
       </div>
       {school && <p>School code: {school.schoolCode}</p>}
       <form
+        data-saving={busy}
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -404,13 +418,14 @@ function OwnerActions({
       >
         {school ? (
           <label className="block">
-            What would you like to do?
+            <span className="field-label">What would you like to do?</span>
             <select
               className={inputClass}
               value={action}
               disabled={busy}
               onChange={(e) => {
                 setAction(e.target.value);
+                setReason('');
                 setResult(null);
                 setConfirmed(false);
               }}
@@ -427,7 +442,7 @@ function OwnerActions({
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             <label>
-              School name
+              <span className="field-label">School name</span>
               <input
                 className={inputClass}
                 required
@@ -438,7 +453,7 @@ function OwnerActions({
               />
             </label>
             <label>
-              School short name
+              <span className="field-label">School short name</span>
               <input
                 className={inputClass}
                 required
@@ -455,7 +470,7 @@ function OwnerActions({
               </span>
             </label>
             <label>
-              First administrator ID
+              <span className="field-label">First administrator ID</span>
               <input
                 className={inputClass}
                 required
@@ -474,7 +489,7 @@ function OwnerActions({
         {school && action === 'create_admin' && (
           <div className="space-y-3">
             <label className="block">
-              New administrator ID
+              <span className="field-label">New administrator ID</span>
               <input
                 className={inputClass}
                 required
@@ -495,7 +510,7 @@ function OwnerActions({
               ["Grandfather's name", grandfatherName, setGrandfatherName],
             ].map(([label, value, setter]) => (
               <label key={String(label)}>
-                {String(label)}
+                <span className="field-label">{String(label)}</span>
                 <input
                   className={inputClass}
                   required
@@ -552,7 +567,7 @@ function OwnerActions({
         {school && action === 'subscription' && (
           <div className="space-y-3">
             <label className="block">
-              Subscription state
+              <span className="field-label">Subscription state</span>
               <select
                 className={inputClass}
                 value={state}
@@ -591,37 +606,41 @@ function OwnerActions({
             </span>
           </label>
         )}
-        <label className="block">
-          Reason
-          <textarea
-            className={inputClass}
-            required
-            minLength={5}
-            maxLength={500}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </label>
+        {(action === 'status' || action === 'reset_admin' || action === 'subscription') && (
+          <label className="block">
+            <span className="field-label">
+              {action === 'subscription' ? 'Note (optional)' : 'Reason'}
+            </span>
+            <textarea
+              className={inputClass}
+              required={action !== 'subscription'}
+              minLength={action === 'subscription' ? undefined : 5}
+              maxLength={500}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </label>
+        )}
         {school && (action === 'reset_admin' || action === 'edit_admin') && (
           <div className="space-y-3">
             <Button
               type="button"
               variant="outline"
-              disabled={busy || reason.trim().length < 5}
+              disabled={busy}
               onClick={() => {
                 setBusy(true);
                 setError('');
                 void platformApi(client)
-                  .inspect(school.id, reason)
+                  .inspect(school.id, '')
                   .then((r) => setAdmins(r.admins))
                   .catch((e) => setError(errorMessage(e)))
                   .finally(() => setBusy(false));
               }}
             >
-              Load administrators for this reason
+              Load administrators
             </Button>
             <label className="block">
-              Administrator
+              <span className="field-label">Administrator</span>
               <select
                 className={inputClass}
                 required
@@ -674,7 +693,7 @@ function OwnerActions({
           </div>
         )}
         <label className="block">
-          Authentication code
+          <span className="field-label">Authentication code</span>
           <input
             className={inputClass}
             inputMode="numeric"
@@ -777,7 +796,8 @@ function Health({ client }: { client: ApiClient }) {
   );
 }
 function Audit({ client }: { client: ApiClient }) {
-  const [cursor, setCursor] = useState<string | null>(null);
+  const pages = useCursorPages();
+  const cursor = pages.cursor;
   const data = useQuery({
     queryKey: ['platform', 'audit', cursor],
     queryFn: ({ signal }) => platformApi(client).audit(cursor, signal),
@@ -786,7 +806,7 @@ function Audit({ client }: { client: ApiClient }) {
     <section id="owner-activity" className="space-y-3 rounded-xl border p-5">
       <h2 className="text-xl font-semibold">Owner activity</h2>
       <p className="text-sm">Up to 100 events per page. Exports contain this page only.</p>
-      {data.error && <p role="alert">{errorMessage(data.error)}</p>}
+      {data.error && <ReadError error={data.error} />}
       {data.isPending && <p role="status">Loading audit events…</p>}
       <div className="max-h-96 overflow-auto">
         <ul className="space-y-3">
@@ -805,19 +825,21 @@ function Audit({ client }: { client: ApiClient }) {
         <Button
           variant="outline"
           onClick={() => {
-            setCursor(null);
+            pages.first();
             void data.refetch();
           }}
         >
           Latest events
         </Button>
-        <Button
-          variant="outline"
-          disabled={!data.data?.nextCursor}
-          onClick={() => setCursor(data.data?.nextCursor ?? null)}
-        >
-          Older events
-        </Button>
+        <Pagination
+          page={pages.number}
+          hasNext={!!data.data?.nextCursor}
+          busy={data.isFetching}
+          previous={pages.previous}
+          next={() => {
+            if (data.data?.nextCursor) pages.next(data.data.nextCursor);
+          }}
+        />
         <Button
           variant="outline"
           disabled={!data.data}

@@ -1,3 +1,4 @@
+import { PagedItems } from '@/components/shared/Pagination';
 import { QuestionContext } from '@/features/exams/content/Content';
 import { InvigilatorAssignments } from '@/features/assistance/InvigilatorAssignments';
 import { RefreshControl } from '@/components/shared/RefreshControl';
@@ -123,10 +124,6 @@ export function ScheduleForm({
           setError('Correct the highlighted scheduling fields before confirming.');
           return;
         }
-        if (initial && !reason.trim()) {
-          setError('Explain why the schedule is changing.');
-          return;
-        }
         setError('');
         if (confirmed) onSave(iso, result, reason.trim(), preparationMinutes);
       }}
@@ -214,10 +211,9 @@ export function ScheduleForm({
         />
         {initial && (
           <label className="space-y-2 xl:col-span-2">
-            Reason for changing the schedule
+            <span className="field-label">Note (optional)</span>
             <textarea
               className={control}
-              required
               maxLength={2000}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -349,7 +345,8 @@ export function AdminExamDetail() {
           }}
         />
       </div>
-      <Failure error={mutation.error || query.error} />
+      <Failure action error={mutation.error} />
+      <Failure error={query.error} />
       {message && (
         <p role="status" className="text-sm text-primary">
           {message}
@@ -395,46 +392,59 @@ export function AdminExamDetail() {
       </section>
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Questions, keys and reviewed explanations</h2>
-        {d.items.map((item, index) => (
-          <article key={item.itemId} className={panel}>
-            <h3 className="font-semibold">
-              {index + 1}. {item.externalId} · {item.marks} marks
-            </h3>
-            <div className="mt-4 grid gap-5 lg:grid-cols-2">
-              <div>
-                <QuestionContext structure={d.exam.structure} item={item} />
-                <p className="whitespace-pre-wrap text-sm">{item.stem}</p>
-                <ul className="mt-3 space-y-2 text-sm">
-                  {item.options.map((o) => (
-                    <li key={o.id} className={o.id === item.correctOptionId ? 'font-semibold' : ''}>
-                      {o.id}: {o.text}
-                      {o.id === item.correctOptionId ? ' (teacher key)' : ''}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="space-y-2 text-sm">
-                <p>
-                  <strong>Primary topic:</strong> {item.primaryTopic || 'Missing'}
-                </p>
-                <p>
-                  <strong>Secondary topics:</strong> {item.secondaryTopics.join(', ') || 'None'}
-                </p>
-                <p className="whitespace-pre-wrap">{item.explanation || 'Explanation missing'}</p>
-                <p>Teacher review: {item.reviewed ? 'Confirmed' : 'Missing'}</p>
-                {item.keyConsistent === false && (
-                  <p className="font-semibold">AI flagged an answer-key conflict.</p>
-                )}
-                {item.reviewFlags.map((flag) => (
-                  <p key={flag}>Flag: {flag}</p>
-                ))}
-                {item.reviewNote && (
-                  <p className="whitespace-pre-wrap">Teacher resolution: {item.reviewNote}</p>
-                )}
-              </div>
-            </div>
-          </article>
-        ))}
+        <PagedItems items={d.items} identity={examId}>
+          {(pageItems) => (
+            <>
+              {' '}
+              {pageItems.map((item) => (
+                <article key={item.itemId} className={panel}>
+                  <h3 className="font-semibold">
+                    {d.items.indexOf(item) + 1}. {item.externalId} · {item.marks} marks
+                  </h3>
+                  <div className="mt-4 grid gap-5 lg:grid-cols-2">
+                    <div>
+                      <QuestionContext structure={d.exam.structure} item={item} />
+                      <p className="whitespace-pre-wrap text-sm">{item.stem}</p>
+                      <ul className="mt-3 space-y-2 text-sm">
+                        {item.options.map((o) => (
+                          <li
+                            key={o.id}
+                            className={o.id === item.correctOptionId ? 'font-semibold' : ''}
+                          >
+                            {o.id}: {o.text}
+                            {o.id === item.correctOptionId ? ' (teacher key)' : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <p>
+                        <strong>Primary topic:</strong> {item.primaryTopic || 'Missing'}
+                      </p>
+                      <p>
+                        <strong>Secondary topics:</strong>{' '}
+                        {item.secondaryTopics.join(', ') || 'None'}
+                      </p>
+                      <p className="whitespace-pre-wrap">
+                        {item.explanation || 'Explanation missing'}
+                      </p>
+                      <p>Teacher review: {item.reviewed ? 'Confirmed' : 'Missing'}</p>
+                      {item.keyConsistent === false && (
+                        <p className="font-semibold">AI flagged an answer-key conflict.</p>
+                      )}
+                      {item.reviewFlags.map((flag) => (
+                        <p key={flag}>Flag: {flag}</p>
+                      ))}
+                      {item.reviewNote && (
+                        <p className="whitespace-pre-wrap">Teacher resolution: {item.reviewNote}</p>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              ))}{' '}
+            </>
+          )}
+        </PagedItems>
       </section>
       {e.status === 'in_review' && (
         <section className={`${panel} space-y-4`}>
@@ -444,7 +454,9 @@ export function AdminExamDetail() {
             correction.
           </p>
           <label className="block text-sm">
-            Review comment or required corrections
+            <span className="field-label">
+              Review note (optional for approval; required when returning)
+            </span>
             <textarea
               className={`${control} mt-2`}
               rows={3}
@@ -470,13 +482,7 @@ export function AdminExamDetail() {
           <div className="flex flex-wrap gap-3">
             <Button
               className="min-h-11"
-              disabled={
-                pending ||
-                !!query.error ||
-                !comment.trim() ||
-                confirmedRevision !== e.revision ||
-                !reviewed
-              }
+              disabled={pending || !!query.error || confirmedRevision !== e.revision || !reviewed}
               onClick={() => {
                 const body = { revision: e.revision, comment: comment.trim() };
                 run(() => api.decide(examId, 'approve', body, key('approve', body)));
@@ -651,19 +657,26 @@ export function AdminExamDetail() {
       <section className={panel}>
         <h2 className="text-lg font-semibold">Approval and schedule history</h2>
         {!d.history.length && <p className="mt-3 text-sm">No decisions recorded yet.</p>}
-        <ol className="mt-3 space-y-4">
-          {d.history.map((h, i) => (
-            <li key={i} className="text-sm">
-              <p className="capitalize font-medium">
-                {h.action} · {h.actorName}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {eatTime(h.at)} · Revision {h.revision}
-              </p>
-              <p className="mt-1 whitespace-pre-wrap">{h.comment}</p>
-            </li>
-          ))}
-        </ol>
+        <PagedItems items={d.history} identity={examId}>
+          {(pageHistory) => (
+            <>
+              {' '}
+              <ol className="mt-3 space-y-4">
+                {pageHistory.map((h, i) => (
+                  <li key={i} className="text-sm">
+                    <p className="capitalize font-medium">
+                      {h.action} · {h.actorName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {eatTime(h.at)} · Revision {h.revision}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap">{h.comment}</p>
+                  </li>
+                ))}
+              </ol>{' '}
+            </>
+          )}
+        </PagedItems>
       </section>
     </div>
   );

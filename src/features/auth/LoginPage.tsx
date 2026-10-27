@@ -82,7 +82,12 @@ export function LoginPage() {
             Sign in with your user ID and password. We’ll open the right workspace for your account.
           </p>
           <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-5">
-            <FormField id="login-id" label="User ID" error={form.formState.errors.loginId?.message}>
+            <FormField
+              required
+              id="login-id"
+              label="User ID"
+              error={form.formState.errors.loginId?.message}
+            >
               {(control) => (
                 <Input
                   {...control}
@@ -97,6 +102,7 @@ export function LoginPage() {
               )}
             </FormField>
             <FormField
+              required
               id="password"
               label="Password"
               error={form.formState.errors.password?.message}

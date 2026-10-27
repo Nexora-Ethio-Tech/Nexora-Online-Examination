@@ -158,7 +158,8 @@ export function createAdminDemo(store: AuthoringStore, clock: () => number = Dat
     }
     if (match?.[2] === 'approve' || match?.[2] === 'return') {
       const parsed = decisionSchema.safeParse(body);
-      if (!parsed.success) return fail('Enter a review comment.', 'VALIDATION_ERROR', 422);
+      if (!parsed.success || (match[2] === 'return' && !parsed.data.comment.trim()))
+        return fail('Enter corrections when returning a paper.', 'VALIDATION_ERROR', 422);
       if (exam.status !== 'in_review' || parsed.data.revision !== exam.revision)
         return fail('This paper changed. Reload before deciding.');
       if (match[2] === 'approve') {

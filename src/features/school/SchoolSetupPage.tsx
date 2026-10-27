@@ -1,3 +1,8 @@
+import { usePagedQuery, useLocalPagination } from '@/components/shared/Pagination';
+import { EditDialog } from '@/components/shared/EditDialog';
+import { FilterBar } from '@/components/shared/FilterBar';
+import { searchCache, directoryCache } from '@/lib/query-policy';
+import { useDebounced } from '@/lib/use-debounced';
 import { RefreshControl } from '@/components/shared/RefreshControl';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,17 +22,25 @@ import { RemoveRecord } from './RemoveRecord';
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block space-y-2">
-      <span>{label}</span>
+      <span className="field-label">{label}</span>
       {children}
     </label>
   );
 }
-export function Reason({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function Reason({
+  value,
+  onChange,
+  optional = false,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  optional?: boolean;
+}) {
   return (
-    <Field label="Reason">
+    <Field label={optional ? 'Note (optional)' : 'Reason'}>
       <textarea
         className={control}
-        required
+        required={!optional}
         maxLength={2000}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -73,7 +86,7 @@ export function useSchoolOperation() {
     run,
     feedback: (
       <>
-        <Failure error={error} />
+        <Failure action error={error} />
         {message && <p role="status">{message}</p>}
       </>
     ),
@@ -89,17 +102,20 @@ export function useSchoolPage<T>(
 ) {
   const scope = useTeacherScope();
   const query = useInfiniteQuery({
+    ...(key[0] === 'classes' || key[0] === 'subjects' ? directoryCache : searchCache),
     queryKey: ['school', ...scope, ...key],
     initialPageParam: null,
     queryFn: ({ pageParam, signal }: { pageParam: string | null; signal: AbortSignal }) =>
       call(pageParam, signal),
     getNextPageParam: (p) => p.nextCursor ?? undefined,
   });
+  const pagination = usePagedQuery(query, JSON.stringify([scope, key]));
   const { hasNextPage, isFetching, error, fetchNextPage } = query;
   useEffect(() => {
     if (allPages && hasNextPage && !isFetching && !error) void fetchNextPage();
   }, [allPages, hasNextPage, isFetching, error, fetchNextPage]);
   return {
+    pageRows: pagination.page?.items ?? [],
     rows: query.data?.pages.flatMap((p) => p.items) ?? [],
     query,
     controls: (
@@ -110,16 +126,7 @@ export function useSchoolPage<T>(
           updatedAt={query.dataUpdatedAt}
           refresh={() => query.refetch()}
         />
-        {query.hasNextPage && (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={query.isFetchingNextPage}
-            onClick={() => void query.fetchNextPage()}
-          >
-            Load more
-          </Button>
-        )}
+        {allPages ? null : pagination.controls}
         {query.isPending && <p role="status">Loading school records…</p>}
         <Failure error={query.error} />
       </div>
@@ -136,93 +143,105 @@ export function downloadCsv(csv: string, filename: string) {
   anchor.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function CredentialPanel({ issue, close }: { issue: CredentialIssue; close: () => void }) {
+export function CredentialPanel({ issue, close }: { issue: CredentialIssue; close: () => void }) {
+  const credentialsPage = useLocalPagination(issue.credentials ?? [], issue.issueId);
+  const accountsPage = useLocalPagination(issue.accounts, issue.issueId);
   const [downloaded, setDownloaded] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
   return (
-    <section className={`${panel} space-y-4`} aria-label="Private login details">
-      <h2 className="text-2xl font-semibold">
-        {issue.credentials ? 'Save these login details now' : 'Login details were already created'}
-      </h2>
-      <p>
-        {issue.issuedCount} account(s) · {eatTime(issue.issuedAt)}
-      </p>
-      {issue.credentials ? (
-        <>
-          <p>
-            This list is available only in this view. Save it privately before closing. Leaving this
-            page, reloading or signing out clears it; lost passwords must be reset. Share each
-            account only with its intended user.
-          </p>
-          <div className="max-h-96 overflow-auto rounded border">
-            <table className="w-full text-left text-sm">
-              <caption className="sr-only">New account login details</caption>
-              <thead>
-                <tr>
-                  <th className="p-3">Name</th>
-                  <th className="p-3">User ID</th>
-                  <th className="p-3">Password</th>
-                </tr>
-              </thead>
-              <tbody>
-                {issue.credentials.map((c) => (
-                  <tr className="border-t" key={c.userId}>
-                    <td className="p-3">{c.displayName}</td>
-                    <td className="p-3">
-                      <code>{c.loginId}</code>
-                    </td>
-                    <td className="p-3">
-                      <code className="break-all">{c.password}</code>
-                    </td>
+    <EditDialog
+      title="Private login details"
+      close={close}
+      locked={!!issue.credentials && !acknowledged}
+      protectChanges={false}
+    >
+      <section className="space-y-4" aria-label="Private login details">
+        <h2 className="text-2xl font-semibold">
+          {issue.credentials
+            ? 'Save these login details now'
+            : 'Login details were already created'}
+        </h2>
+        <p>
+          {issue.issuedCount} account(s) · {eatTime(issue.issuedAt)}
+        </p>
+        {issue.credentials ? (
+          <>
+            <p>
+              This list is available only in this view. Save it privately before closing. Leaving
+              this page, reloading or signing out clears it; lost passwords must be reset. Share
+              each account only with its intended user.
+            </p>
+            <div className="max-h-96 overflow-auto rounded border">
+              <table className="w-full text-left text-sm">
+                <caption className="sr-only">New account login details</caption>
+                <thead>
+                  <tr>
+                    <th className="p-3">Name</th>
+                    <th className="p-3">User ID</th>
+                    <th className="p-3">Password</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <Button
-            className="min-h-11"
-            disabled={downloaded}
-            onClick={() => {
-              if (issue.credentials) {
-                downloadCsv(credentialsCsv(issue.credentials), 'nexora-private-credentials.csv');
-                setDownloaded(true);
-              }
-            }}
-          >
-            {downloaded ? 'Download requested' : 'Download login details (CSV)'}
-          </Button>
-          <label className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              checked={acknowledged}
-              onChange={(e) => setAcknowledged(e.target.checked)}
-            />
-            I saved the login details, or understand that missing passwords will need a reset.
-          </label>
-        </>
-      ) : (
-        <>
-          <p>
-            The passwords from the first list cannot be shown again. No new passwords were created.
-            If you did not save the first list, search Accounts by these user IDs and reset their
-            passwords.
-          </p>
-          <ul className="list-disc space-y-1 pl-5">
-            {issue.accounts.map((a) => (
-              <li key={a.userId}>{a.displayName}</li>
-            ))}
-          </ul>
-        </>
-      )}
-      <Button
-        className="min-h-11"
-        variant="outline"
-        disabled={!!issue.credentials && !acknowledged}
-        onClick={close}
-      >
-        Close login details
-      </Button>
-    </section>
+                </thead>
+                <tbody>
+                  {credentialsPage.rows.map((c) => (
+                    <tr className="border-t" key={c.userId}>
+                      <td className="p-3">{c.displayName}</td>
+                      <td className="p-3">
+                        <code>{c.loginId}</code>
+                      </td>
+                      <td className="p-3">
+                        <code className="break-all">{c.password}</code>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {credentialsPage.controls}
+            <Button
+              className="min-h-11"
+              onClick={() => {
+                if (issue.credentials) {
+                  downloadCsv(credentialsCsv(issue.credentials), 'nexora-private-credentials.csv');
+                  setDownloaded(true);
+                }
+              }}
+            >
+              {downloaded ? 'Download requested' : 'Download login details (CSV)'}
+            </Button>
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={acknowledged}
+                onChange={(e) => setAcknowledged(e.target.checked)}
+              />
+              I saved the login details, or understand that missing passwords will need a reset.
+            </label>
+          </>
+        ) : (
+          <>
+            <p>
+              The passwords from the first list cannot be shown again. No new passwords were
+              created. If you did not save the first list, search Accounts by these user IDs and
+              reset their passwords.
+            </p>
+            <ul className="list-disc space-y-1 pl-5">
+              {accountsPage.rows.map((a) => (
+                <li key={a.userId}>{a.displayName}</li>
+              ))}
+            </ul>
+            {accountsPage.controls}
+          </>
+        )}
+        <Button
+          className="min-h-11"
+          variant="outline"
+          disabled={!!issue.credentials && !acknowledged}
+          onClick={close}
+        >
+          Close login details
+        </Button>
+      </section>
+    </EditDialog>
   );
 }
 function StructurePage({ kind }: { kind: 'class' | 'subject' }) {
@@ -240,19 +259,27 @@ function StructurePage({ kind }: { kind: 'class' | 'subject' }) {
         </Button>
       )}
       {(adding || selected) && (
-        <StructureForm
-          key={`${kind}:${selected && ('classId' in selected ? selected.classId : selected.subjectId)}:${selected?.revision}`}
-          kind={kind}
-          selected={selected}
-          onDone={() => {
+        <EditDialog
+          title={`${selected ? 'Edit' : 'Add'} ${kind}`}
+          close={() => {
             setSelected(null);
             setAdding(false);
           }}
-        />
+        >
+          <StructureForm
+            key={`${kind}:${selected && ('classId' in selected ? selected.classId : selected.subjectId)}:${selected?.revision}`}
+            kind={kind}
+            selected={selected}
+            onDone={() => {
+              setSelected(null);
+              setAdding(false);
+            }}
+          />
+        </EditDialog>
       )}
       {list.controls}
       <div className="grid gap-3 sm:grid-cols-2">
-        {list.rows.map((row) => (
+        {list.pageRows.map((row) => (
           <section
             className={`${panel} space-y-2`}
             key={'classId' in row ? row.classId : row.subjectId}
@@ -401,14 +428,13 @@ function StructureForm({
             Active {kind}
           </label>
         )}
-        <Reason value={reason} onChange={setReason} />
+        {selected && <Reason optional value={reason} onChange={setReason} />}
         <div className="flex gap-3">
           <Button
             className="min-h-11"
             disabled={
               (!(kind === 'class' && grade.trim() && section.trim()) && !name.trim()) ||
-              !detail.trim() ||
-              !reason.trim()
+              !detail.trim()
             }
           >
             Save {kind}
@@ -436,6 +462,8 @@ function AccountsPage({
   const [role, setRole] = useState<'student' | 'teacher' | 'invigilator'>('student');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
+  const settledSearch = useDebounced(search.trim());
+  useEffect(() => setFilter(settledSearch), [settledSearch]);
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-3">
@@ -476,7 +504,7 @@ function AccountsPage({
           <h2 className="text-xl font-semibold">Choose a class to manage its students</h2>
           {classes.controls}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {classes.rows.map((c) => (
+            {classes.pageRows.map((c) => (
               <button
                 key={c.classId}
                 className={`${panel} text-left hover:border-primary`}
@@ -589,7 +617,7 @@ function AccountList({
           <h2 className="text-xl font-semibold">
             {role === 'invigilator' ? 'Add invigilator' : 'Add teacher'}
           </h2>
-          <fieldset disabled={op.pending} className="space-y-3">
+          <fieldset data-saving={op.pending} disabled={op.pending} className="space-y-3">
             <Field label="First name">
               <input
                 className={control}
@@ -617,12 +645,10 @@ function AccountList({
                 onChange={(e) => setGrandfatherName(e.target.value)}
               />
             </Field>
-            <Reason value={reason} onChange={setReason} />
+
             <Button
               className="min-h-11"
-              disabled={
-                !name.trim() || !fatherName.trim() || !grandfatherName.trim() || !reason.trim()
-              }
+              disabled={!name.trim() || !fatherName.trim() || !grandfatherName.trim()}
             >
               {role === 'invigilator'
                 ? 'Create invigilator and login details'
@@ -636,27 +662,28 @@ function AccountList({
       )}
       {role === 'student' && (
         <p>
-          Import students in the Roster import tab, then select unissued accounts below to generate
-          their login details.
+          Roster import creates student login details when you save the reviewed roster. Use this
+          page for individual changes, password resets or accounts whose login details were not
+          issued.
         </p>
       )}
       {list.controls}
       {role === 'student' &&
-        list.rows.some((a) => a.credentialState === 'unissued' && a.status === 'active') && (
+        list.pageRows.some((a) => a.credentialState === 'unissued' && a.status === 'active') && (
           <div className="flex flex-wrap gap-3">
             <Button
               variant="outline"
               disabled={op.pending}
               onClick={() => {
                 setChecked(
-                  list.rows
+                  list.pageRows
                     .filter((a) => a.credentialState === 'unissued' && a.status === 'active')
                     .slice(0, 500),
                 );
                 setConfirmed(false);
               }}
             >
-              Select loaded unissued students (up to 500)
+              Select unissued students on this page
             </Button>
             <Button
               variant="outline"
@@ -671,7 +698,7 @@ function AccountList({
           </div>
         )}
       <div className="space-y-3">
-        {list.rows.map((a) => (
+        {list.pageRows.map((a) => (
           <section key={a.userId} className={`${panel} space-y-3`}>
             <h3 className="font-semibold">{a.displayName}</h3>
             <p>
@@ -749,8 +776,7 @@ function AccountList({
           <h2 className="text-xl font-semibold">
             Create login details for {checked.length} students
           </h2>
-          <fieldset disabled={op.pending} className="space-y-3">
-            <Reason value={reason} onChange={setReason} />
+          <fieldset data-saving={op.pending} disabled={op.pending} className="space-y-3">
             <label className="flex gap-3">
               <input
                 type="checkbox"
@@ -759,10 +785,7 @@ function AccountList({
               />
               I checked the selected students and am ready to save their login details.
             </label>
-            <Button
-              className="min-h-11"
-              disabled={!reason.trim() || !confirmed || checked.length > 500}
-            >
+            <Button className="min-h-11" disabled={!confirmed || checked.length > 500}>
               Create login details for selected accounts
             </Button>
           </fieldset>
@@ -770,25 +793,32 @@ function AccountList({
       )}
       {op.feedback}
       {editing && (
-        <AccountEditor
-          key={`${editing.userId}:${editing.revision}`}
-          account={editing}
-          classes={classes.rows}
-          more={classes.controls}
-          close={() => setEditing(null)}
-          reset={() => {
-            setResetting(editing);
-            setEditing(null);
-          }}
-        />
+        <EditDialog title={`Edit ${editing.displayName}`} close={() => setEditing(null)}>
+          <AccountEditor
+            key={`${editing.userId}:${editing.revision}`}
+            account={editing}
+            classes={classes.rows}
+            more={classes.controls}
+            close={() => setEditing(null)}
+            reset={() => {
+              setResetting(editing);
+              setEditing(null);
+            }}
+          />
+        </EditDialog>
       )}
       {resetting && (
-        <PasswordReset
-          key={`${resetting.userId}:${resetting.revision}`}
-          account={resetting}
+        <EditDialog
+          title={`Reset password for ${resetting.displayName}`}
           close={() => setResetting(null)}
-          showIssue={showIssue}
-        />
+        >
+          <PasswordReset
+            key={`${resetting.userId}:${resetting.revision}`}
+            account={resetting}
+            close={() => setResetting(null)}
+            showIssue={showIssue}
+          />
+        </EditDialog>
       )}
     </>
   );
@@ -827,7 +857,7 @@ function PasswordReset({
         {account.loginId}. The old password will stop working and existing sessions will be signed
         out. Saved exam answers and recovery evidence are preserved.
       </p>
-      <fieldset disabled={op.pending} className="space-y-3">
+      <fieldset data-saving={op.pending} disabled={op.pending} className="space-y-3">
         <Reason value={reason} onChange={setReason} />
         <label className="flex gap-3">
           <input
@@ -929,7 +959,7 @@ function AccountEditor({
         Class changes apply to future exam rosters. Deactivating an account stops access and signs
         it out.
       </p>
-      <fieldset disabled={op.pending} className="space-y-3">
+      <fieldset data-saving={op.pending} disabled={op.pending} className="space-y-3">
         <Field label="Account name">
           <input
             className={control}
@@ -980,7 +1010,11 @@ function AccountEditor({
           />
           Account active
         </label>
-        <Reason value={reason} onChange={setReason} />
+        <Reason
+          optional={active === (account.status === 'active')}
+          value={reason}
+          onChange={setReason}
+        />
         <label className="flex gap-3">
           <input
             type="checkbox"
@@ -990,7 +1024,13 @@ function AccountEditor({
           I checked the account changes.
         </label>
         <div className="flex gap-3">
-          <Button disabled={!confirmed || !name.trim() || !reason.trim()}>
+          <Button
+            disabled={
+              !confirmed ||
+              !name.trim() ||
+              (active !== (account.status === 'active') && !reason.trim())
+            }
+          >
             Save account changes
           </Button>
           <Button type="button" variant="outline" onClick={close}>
@@ -1018,8 +1058,9 @@ function AssignmentsPage() {
     teacherId: '',
     search: '',
   });
-  const list = useSchoolPage(['assignments', JSON.stringify(filters)], (cursor, signal) =>
-    api.assignments(cursor, signal, filters),
+  const settledFilters = useDebounced(filters);
+  const list = useSchoolPage(['assignments', JSON.stringify(settledFilters)], (cursor, signal) =>
+    api.assignments(cursor, signal, settledFilters),
   );
   const grades = [...new Set(classes.rows.map((c) => c.grade ?? 'unclassified'))].sort((a, b) =>
     a.localeCompare(b, undefined, { numeric: true }),
@@ -1028,7 +1069,7 @@ function AssignmentsPage() {
   const [teacherId, setTeacher] = useState('');
   const [classId, setClass] = useState('');
   const [subjectId, setSubject] = useState('');
-  const [reason, setReason] = useState('');
+  const reason = '';
   return (
     <div className="space-y-5">
       <form
@@ -1040,7 +1081,7 @@ function AssignmentsPage() {
         }}
       >
         <h2 className="text-xl font-semibold">Assign a teacher</h2>
-        <fieldset disabled={op.pending} className="space-y-3">
+        <fieldset data-saving={op.pending} disabled={op.pending} className="space-y-3">
           <Field label="Teacher">
             <select
               className={control}
@@ -1103,14 +1144,12 @@ function AssignmentsPage() {
             </select>
           </Field>
           {subjects.controls}
-          <Reason value={reason} onChange={setReason} />
-          <Button disabled={!teacherId || !classId || !subjectId || !reason.trim()}>
-            Save assignment
-          </Button>
+
+          <Button disabled={!teacherId || !classId || !subjectId}>Save assignment</Button>
         </fieldset>
         {op.feedback}
       </form>
-      <section className={`${panel} space-y-3`} aria-label="Assignment filters">
+      <FilterBar label="Assignment filters">
         <Field label="Search assignments">
           <input
             className={control}
@@ -1119,96 +1158,79 @@ function AssignmentsPage() {
             placeholder="Teacher, class or subject"
           />
         </Field>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Filter grade">
-            <select
-              className={control}
-              value={filters.grade}
-              onChange={(e) => setFilters({ ...filters, grade: e.target.value, classId: '' })}
-            >
-              <option value="">All grades</option>
-              {grades.map((g) => (
-                <option key={g} value={g}>
-                  {g === 'unclassified' ? 'Grade not assigned' : `Grade ${g}`}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Filter class">
-            <select
-              className={control}
-              value={filters.classId}
-              onChange={(e) => setFilters({ ...filters, classId: e.target.value })}
-            >
-              <option value="">All classes</option>
-              {classes.rows
-                .filter((c) => !filters.grade || (c.grade ?? 'unclassified') === filters.grade)
-                .map((c) => (
-                  <option key={c.classId} value={c.classId}>
-                    {c.name}
-                  </option>
-                ))}
-            </select>
-          </Field>
-          <Field label="Filter subject">
-            <select
-              className={control}
-              value={filters.subjectId}
-              onChange={(e) => setFilters({ ...filters, subjectId: e.target.value })}
-            >
-              <option value="">All subjects</option>
-              {subjects.rows.map((s) => (
-                <option key={s.subjectId} value={s.subjectId}>
-                  {s.name}
-                  {s.grade ? ` — Grade ${s.grade}` : ''}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Filter teacher">
-            <select
-              className={control}
-              value={filters.teacherId}
-              onChange={(e) => setFilters({ ...filters, teacherId: e.target.value })}
-            >
-              <option value="">All teachers</option>
-              {teachers.rows.map((t) => (
-                <option key={t.userId} value={t.userId}>
-                  {t.displayName}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {grades.map((g) => (
-            <Button
-              key={g}
-              variant={filters.grade === g ? 'default' : 'outline'}
-              onClick={() => setFilters({ ...filters, grade: g, classId: '' })}
-            >
-              {g === 'unclassified' ? 'Grade not assigned' : `Grade ${g}`}
-            </Button>
-          ))}
-        </div>
-        {filters.grade && (
-          <div className="grid gap-3 sm:grid-cols-2">
+
+        <Field label="Filter grade">
+          <select
+            className={control}
+            value={filters.grade}
+            onChange={(e) => setFilters({ ...filters, grade: e.target.value, classId: '' })}
+          >
+            <option value="">All grades</option>
+            {grades.map((g) => (
+              <option key={g} value={g}>
+                {g === 'unclassified' ? 'Grade not assigned' : `Grade ${g}`}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Filter class">
+          <select
+            className={control}
+            value={filters.classId}
+            onChange={(e) => setFilters({ ...filters, classId: e.target.value })}
+          >
+            <option value="">All classes</option>
             {classes.rows
-              .filter((c) => (c.grade ?? 'unclassified') === filters.grade)
+              .filter((c) => !filters.grade || (c.grade ?? 'unclassified') === filters.grade)
               .map((c) => (
-                <Button
-                  key={c.classId}
-                  variant="outline"
-                  onClick={() => setFilters({ ...filters, classId: c.classId })}
-                >
+                <option key={c.classId} value={c.classId}>
                   {c.name}
-                </Button>
+                </option>
               ))}
-          </div>
-        )}
-      </section>
+          </select>
+        </Field>
+        <Field label="Filter subject">
+          <select
+            className={control}
+            value={filters.subjectId}
+            onChange={(e) => setFilters({ ...filters, subjectId: e.target.value })}
+          >
+            <option value="">All subjects</option>
+            {subjects.rows.map((s) => (
+              <option key={s.subjectId} value={s.subjectId}>
+                {s.name}
+                {s.grade ? ` — Grade ${s.grade}` : ''}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Filter teacher">
+          <select
+            className={control}
+            value={filters.teacherId}
+            onChange={(e) => setFilters({ ...filters, teacherId: e.target.value })}
+          >
+            <option value="">All teachers</option>
+            {teachers.rows.map((t) => (
+              <option key={t.userId} value={t.userId}>
+                {t.displayName}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            setFilters({ search: '', grade: '', classId: '', subjectId: '', teacherId: '' })
+          }
+        >
+          Clear filters
+        </Button>
+      </FilterBar>
       {list.controls}
-      {[...new Set(list.rows.map((a) => a.grade ?? 'unclassified'))]
+      {[...new Set(list.pageRows.map((a) => a.grade ?? 'unclassified'))]
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
         .map((grade) => (
           <section key={grade} className="space-y-3">
@@ -1216,7 +1238,7 @@ function AssignmentsPage() {
               {grade === 'unclassified' ? 'Grade not assigned' : `Grade ${grade}`}
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
-              {list.rows
+              {list.pageRows
                 .filter((a) => (a.grade ?? 'unclassified') === grade)
                 .map((a) => (
                   <AssignmentRow key={`${a.assignmentId}:${a.revision}`} assignment={a} />
@@ -1261,8 +1283,8 @@ function AssignmentRow({ assignment: a }: { assignment: import('./schemas').Assi
             );
           }}
         >
-          <Reason value={reason} onChange={setReason} />
-          <Button disabled={op.pending || !reason.trim()}>Confirm assignment change</Button>
+          <Reason optional value={reason} onChange={setReason} />
+          <Button disabled={op.pending}>Confirm assignment change</Button>
         </form>
       )}
       {op.feedback}
@@ -1276,7 +1298,7 @@ function AuditPage() {
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">School setup activity</h2>
       {list.controls}
-      {list.rows.map((a) => (
+      {list.pageRows.map((a) => (
         <article className={`${panel} space-y-2`} key={a.auditId}>
           <p className="font-semibold capitalize">{a.action.replaceAll('_', ' ')}</p>
           <p>{a.targetLabel}</p>
@@ -1344,9 +1366,9 @@ function AiExamSettings() {
             Turning this off prevents new generation and stops pending output from replacing draft
             questions. Existing papers remain available.
           </p>
-          <fieldset disabled={op.pending} className="space-y-4">
-            <Reason value={reason} onChange={setReason} />
-            <Button disabled={!reason.trim()}>
+          <fieldset data-saving={op.pending} disabled={op.pending} className="space-y-4">
+            <Reason optional value={reason} onChange={setReason} />
+            <Button>
               {query.data.aiExamGenerationEnabled
                 ? 'Turn off AI exam generation'
                 : 'Turn on AI exam generation'}
@@ -1359,6 +1381,7 @@ function AiExamSettings() {
   );
 }
 export function SchoolSetupPage() {
+  const [importSaving, setImportSaving] = useState(false);
   const [accountsClass, setAccountsClass] = useState<string | null>(null);
   const [issue, setIssue] = useState<CredentialIssue | null>(null);
   const [params, setParams] = useSearchParams();
@@ -1374,14 +1397,16 @@ export function SchoolSetupPage() {
   ].includes(requestedTab)
     ? requestedTab
     : 'classes';
-  const setTab = (value: string) => setParams({ tab: value });
-  const blocker = useBlocker(!!issue?.credentials);
+  const setTab = (value: string) => {
+    if (!importSaving) setParams({ tab: value });
+  };
+  const blocker = useBlocker(!!issue?.credentials || importSaving);
   useBeforeUnload(
     useCallback(
       (e) => {
-        if (issue?.credentials) e.preventDefault();
+        if (issue?.credentials || importSaving) e.preventDefault();
       },
-      [issue],
+      [issue, importSaving],
     ),
   );
   return (
@@ -1391,64 +1416,65 @@ export function SchoolSetupPage() {
         Manage classes, subjects, school accounts and teaching assignments. Student passwords are
         issued once and reset when lost.
       </p>
-      {issue ? (
-        <CredentialPanel key={issue.issueId} issue={issue} close={() => setIssue(null)} />
-      ) : (
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-4 grid w-full grid-cols-2 gap-1 group-data-horizontal/tabs:h-auto sm:grid-cols-3 xl:grid-cols-7">
-            {[
-              ['classes', 'Classes'],
-              ['subjects', 'Subjects'],
-              ['accounts', 'Accounts'],
-              ['assignments', 'Assignments'],
-              ['roster', 'Roster import'],
-              ['activity', 'Activity'],
-              ['ai', 'AI settings'],
-            ].map(([value, label]) => (
-              <TabsTrigger
-                data-tour={`school-${value}`}
-                className="h-auto min-h-11"
-                key={value}
-                value={value ?? ''}
-              >
-                {label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <TabsContent value="classes">
-            <StructurePage kind="class" />
-          </TabsContent>
-          <TabsContent value="subjects">
-            <StructurePage kind="subject" />
-          </TabsContent>
-          <TabsContent value="accounts">
-            <AccountsPage
-              showIssue={setIssue}
-              classId={accountsClass}
-              setClassId={setAccountsClass}
-            />
-          </TabsContent>
-          <TabsContent value="assignments">
-            <AssignmentsPage />
-          </TabsContent>
-          <TabsContent value="roster">
-            <RosterImport />
-          </TabsContent>
-          <TabsContent value="ai">
-            <AiExamSettings />
-          </TabsContent>
-          <TabsContent value="activity">
-            <AuditPage />
-          </TabsContent>
-        </Tabs>
-      )}
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="mb-4 grid w-full grid-cols-2 gap-1 group-data-horizontal/tabs:h-auto sm:grid-cols-3 xl:grid-cols-7">
+          {[
+            ['classes', 'Classes'],
+            ['subjects', 'Subjects'],
+            ['accounts', 'Accounts'],
+            ['assignments', 'Assignments'],
+            ['roster', 'Roster import'],
+            ['activity', 'Activity'],
+            ['ai', 'AI settings'],
+          ].map(([value, label]) => (
+            <TabsTrigger
+              data-tour={`school-${value}`}
+              className="h-auto min-h-11"
+              key={value}
+              value={value ?? ''}
+            >
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <TabsContent value="classes">
+          <StructurePage kind="class" />
+        </TabsContent>
+        <TabsContent value="subjects">
+          <StructurePage kind="subject" />
+        </TabsContent>
+        <TabsContent value="accounts">
+          <AccountsPage
+            showIssue={setIssue}
+            classId={accountsClass}
+            setClassId={setAccountsClass}
+          />
+        </TabsContent>
+        <TabsContent value="assignments">
+          <AssignmentsPage />
+        </TabsContent>
+        <TabsContent value="roster">
+          <RosterImport showIssue={setIssue} onSaving={setImportSaving} />
+        </TabsContent>
+        <TabsContent value="ai">
+          <AiExamSettings />
+        </TabsContent>
+        <TabsContent value="activity">
+          <AuditPage />
+        </TabsContent>
+      </Tabs>
+      {issue && <CredentialPanel key={issue.issueId} issue={issue} close={() => setIssue(null)} />}
       <ConfirmDialog
         open={blocker.state === 'blocked'}
         onOpenChange={(open) => {
           if (!open && blocker.state === 'blocked') blocker.reset();
         }}
-        title="Leave the login details?"
-        description="This clears the one-time passwords from this view. If you have not saved them, reset the affected accounts later."
+        title={importSaving ? 'Leave while the roster is saving?' : 'Leave the login details?'}
+        description={
+          importSaving
+            ? 'The save may still complete. Leaving can lose the one-time login details; check Accounts and explicitly reset missing passwords afterward.'
+            : 'This clears the one-time passwords from this view. If you have not saved them, reset the affected accounts later.'
+        }
         confirmLabel="Discard list and leave"
         onConfirm={() => {
           setIssue(null);

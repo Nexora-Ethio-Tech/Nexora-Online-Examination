@@ -3,6 +3,7 @@ const id = z.string().min(1);
 const name = z.string().trim().min(1).max(160);
 const revision = z.number().int().positive();
 const time = z.iso.datetime();
+export const optionalNoteSchema = z.string().trim().max(2000).default('');
 export const reasonSchema = z.string().trim().min(1, 'Enter a reason.').max(2000);
 export const classInputSchema = z.object({
   name,
@@ -50,7 +51,7 @@ export const accountEditSchema = z.object({
   displayName: name,
   classId: id.nullable(),
   status: z.enum(['active', 'inactive']),
-  reason: reasonSchema,
+  reason: optionalNoteSchema,
 });
 export const assignmentInputSchema = z.object({ teacherId: id, classId: id, subjectId: id });
 export const assignmentSchema = assignmentInputSchema.extend({
@@ -68,7 +69,7 @@ export const auditSchema = z.object({
   target: id,
   targetLabel: id,
   actorName: name,
-  reason: id,
+  reason: z.string(),
   at: time,
 });
 export function pageSchema<T extends z.ZodType>(item: T) {
@@ -92,11 +93,6 @@ export const previewSchema = z.object({
   canCommit: z.boolean(),
   totalRows: z.number().int().nonnegative(),
 });
-export const importResultSchema = z.object({
-  importId: id,
-  createdCount: z.number().int().nonnegative(),
-  userIds: z.array(id),
-});
 export const credentialIssueSchema = z.object({
   issueId: id,
   issuedCount: z.number().int().positive(),
@@ -106,6 +102,12 @@ export const credentialIssueSchema = z.object({
   credentials: z
     .array(z.object({ userId: id, displayName: name, loginId: id, password: id }))
     .nullable(),
+});
+export const importResultSchema = z.object({
+  importId: id,
+  createdCount: z.number().int().nonnegative(),
+  userIds: z.array(id),
+  loginDetails: credentialIssueSchema.optional(),
 });
 export const targetsSchema = z
   .array(z.object({ userId: id, revision }))

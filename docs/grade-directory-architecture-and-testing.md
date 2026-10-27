@@ -23,7 +23,23 @@ Migration 025 was applied to the manual and disposable local PostgreSQL database
 1. As school administrator, open School setup → Classes. Create Grade 9, Section A, then Section B. Create a Grade 9 Physics subject and a separate Grade 10 Physics subject.
 2. Create a teacher with all three name fields. In Assignments, choose Grade 9 A: only Grade 9 subjects should be offered. Assign Physics, then verify grade/class/teacher/subject filters and combined search. Clear filters to return to all records. Load a second page if available.
 3. Import students into both classes. Check the year suffix and a continuous sequence. Existing IDs must not change. In Accounts → class → Edit, change a name/ID, save, then reopen Edit → Password to reset. Old login sessions must no longer work after an ID change or reset.
-4. Delete a temporary class. It disappears from active lists; accounts and previous results remain. Do not use a class containing a live test sitting for this check.
+4. Use the small trash icon on a temporary class. Verify the warning names the class and explains retained accounts and exam records. The Delete class button requires both a reason and the acknowledgement checkbox. Keep class cancels; reopening clears the reason and acknowledgement. Confirm deletion. It disappears from active lists; accounts and previous results remain. Do not use a class containing a live test sitting for this check.
 5. Submit papers from different grades/teachers. In Exam approvals and schedules, verify each filter separately and together, including Submitted from/until in EAT.
 
 Automated evidence: real local integration includes grade mismatch rejection, assignment filtering and retained class deletion. Number allocation concurrency, rollback, rollover and tenant isolation run against PostgreSQL. Frontend tests cover revised creation and editing workflows. Physical mobile acceptance remains a separate check.
+
+## Consistent removal controls
+
+Classes, subjects, student/staff accounts and teaching assignments use small accessible trash icons. Each opens a warning naming the record and explaining retained exam history. A reason and acknowledgement are required; cancelling and reopening clears both. Teacher draft removal keeps its warning and acknowledgement, with an optional note; import cancellation uses an icon with its warning and optional note. API removal rules are unchanged.
+
+## Reason and note policy (26 October 2026)
+
+Routine creation has no reason field: classes, subjects, teacher/invigilator accounts, roster imports, initial student login details and teaching assignments. Editing class/subject or ordinary account details has **Note (optional)**. Account activation/deactivation, password resets and directory deletions still require a reason. Deletion warnings and acknowledgements remain mandatory. Audits retain the actor, action, resource and time even when no note is supplied; blank notes are not replaced with invented explanations.
+
+Elsewhere, approval comments, schedule changes, AI settings, practice settings, teacher draft removal, import cancellation and student recovery uploads accept optional notes. Returning a paper, resolving flagged questions, extra-time changes, device replacement, supervision decisions, rejection of reopening and recovery review decisions require explanations. Student recovery retry preserves its original frozen request and note, including an empty note.
+
+Invigilator assignment reads now return `reasonRequired`, calculated from authoritative exam start and server time. Before start there is no reason input; at/after start a reason is required. The backend checks this again on writes. The visible directory refresh brings the UI up to date; a request crossing the start boundary can be rejected with an explanation to refresh and supply a reason.
+
+Platform owner provisioning, adding administrators, editing administrator information and inspecting the administrator directory require no reason. Subscription notes are optional. School suspension/reactivation and administrator recovery retain mandatory reasons and authenticator verification. Reading administrator details continues to produce an audit event.
+
+Verification: create/import/issue credentials with no reason; save ordinary edits with blank notes; confirm that active-status changes, deletion and password reset remain blocked without a reason. Approve a paper without a note, then separately confirm returning requires corrections. Check invigilator assignment both before start and exactly at start. Optional notes must accept blank input and preserve entered notes in history. Backend unit tests and frontend/demo tests support this policy; database integration and production rollout require separate evidence.

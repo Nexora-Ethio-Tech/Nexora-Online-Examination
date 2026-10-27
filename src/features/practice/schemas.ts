@@ -18,7 +18,7 @@ export const practiceAccessSchema = z.object({
     z.object({
       enabled: z.boolean(),
       releaseAt: time.nullable(),
-      reason: id,
+      reason: z.string(),
       actorName: id,
       at: time,
     }),
@@ -30,7 +30,7 @@ export const practiceSettingsSchema = z
     examVersion: version,
     enabled: z.boolean(),
     releaseAt: time.nullable(),
-    reason: z.string().trim().min(1).max(2000),
+    reason: z.string().trim().max(2000).default(''),
   })
   .refine((v) => !v.enabled || v.releaseAt !== null, {
     message: 'Choose a practice release time.',

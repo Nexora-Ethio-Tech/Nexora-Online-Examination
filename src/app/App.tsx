@@ -1,3 +1,5 @@
+import { ConnectionStatus } from '@/components/shared/ConnectionStatus';
+import { searchCache } from '@/lib/query-policy';
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router';
@@ -18,13 +20,14 @@ export function App({ client, demo = false, router, queryClient }: Props) {
     () =>
       queryClient ??
       new QueryClient({
-        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+        defaultOptions: { queries: { retry: false, ...searchCache }, mutations: { retry: false } },
       }),
   );
   return (
     <QueryClientProvider client={queries}>
       <ApiProvider client={client}>
         <AuthProvider client={client}>
+          <ConnectionStatus client={client} />
           {import.meta.env.DEV && demo ? (
             <div className="border-b border-amber-300 bg-amber-50 px-4 py-3 text-center text-xs leading-relaxed text-amber-950">
               Development demo · No real school accounts. IDs: DEMO-STUDENT, DEMO-TEACHER,

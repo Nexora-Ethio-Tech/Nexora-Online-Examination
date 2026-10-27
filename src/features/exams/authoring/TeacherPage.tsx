@@ -1,3 +1,6 @@
+import { usePagedQuery } from '@/components/shared/Pagination';
+import { EditDialog } from '@/components/shared/EditDialog';
+import { directoryCache } from '@/lib/query-policy';
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { ExamBadge } from '@/components/shared/ExamBadge';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -8,7 +11,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useApiClient } from '@/lib/ApiProvider';
-import { ApiError, errorMessage } from '@/lib/api-client';
+import { ApiError, errorMessage, isConnectionError } from '@/lib/api-client';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { authoringApi } from './api';
 import { metadataSchema, type Metadata, type Assignment } from './schemas';
@@ -21,8 +24,8 @@ export function useTeacherScope() {
   const userId = session?.user.id;
   return useMemo(() => [schoolId, userId], [schoolId, userId]);
 }
-export function Failure({ error }: { error: unknown }) {
-  return error ? (
+export function Failure({ error, action = false }: { error: unknown; action?: boolean }) {
+  return error && (action || !isConnectionError(error)) ? (
     <div
       role="alert"
       className="rounded-md border border-destructive/30 p-3 text-sm text-destructive"
@@ -74,12 +77,17 @@ export function MetadataForm({
     <form onSubmit={form.handleSubmit(onSave)} className="space-y-4">
       <fieldset disabled={pending || disabled} className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-2 sm:col-span-2">
-          Exam title
-          <Input {...form.register('title')} />
+          <span className="field-label">Exam title</span>
+          <Input required {...form.register('title')} />
         </label>
         <label className="space-y-2">
-          Class and subject
-          <select className={control} {...form.register('assignmentId')} disabled={lockedContext}>
+          <span className="field-label">Class and subject</span>
+          <select
+            required
+            className={control}
+            {...form.register('assignmentId')}
+            disabled={lockedContext}
+          >
             <option value="">Select your assignment</option>
             {assignments.map((a) => (
               <option key={a.assignmentId} value={a.assignmentId}>
@@ -89,27 +97,37 @@ export function MetadataForm({
           </select>
         </label>
         <label className="space-y-2">
-          Language
-          <select className={control} {...form.register('language')} disabled={lockedContext}>
+          <span className="field-label">Language</span>
+          <select
+            required
+            className={control}
+            {...form.register('language')}
+            disabled={lockedContext}
+          >
             <option value="en">English</option>
             <option value="am">Amharic</option>
           </select>
         </label>
         <label className="space-y-2">
-          Duration in minutes
-          <Input type="number" {...form.register('durationMinutes', { valueAsNumber: true })} />
+          <span className="field-label">Duration in minutes</span>
+          <Input
+            required
+            type="number"
+            {...form.register('durationMinutes', { valueAsNumber: true })}
+          />
         </label>
         <label className="space-y-2">
-          Pass threshold (%)
+          <span className="field-label">Pass threshold (%)</span>
           <Input
+            required
             type="number"
             step="0.1"
             {...form.register('passPercent', { valueAsNumber: true })}
           />
         </label>
         <label className="space-y-2 sm:col-span-2">
-          Question ordering
-          <select className={control} {...form.register('ordering')}>
+          <span className="field-label">Question ordering</span>
+          <select required className={control} {...form.register('ordering')}>
             <option value="fixed">Keep template order</option>
             <option value="shuffle_questions_and_options">
               Shuffle questions and options per student
@@ -117,8 +135,8 @@ export function MetadataForm({
           </select>
         </label>
         <label className="space-y-2 sm:col-span-2">
-          Instructions
-          <textarea rows={3} className={control} {...form.register('instructions')} />
+          <span className="field-label">Instructions</span>
+          <textarea required rows={3} className={control} {...form.register('instructions')} />
         </label>
       </fieldset>
       {Object.entries(form.formState.errors).map(([field, error]) => (
@@ -136,6 +154,7 @@ export function useAssignments() {
   const api = authoringApi(useApiClient());
   const scope = useTeacherScope();
   return useInfiniteQuery({
+    ...directoryCache,
     queryKey: ['teaching-assignments', ...scope],
     initialPageParam: null,
     queryFn: ({ pageParam, signal }: { pageParam: string | null; signal: AbortSignal }) =>
@@ -160,6 +179,7 @@ export function TeacherPage() {
       api.list(pageParam, signal, category, status),
     getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
+  const pagination = usePagedQuery(list, JSON.stringify([scope, category, status]));
   const create = useMutation({
     mutationFn: (data: Metadata) => {
       const json = JSON.stringify(data);
@@ -197,7 +217,7 @@ export function TeacherPage() {
         ))}
         {category === 'active' && (
           <label>
-            Paper status{' '}
+            <span className="field-label">Paper status </span>
             <select className={control} value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">All statuses</option>
               <option value="draft">Draft</option>
@@ -212,7 +232,11 @@ export function TeacherPage() {
         </p>
       </div>
       {creating && (
-        <section className={panel}>
+        <EditDialog
+          title="Create a paper"
+          close={() => setCreating(false)}
+          locked={create.isPending}
+        >
           <h2 className="mb-5 text-xl font-semibold">Create an exam draft</h2>
           {assignments.isPending && <p role="status">Loading assignments…</p>}
           <Failure error={assignments.error} />
@@ -236,8 +260,8 @@ export function TeacherPage() {
           {assignments.hasNextPage && (
             <Button onClick={() => void assignments.fetchNextPage()}>Load more assignments</Button>
           )}
-          <Failure error={create.error} />
-        </section>
+          <Failure action error={create.error} />
+        </EditDialog>
       )}
       {list.isPending && <p role="status">Loading exam papers…</p>}
       <Failure error={list.error} />
@@ -252,35 +276,29 @@ export function TeacherPage() {
         </section>
       )}
       <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
-        {list.data?.pages
-          .flatMap((p) => p.items)
-          .map((d) => (
-            <article key={d.examId} className={panel}>
-              <div className="flex flex-wrap justify-between gap-3">
-                <h2 className="text-xl font-semibold">{d.title}</h2>
-                <ExamBadge status={d.status} />
-              </div>
-              <p className="my-3 text-sm text-muted-foreground">
-                {d.itemCount} questions · {d.totalMarks} marks · {d.reviewedCount} reviewed ·{' '}
-                {d.durationMinutes} minutes
-              </p>
-              <p className="mb-3 text-sm text-muted-foreground">
-                {d.createdAt
-                  ? 'Created ' + formatEatDateTime(d.createdAt)
-                  : 'Creation time unavailable'}
-                {d.concluded ? ' · Exam sittings ended; results release separately' : ''}
-              </p>
-              <Button variant="outline" asChild>
-                <Link to={`/teacher/exams/${d.examId}`}>Open paper</Link>
-              </Button>
-            </article>
-          ))}
+        {pagination.page?.items.map((d) => (
+          <article key={d.examId} className={panel}>
+            <div className="flex flex-wrap justify-between gap-3">
+              <h2 className="text-xl font-semibold">{d.title}</h2>
+              <ExamBadge status={d.status} />
+            </div>
+            <p className="my-3 text-sm text-muted-foreground">
+              {d.itemCount} questions · {d.totalMarks} marks · {d.reviewedCount} reviewed ·{' '}
+              {d.durationMinutes} minutes
+            </p>
+            <p className="mb-3 text-sm text-muted-foreground">
+              {d.createdAt
+                ? 'Created ' + formatEatDateTime(d.createdAt)
+                : 'Creation time unavailable'}
+              {d.concluded ? ' · Exam sittings ended; results release separately' : ''}
+            </p>
+            <Button variant="outline" asChild>
+              <Link to={`/teacher/exams/${d.examId}`}>Open paper</Link>
+            </Button>
+          </article>
+        ))}
       </div>
-      {list.hasNextPage && (
-        <Button disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
-          Load more papers
-        </Button>
-      )}
+      {pagination.controls}
     </div>
   );
 }

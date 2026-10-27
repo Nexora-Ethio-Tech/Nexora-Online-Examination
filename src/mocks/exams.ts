@@ -589,7 +589,7 @@ export function createExamDemo(
       }
       const parsed = (
         action === 'recovery'
-          ? finalSchema.extend({ reason: z.string().trim().min(1) })
+          ? finalSchema.extend({ reason: z.string().trim().max(2000).default('') })
           : finalSchema
       ).safeParse(body);
       const idempotencyKey = headers.get('Idempotency-Key');

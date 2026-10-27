@@ -58,13 +58,13 @@ describe('admin review and schedule screens', () => {
   it('requires review confirmation and schedules with an EAT ten-minute preview', async () => {
     const { user, store, id } = setup();
     expect(
-      await screen.findByRole('heading', { name: 'Teacher submitted algebra' }),
+      await screen.findByRole('heading', { name: 'Teacher submitted algebra' }, { timeout: 5000 }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve paper' })).toBeDisabled();
-    await user.type(
-      screen.getByLabelText('Review comment or required corrections'),
-      'Checked both questions and keys.',
-    );
+    expect(
+      screen.getByLabelText('Review note (optional for approval; required when returning)'),
+    ).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Return to teacher' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Approve paper' })).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /I reviewed the questions/ }));
     await user.click(screen.getByRole('button', { name: 'Approve paper' }));
@@ -89,7 +89,7 @@ describe('admin review and schedule screens', () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Change schedule' }));
     selectEatDateTime('Preparation date and time (EAT)', '2026-10-17T09:40');
-    await user.type(screen.getByLabelText('Reason for changing the schedule'), 'Room change.');
+    await user.type(screen.getByLabelText('Note (optional)'), 'Room change.');
     await user.click(screen.getByRole('checkbox', { name: /I checked the EAT dates/ }));
     await user.click(screen.getByRole('button', { name: 'Save schedule change' }));
     await waitFor(() => expect(screen.getByText(/Schedule revision 2/)).toBeInTheDocument());
@@ -99,7 +99,7 @@ describe('admin review and schedule screens', () => {
     await screen.findByRole('heading', { name: 'Approval decision' });
     expect(screen.getByRole('button', { name: 'Return to teacher' })).toBeDisabled();
     await user.type(
-      screen.getByLabelText('Review comment or required corrections'),
+      screen.getByLabelText('Review note (optional for approval; required when returning)'),
       'Please clarify the explanation.',
     );
     await user.click(screen.getByRole('button', { name: 'Return to teacher' }));

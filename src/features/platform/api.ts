@@ -28,6 +28,7 @@ const adminSchema = z.object({
   revision: z.number().int(),
 });
 const reason = z.string().trim().min(5).max(500);
+const optionalNote = z.string().trim().max(500).default('');
 const shared = { requestId: uuid, code: z.string().regex(/^\d{6}$/), reason };
 const profile = {
   firstName: z.string().trim().min(1).max(50),
@@ -46,6 +47,7 @@ export const actionSchema = z.discriminatedUnion('action', [
     .object({
       ...shared,
       ...profile,
+      reason: optionalNote,
       action: z.literal('edit_admin'),
       schoolId: uuid,
       adminId: uuid,
@@ -55,6 +57,7 @@ export const actionSchema = z.discriminatedUnion('action', [
   z
     .object({
       ...shared,
+      reason: optionalNote,
       action: z.literal('create_admin'),
       schoolId: uuid,
       loginId: z.string().trim().min(1).max(100),
@@ -64,6 +67,7 @@ export const actionSchema = z.discriminatedUnion('action', [
   z
     .object({
       ...shared,
+      reason: optionalNote,
       action: z.literal('provision'),
       name: z.string().trim().min(1).max(150),
       slug: z
@@ -103,6 +107,7 @@ export const actionSchema = z.discriminatedUnion('action', [
   z
     .object({
       ...shared,
+      reason: optionalNote,
       action: z.literal('subscription'),
       schoolId: uuid,
       state: z.enum(['trial', 'active', 'restricted']),

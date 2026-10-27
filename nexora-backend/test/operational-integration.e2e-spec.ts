@@ -1065,38 +1065,27 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
       expect((await upload().expect(200)).body).toEqual(preview.body);
       const commitKey = randomUUID();
       const path = `/students/import/${preview.body.importId}/commit`;
-      const body = { revision: 1, reason: 'Scoped integration verification' };
+      const body = {
+        revision: 1,
+        reason: 'Scoped integration verification',
+        issueCredentials: true,
+      };
       await post(path, body, foreignCookie).expect(404);
       const committed = await post(path, body, adminCookie, browser, commitKey).expect(200);
       expect(committed.body.createdCount).toBe(1);
-      expect((await post(path, body, adminCookie, browser, commitKey).expect(200)).body).toEqual(
-        committed.body,
-      );
-      const id = committed.body.userIds[0];
-      const target = {
-        targets: [{ userId: id, revision: 1 }],
-        reason: 'Scoped credential verification',
+      const first = { body: committed.body.loginDetails };
+      const second = {
+        body: (await post(path, body, adminCookie, browser, commitKey).expect(200)).body
+          .loginDetails,
       };
-      const issueKey = randomUUID();
-      const first = await post(
-        '/students/generate-credentials',
-        target,
-        adminCookie,
-        browser,
-        issueKey,
-      ).expect(200);
+      expect(second.body).toEqual({ ...first.body, credentials: null });
+      const id = committed.body.userIds[0];
+      const issueKey = commitKey;
       expect(first.body.credentials).toHaveLength(1);
       expect(first.body.credentials[0].loginId).toMatch(/^STU\/[0-9]{3,}\/[0-9]{4,}\/[0-9]{2}$/);
       expect(first.body.credentials[0].password).toHaveLength(8);
       for (const pattern of [/[A-Z]/, /[a-z]/, /[0-9]/, /[!#$%&*?]/])
         expect(first.body.credentials[0].password).toMatch(pattern);
-      const second = await post(
-        '/students/generate-credentials',
-        target,
-        adminCookie,
-        browser,
-        issueKey,
-      ).expect(200);
       expect(second.body.credentials).toBeNull();
       expect(second.body.issueId).toBe(first.body.issueId);
       const stored = await pool.query(
@@ -1113,6 +1102,19 @@ describe.runIf(process.env.RUN_SUPABASE_OPERATIONAL_TESTS === 'true')(
         [school, issueKey],
       );
       expect(JSON.stringify(replay.rows)).not.toContain(first.body.credentials[0].password);
+      const retainedImport = await pool.query(
+        'SELECT committed_result FROM directory_imports WHERE school_id=$1 AND id=$2',
+        [school, preview.body.importId],
+      );
+      expect(retainedImport.rows[0].committed_result.loginDetails.credentials).toBeNull();
+      expect(JSON.stringify(retainedImport.rows)).not.toContain(first.body.credentials[0].password);
+      await post(
+        path,
+        { ...body, issueCredentials: false },
+        adminCookie,
+        browser,
+        commitKey,
+      ).expect(409);
       const frozen = await pool.query(
         'SELECT student_id FROM session_roster WHERE school_id=$1 AND session_id=$2',
         [school, session],

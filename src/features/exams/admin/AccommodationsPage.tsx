@@ -1,3 +1,5 @@
+import { Pagination, useCursorPages } from '@/components/shared/Pagination';
+import { EditDialog } from '@/components/shared/EditDialog';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
@@ -19,7 +21,8 @@ export function AccommodationsPage() {
   const api = adminExamApi(useApiClient());
   const scope = useTeacherScope();
   const cache = useQueryClient();
-  const [cursor, setCursor] = useState<string | null>(null);
+  const pages = useCursorPages();
+  const cursor = pages.cursor;
   const [selected, setSelected] = useState<{
     student: AccommodationStudent;
     revision: number;
@@ -92,7 +95,7 @@ export function AccommodationsPage() {
     !!preview && !!data && Date.parse(preview) > Date.parse(data.session.resultsReleaseAt);
   function refresh() {
     setConfirmed(false);
-    if (cursor) setCursor(null);
+    if (cursor) pages.first();
     else void query.refetch();
   }
   return (
@@ -103,7 +106,7 @@ export function AccommodationsPage() {
         the common start. Joining late never adds time.
       </p>
       <Failure error={query.error} />
-      <Failure error={mutation.error} />
+      <Failure action error={mutation.error} />
       {notice && <p role="status">{notice}</p>}
       {query.isPending && <p role="status">Loading frozen roster…</p>}
       <Button variant="outline" onClick={refresh} disabled={mutation.isPending}>
@@ -128,7 +131,7 @@ export function AccommodationsPage() {
               {data.session.rosterCount} students in the frozen roster. Zero extra minutes uses the
               common end.
             </p>
-            {locked && (
+            {locked && !selected && (
               <p role="status">
                 Extra time is locked. Preparation or delivery has begun, or practice prevents
                 changes.
@@ -173,135 +176,144 @@ export function AccommodationsPage() {
               </Button>
             </section>
           ))}
-          <div className="flex gap-3">
-            {cursor && (
-              <Button
-                variant="outline"
-                disabled={!!request}
-                onClick={() => {
-                  setCursor(null);
-                  setSelected(null);
-                }}
-              >
-                First page
-              </Button>
-            )}
-            {data.nextCursor && (
-              <Button
-                variant="outline"
-                disabled={!!request}
-                onClick={() => {
-                  setCursor(data.nextCursor);
-                  setSelected(null);
-                }}
-              >
-                Next page
-              </Button>
-            )}
-          </div>
+          <Pagination
+            page={pages.number}
+            busy={!!request || query.isFetching}
+            hasNext={!!data.nextCursor}
+            previous={() => {
+              pages.previous();
+              setSelected(null);
+            }}
+            next={() => {
+              if (data.nextCursor) pages.next(data.nextCursor);
+              setSelected(null);
+            }}
+          />
           {selected && (
-            <form
-              className={`${panel} space-y-4`}
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (
-                  !parsed.success ||
-                  locked ||
-                  stale ||
-                  changed ||
-                  resultsConflict ||
-                  !confirmed ||
-                  request ||
-                  parsed.data.extraMinutes === selected.student.extraMinutes
-                )
-                  return;
-                const operation = { body: parsed.data, key: crypto.randomUUID() };
-                setRequest(operation);
-                mutation.mutate(operation);
-              }}
+            <EditDialog
+              title={`Extra time for ${selected.student.studentName}`}
+              close={() => setSelected(null)}
+              locked={!!request}
             >
-              <h2 className="font-semibold">Extra time for {selected.student.studentName}</h2>
-              <label className="block">
-                Extra minutes (0–480, whole minutes)
-                <Input
-                  type="number"
-                  min={0}
-                  max={480}
-                  step={1}
-                  value={minutes}
-                  disabled={!!request || locked}
-                  onChange={(event) => {
-                    setMinutes(event.target.value);
-                    setConfirmed(false);
-                  }}
-                />
-              </label>
-              <label className="block">
-                Reason for the change
-                <textarea
-                  className={control}
-                  maxLength={2000}
-                  value={reason}
-                  disabled={!!request || locked}
-                  onChange={(event) => {
-                    setReason(event.target.value);
-                    setConfirmed(false);
-                  }}
-                />
-              </label>
-              <p className="text-sm text-muted-foreground">
-                Record the approval reference or operational reason. Do not enter medical details.
-              </p>
-              {preview && <p>New student deadline: {eatTime(preview)}</p>}
-              {resultsConflict && (
-                <p role="alert">
-                  Move planned results to at or after this deadline using Change schedule, then
-                  return here.
-                </p>
-              )}
-              {changed && (
-                <p role="alert">
-                  The schedule changed. Select the student again and review the new deadline.
-                </p>
-              )}
-              <label className="flex min-h-11 items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={confirmed}
-                  disabled={!!request || locked || changed}
-                  onChange={(event) => setConfirmed(event.target.checked)}
-                />
-                I checked the student, approved extra minutes and resulting deadline.
-              </label>
               <Button
-                disabled={
-                  locked ||
-                  stale ||
-                  changed ||
-                  !!request ||
-                  !parsed.success ||
-                  !confirmed ||
-                  resultsConflict ||
-                  Number(minutes) === selected.student.extraMinutes
-                }
+                type="button"
+                variant="outline"
+                disabled={!!request || query.isFetching}
+                onClick={() => void query.refetch()}
               >
-                Save extra time
+                Refresh roster and time
               </Button>
-            </form>
+              {locked && (
+                <p role="status">
+                  Extra time is locked. Preparation has opened or delivery has started.
+                </p>
+              )}
+              <form
+                className={`${panel} space-y-4`}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (
+                    !parsed.success ||
+                    locked ||
+                    stale ||
+                    changed ||
+                    resultsConflict ||
+                    !confirmed ||
+                    request ||
+                    parsed.data.extraMinutes === selected.student.extraMinutes
+                  )
+                    return;
+                  const operation = { body: parsed.data, key: crypto.randomUUID() };
+                  setRequest(operation);
+                  mutation.mutate(operation);
+                }}
+              >
+                <h2 className="font-semibold">Extra time for {selected.student.studentName}</h2>
+                <label className="block">
+                  <span className="field-label">Extra minutes (0–480, whole minutes)</span>
+                  <Input
+                    required
+                    type="number"
+                    min={0}
+                    max={480}
+                    step={1}
+                    value={minutes}
+                    disabled={!!request || locked}
+                    onChange={(event) => {
+                      setMinutes(event.target.value);
+                      setConfirmed(false);
+                    }}
+                  />
+                </label>
+                <label className="block">
+                  <span className="field-label">Reason for the change</span>
+                  <textarea
+                    required
+                    className={control}
+                    maxLength={2000}
+                    value={reason}
+                    disabled={!!request || locked}
+                    onChange={(event) => {
+                      setReason(event.target.value);
+                      setConfirmed(false);
+                    }}
+                  />
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  Record the approval reference or operational reason. Do not enter medical details.
+                </p>
+                {preview && <p>New student deadline: {eatTime(preview)}</p>}
+                {resultsConflict && (
+                  <p role="alert">
+                    Move planned results to at or after this deadline using Change schedule, then
+                    return here.
+                  </p>
+                )}
+                {changed && (
+                  <p role="alert">
+                    The schedule changed. Select the student again and review the new deadline.
+                  </p>
+                )}
+                <label className="flex min-h-11 items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={confirmed}
+                    disabled={!!request || locked || changed}
+                    onChange={(event) => setConfirmed(event.target.checked)}
+                  />
+                  I checked the student, approved extra minutes and resulting deadline.
+                </label>
+                <Button
+                  disabled={
+                    locked ||
+                    stale ||
+                    changed ||
+                    !!request ||
+                    !parsed.success ||
+                    !confirmed ||
+                    resultsConflict ||
+                    Number(minutes) === selected.student.extraMinutes
+                  }
+                >
+                  Save extra time
+                </Button>
+              </form>
+              {request && (
+                <div className="space-y-3" role="status">
+                  <p>
+                    {mutation.isPending
+                      ? 'Saving extra time…'
+                      : 'The save outcome is not confirmed. Retry the same request.'}
+                  </p>
+                  <Failure action error={mutation.error} />
+                  {!mutation.isPending && (
+                    <Button onClick={() => mutation.mutate(request)}>Retry the same save</Button>
+                  )}
+                </div>
+              )}
+            </EditDialog>
           )}
         </>
-      )}
-      {request && (
-        <div className={`${panel} space-y-3`} role="status">
-          <p>
-            {mutation.isPending
-              ? 'Saving extra time…'
-              : 'The save outcome is not confirmed. Keep this page open and retry the same request. Do not submit a replacement change.'}
-          </p>
-          {!mutation.isPending && (
-            <Button onClick={() => mutation.mutate(request)}>Retry the same save</Button>
-          )}
-        </div>
       )}
     </div>
   );

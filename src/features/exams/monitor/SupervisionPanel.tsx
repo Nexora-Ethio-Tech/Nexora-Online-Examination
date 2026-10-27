@@ -82,7 +82,7 @@ export function SupervisionPanel({
             {d.suspended ? 'Suspended — administrator approval required' : 'Not suspended'}
           </p>
           <label className="block">
-            Reason for supervision decision
+            <span className="field-label">Reason for supervision decision</span>
             <textarea
               className="mt-2 block w-full rounded border p-3"
               value={reason}

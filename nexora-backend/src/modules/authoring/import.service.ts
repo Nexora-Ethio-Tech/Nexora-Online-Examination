@@ -121,7 +121,7 @@ export class ImportService {
     const { school, user } = teacherIdentity(req);
     parse(uuid, id);
     const body = parse(
-      z.object({ revision, reason: z.string().trim().min(1).max(500) }).strict(),
+      z.object({ revision, reason: z.string().trim().max(500).default('') }).strict(),
       input,
     );
     return this.db.withTenantTransaction(school.id, async (c) => {

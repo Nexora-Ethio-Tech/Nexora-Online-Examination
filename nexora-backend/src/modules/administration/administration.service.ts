@@ -336,6 +336,10 @@ export class AdministrationService {
     const { school, user } = identity(req, 'school_admin');
     parse(uuid, id);
     const body = parse(decisionSchema.strict(), input);
+    if (decision === 'return' && !body.comment.trim())
+      throw DomainException.validationError(
+        'Enter the corrections required before returning a paper',
+      );
     return this.db.withTenantTransaction(school.id, async (c) => {
       const e = await this.exam(c, school.id, id, true);
       return mutate(c, school.id, user.id, `exam:${id}:${decision}`, key, body, async () => {

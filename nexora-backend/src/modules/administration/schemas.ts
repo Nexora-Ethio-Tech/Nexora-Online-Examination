@@ -54,7 +54,10 @@ export const adminListSchema = z.object({
   nextCursor: z.string().nullable(),
   serverNow: instant,
 });
-export const decisionSchema = z.object({ revision, comment: z.string().trim().min(1).max(2000) });
+export const decisionSchema = z.object({
+  revision,
+  comment: z.string().trim().max(2000).default(''),
+});
 export const scheduleSchema = z.object({
   revision,
   approvedVersion: revision,
@@ -67,7 +70,7 @@ export const rescheduleSchema = z.object({
   preparationVisibleAt: instant,
   preparationMinutes: z.number().int().min(0).max(120).optional(),
   resultsReleaseAt: instant,
-  reason: z.string().trim().min(1).max(2000),
+  reason: z.string().trim().max(2000).default(''),
 });
 export type AdminDetail = z.infer<typeof adminDetailSchema>;
 export type Sitting = z.infer<typeof sessionSchema>;

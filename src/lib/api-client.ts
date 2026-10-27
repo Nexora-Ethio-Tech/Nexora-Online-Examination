@@ -23,6 +23,7 @@ export class ApiError extends Error {
 
 export type Transport = (url: string, init: RequestInit) => Promise<Response>;
 type Options = {
+  timeoutMs?: number;
   responseType?: 'text';
   onDownloadProgress?: DownloadProgress;
   method?: 'GET' | 'POST' | 'PATCH';
@@ -33,6 +34,20 @@ type Options = {
 };
 
 export class ApiClient {
+  private connectionListeners = new Set<() => void>();
+  private unavailable = false;
+  connectionUnavailable = () => this.unavailable;
+  onConnectionChange = (listener: () => void) => {
+    this.connectionListeners.add(listener);
+    return () => {
+      this.connectionListeners.delete(listener);
+    };
+  };
+  private reportConnection(unavailable: boolean) {
+    if (this.unavailable === unavailable) return;
+    this.unavailable = unavailable;
+    this.connectionListeners.forEach((listener) => listener());
+  }
   private csrfToken: string | null = null;
   private rateLimits = new Map<string, number>();
   private unauthorizedListeners = new Set<() => void>();
@@ -86,7 +101,7 @@ export class ApiClient {
     const timeout = setTimeout(() => {
       timedOut = true;
       controller.abort();
-    }, this.timeoutMs);
+    }, options.timeoutMs ?? this.timeoutMs);
     try {
       const response = await this.transport(`${this.baseUrl.replace(/\/$/, '')}${path}`, {
         method,
@@ -98,6 +113,7 @@ export class ApiClient {
         ...(options.body === undefined ? {} : { body: multipart ?? JSON.stringify(options.body) }),
       });
       if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+      this.reportConnection(response.status >= 500);
       if (response.status === 401 && options.notifyUnauthorized !== false) {
         this.csrfToken = null;
         this.unauthorizedListeners.forEach((listener) => listener());
@@ -144,12 +160,16 @@ export class ApiClient {
     } catch (error) {
       if (error instanceof ApiError) throw error;
       if (options.signal?.aborted) throw error;
+      this.reportConnection(true);
       if (timedOut)
         throw new ApiError(
           'TIMEOUT',
-          'The request timed out. Check your connection and try again.',
+          'This action could not be confirmed. Try again when connected.',
         );
-      throw new ApiError('NETWORK_ERROR', 'Cannot connect. Check your connection and try again.');
+      throw new ApiError(
+        'NETWORK_ERROR',
+        'This action could not be confirmed. Try again when connected.',
+      );
     } finally {
       clearTimeout(timeout);
       options.signal?.removeEventListener('abort', abort);
@@ -166,4 +186,8 @@ export function errorMessage(error: unknown) {
   if (error.code === 'CSRF_INVALID')
     return 'Your security session changed. Return to sign in and try again.';
   return error.message;
+}
+
+export function isConnectionError(error: unknown) {
+  return error instanceof ApiError && ['NETWORK_ERROR', 'TIMEOUT'].includes(error.code);
 }

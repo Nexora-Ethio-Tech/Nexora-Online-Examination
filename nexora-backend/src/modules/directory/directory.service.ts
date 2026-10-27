@@ -20,6 +20,7 @@ import {
 const name = z.string().trim().min(1).max(160),
   reason = z.string().trim().min(1).max(2000),
   revision = z.number().int().positive();
+const optionalNote = z.string().trim().max(2000).default('');
 const edit = { revision, reason };
 const classInput = z
   .object({
@@ -27,7 +28,7 @@ const classInput = z
     academicYear: z.string().trim().min(1).max(30),
     grade: z.string().trim().min(1).max(40).optional(),
     section: z.string().trim().min(1).max(40).optional(),
-    reason,
+    reason: optionalNote,
   })
   .strict();
 const subjectInput = z
@@ -38,7 +39,7 @@ const subjectInput = z
       .string()
       .trim()
       .regex(/^[A-Za-z0-9_-]{1,30}$/),
-    reason,
+    reason: optionalNote,
   })
   .strict();
 const query = z
@@ -425,6 +426,7 @@ export class DirectoryService {
       z
         .object({
           ...edit,
+          reason: optionalNote,
           displayName: name,
           loginId: z
             .string()
@@ -449,6 +451,8 @@ export class DirectoryService {
         if (!current) throw DomainException.notFound();
         if (current.revision !== body.revision)
           throw DomainException.conflict('REVISION_CONFLICT', 'Refresh account');
+        if (current.status !== body.status && !body.reason.trim())
+          throw DomainException.validationError('Enter a reason for changing account status');
         if (role !== 'student' && body.classId !== null)
           throw DomainException.validationError('Staff do not have a student class');
         if (role === 'student') {
@@ -517,7 +521,7 @@ export class DirectoryService {
               firstName: name.optional(),
               fatherName: name.optional(),
               grandfatherName: name.optional(),
-              reason,
+              reason: optionalNote,
             })
             .strict()
             .superRefine((v, ctx) => {
@@ -542,7 +546,7 @@ export class DirectoryService {
                   .array(z.object({ userId: uuid, revision }).strict())
                   .min(1)
                   .max(500),
-                reason,
+                reason: optionalNote,
               })
               .strict(),
             input,
@@ -654,9 +658,11 @@ export class DirectoryService {
     const { school, user } = identity(req, 'school_admin');
     if (id) parse(uuid, id);
     const body = id
-      ? parse(z.object({ ...edit, active: z.boolean() }).strict(), input)
+      ? parse(z.object({ ...edit, reason: optionalNote, active: z.boolean() }).strict(), input)
       : parse(
-          z.object({ teacherId: uuid, classId: uuid, subjectId: uuid, reason }).strict(),
+          z
+            .object({ teacherId: uuid, classId: uuid, subjectId: uuid, reason: optionalNote })
+            .strict(),
           input,
         );
     return this.db.withTenantTransaction(school.id, async (c) => {

@@ -143,7 +143,7 @@ export class PracticeService {
           examVersion: z.number().int().positive(),
           enabled: z.boolean(),
           releaseAt: z.string().datetime().nullable(),
-          reason: z.string().trim().min(1).max(2000),
+          reason: z.string().trim().max(2000).default(''),
         })
         .strict()
         .refine((v) => !v.enabled || v.releaseAt !== null),

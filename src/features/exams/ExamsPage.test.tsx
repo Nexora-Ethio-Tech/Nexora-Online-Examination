@@ -95,23 +95,30 @@ it('shows the failed integrity step, hides readiness and allows a successful ret
     screen.queryByText('Download could not finish. Please try again.'),
   ).not.toBeInTheDocument();
 });
-it('loads the next opaque cursor without dropping the first page', async () => {
+it('shows one opaque-cursor page at a time and returns to the cached first page', async () => {
   const demo = createDemoTransport('student');
+  let firstTitle = '';
   const user = setup('/student', async (url, init) => {
     if (!url.includes('/me/exams?')) return demo(url, init);
     const response = await demo(url.replace('&cursor=next-page', ''), init);
     const data = listSchema.parse(await response.json());
+    if (!url.includes('cursor=next-page')) firstTitle = data.items[0]?.title ?? '';
     return Response.json({
       ...data,
       items: url.includes('cursor=next-page') ? data.items.slice(1) : data.items.slice(0, 1),
       nextCursor: url.includes('cursor=next-page') ? null : 'next-page',
     });
   });
-  await user.click(await screen.findByRole('button', { name: 'Load more exams' }));
+  await user.click(await screen.findByRole('button', { name: 'Next page' }));
   expect(
     await screen.findByRole('heading', { name: 'Mathematics · preparation' }),
   ).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Chemistry · completed' })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Previous page' }));
+  expect(await screen.findByRole('heading', { name: firstTitle })).toBeInTheDocument();
+  expect(
+    screen.queryByRole('heading', { name: 'Mathematics · preparation' }),
+  ).not.toBeInTheDocument();
 });
 it('shows a retryable error when the assignment service fails', async () => {
   const demo = createDemoTransport('student');

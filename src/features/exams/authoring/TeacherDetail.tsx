@@ -1,3 +1,11 @@
+import { PagedItems } from '@/components/shared/Pagination';
+import { Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from '@/components/ui/alert-dialog';
 import { OutlineEditor } from '../content/OutlineEditor';
 import { ExamGeneration } from './ExamGeneration';
 import { importStatus } from './import-status';
@@ -55,8 +63,9 @@ function ItemReview({
         <div className="min-w-0 space-y-3">
           <h4 className="text-sm font-semibold">Teacher question and answer</h4>
           <label className="block text-sm">
-            Question
+            <span className="field-label">Question</span>
             <textarea
+              required
               className={control}
               rows={3}
               value={edit.stem}
@@ -65,8 +74,9 @@ function ItemReview({
           </label>
           {edit.options.map((o, i) => (
             <label key={o.id} className="block text-sm">
-              Option {o.id}
+              <span className="field-label">Option {o.id}</span>
               <Input
+                required
                 value={o.text}
                 onChange={(e) =>
                   change({
@@ -81,8 +91,9 @@ function ItemReview({
             </label>
           ))}
           <label className="block text-sm">
-            Correct answer
+            <span className="field-label">Correct answer</span>
             <select
+              required
               className={control}
               value={edit.correctOptionId}
               onChange={(e) =>
@@ -97,8 +108,9 @@ function ItemReview({
             </select>
           </label>
           <label className="block text-sm">
-            Marks
+            <span className="field-label">Marks</span>
             <Input
+              required
               type="number"
               value={edit.marks}
               onChange={(e) => change({ ...edit, marks: e.target.valueAsNumber, reviewed: false })}
@@ -118,7 +130,7 @@ function ItemReview({
             </p>
           )}
           <label className="block text-sm">
-            Primary topic
+            <span className="field-label">Primary topic</span>
             <Input
               value={edit.primaryTopic}
               onChange={(e) => change({ ...edit, primaryTopic: e.target.value, reviewed: false })}
@@ -128,7 +140,7 @@ function ItemReview({
             Secondary topics: {item.secondaryTopics.join(', ') || 'None'}
           </p>
           <label className="block text-sm">
-            Explanation
+            <span className="field-label">Explanation</span>
             <textarea
               rows={6}
               className={control}
@@ -137,7 +149,7 @@ function ItemReview({
             />
           </label>
           <label className="block text-sm">
-            Review note / flag resolution
+            <span className="field-label">Review note / flag resolution</span>
             <textarea
               rows={2}
               className={control}
@@ -173,6 +185,7 @@ function ItemReview({
 export function TeacherDetail() {
   const navigate = useNavigate();
   const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeConfirmed, setRemoveConfirmed] = useState(false);
   const [removeReason, setRemoveReason] = useState('');
   const { examId = '' } = useParams();
   const api = authoringApi(useApiClient());
@@ -339,30 +352,54 @@ export function TeacherDetail() {
       {editable && (
         <section className="space-y-3">
           <Button
-            variant="destructive"
+            variant="ghost"
+            size="icon"
+            className="min-h-11 min-w-11 text-muted-foreground hover:text-destructive"
+            aria-label="Delete / archive draft"
+            title="Delete / archive draft"
             disabled={action.isPending || dirty}
-            onClick={() => setRemoveOpen(true)}
+            onClick={() => {
+              setRemoveReason('');
+              setRemoveConfirmed(false);
+              setRemoveOpen(true);
+            }}
           >
-            Delete / archive draft
+            <Trash2 className="size-4" aria-hidden="true" />
           </Button>
-          {removeOpen && (
-            <div className={panel}>
-              <p>
+          <AlertDialog
+            open={removeOpen}
+            onOpenChange={(next) => {
+              if (!action.isPending) setRemoveOpen(next);
+            }}
+          >
+            <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
+              <AlertDialogTitle>Delete / archive “{d.title}”?</AlertDialogTitle>
+              <AlertDialogDescription>
                 Remove this draft from your papers and cancel its pending work. An unused draft is
                 deleted; a draft with history is archived. Approved papers and student evidence
                 cannot be deleted here.
-              </p>
+              </AlertDialogDescription>
               <label className="block py-3">
-                Removal reason
+                <span className="field-label">Note (optional)</span>
                 <Input
                   maxLength={500}
                   value={removeReason}
                   onChange={(e) => setRemoveReason(e.target.value)}
                 />
               </label>
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={removeConfirmed}
+                  disabled={action.isPending}
+                  onChange={(e) => setRemoveConfirmed(e.target.checked)}
+                />
+                I understand and want to remove this draft.
+              </label>
+              <Failure action error={action.error} />
               <Button
                 variant="destructive"
-                disabled={action.isPending || !removeReason.trim()}
+                disabled={action.isPending || !removeConfirmed}
                 onClick={() =>
                   run(async () => {
                     await api.removeDraft(
@@ -377,11 +414,15 @@ export function TeacherDetail() {
               >
                 Confirm draft removal
               </Button>
-              <Button variant="outline" onClick={() => setRemoveOpen(false)}>
+              <Button
+                variant="outline"
+                disabled={action.isPending}
+                onClick={() => setRemoveOpen(false)}
+              >
                 Keep draft
               </Button>
-            </div>
-          )}
+            </AlertDialogContent>
+          </AlertDialog>
         </section>
       )}
       {!editable && (
@@ -391,7 +432,8 @@ export function TeacherDetail() {
             : 'Approved paper. Your administrator manages scheduling and release.'}
         </p>
       )}
-      <Failure error={action.error || draft.error || items.error || job.error} />
+      <Failure action error={action.error} />
+      <Failure error={draft.error || items.error || job.error} />
       {action.error && (
         <Button
           variant="outline"
@@ -506,7 +548,7 @@ export function TeacherDetail() {
                 </p>
               )}
             <label className="block text-sm">
-              Question template
+              <span className="field-label">Question template</span>
               <Input
                 data-tour="question-template"
                 className="mt-2"
@@ -560,11 +602,18 @@ export function TeacherDetail() {
               {editable && job.data.state !== 'cancelled' && (
                 <div className="my-3 space-y-3">
                   <Button
-                    variant="destructive"
+                    variant="ghost"
+                    size="icon"
+                    className="min-h-11 min-w-11 text-muted-foreground hover:text-destructive"
+                    aria-label="Remove / cancel import"
+                    title="Remove / cancel import"
                     disabled={action.isPending || dirty}
-                    onClick={() => setCancelOpen(true)}
+                    onClick={() => {
+                      setCancelReason('');
+                      setCancelOpen(true);
+                    }}
                   >
-                    Remove / cancel import
+                    <Trash2 className="size-4" aria-hidden="true" />
                   </Button>
                   {cancelOpen && (
                     <div
@@ -578,7 +627,7 @@ export function TeacherDetail() {
                         finish, but its result will not be applied.
                       </p>
                       <label className="block">
-                        Cancellation reason
+                        <span className="field-label">Note (optional)</span>
                         <Input
                           value={cancelReason}
                           onChange={(e) => setCancelReason(e.target.value)}
@@ -587,7 +636,7 @@ export function TeacherDetail() {
                       </label>
                       <Button
                         variant="destructive"
-                        disabled={!cancelReason.trim() || action.isPending}
+                        disabled={action.isPending}
                         onClick={() =>
                           run(() =>
                             api.cancelImport(
@@ -744,32 +793,39 @@ export function TeacherDetail() {
                   </Button>
                 ))}
               </div>
-              <nav className="flex flex-wrap gap-2" aria-label="Question cards">
-                {visibleItems.map((item) => {
-                  const flagged = item.reviewFlags.length > 0 || item.keyConsistent === false;
-                  const reviewed = !needsReview.has(item.itemId);
-                  return (
-                    <Button
-                      key={item.itemId}
-                      variant="outline"
-                      className={
-                        flagged
-                          ? 'border-amber-400 bg-amber-50 text-amber-950'
-                          : reviewed
-                            ? 'border-green-400 bg-green-100 text-green-950'
-                            : ''
-                      }
-                      aria-pressed={selectedItem?.itemId === item.itemId}
-                      disabled={dirty || action.isPending}
-                      onClick={() => setSelectedItemId(item.itemId)}
-                      aria-label={`Review ${item.externalId}: ${flagged ? 'Flagged' : reviewed ? 'Reviewed' : 'Not reviewed'}`}
-                    >
-                      {paper.indexOf(item) + 1}{' '}
-                      {flagged ? '⚠ Flagged' : reviewed ? '✓ Reviewed' : 'Not reviewed'}
-                    </Button>
-                  );
-                })}
-              </nav>
+              <PagedItems items={visibleItems} identity={reviewFilter}>
+                {(pageItems) => (
+                  <>
+                    {' '}
+                    <nav className="flex flex-wrap gap-2" aria-label="Question cards">
+                      {pageItems.map((item) => {
+                        const flagged = item.reviewFlags.length > 0 || item.keyConsistent === false;
+                        const reviewed = !needsReview.has(item.itemId);
+                        return (
+                          <Button
+                            key={item.itemId}
+                            variant="outline"
+                            className={
+                              flagged
+                                ? 'border-amber-400 bg-amber-50 text-amber-950'
+                                : reviewed
+                                  ? 'border-green-400 bg-green-100 text-green-950'
+                                  : ''
+                            }
+                            aria-pressed={selectedItem?.itemId === item.itemId}
+                            disabled={dirty || action.isPending}
+                            onClick={() => setSelectedItemId(item.itemId)}
+                            aria-label={`Review ${item.externalId}: ${flagged ? 'Flagged' : reviewed ? 'Reviewed' : 'Not reviewed'}`}
+                          >
+                            {paper.indexOf(item) + 1}{' '}
+                            {flagged ? '⚠ Flagged' : reviewed ? '✓ Reviewed' : 'Not reviewed'}
+                          </Button>
+                        );
+                      })}
+                    </nav>{' '}
+                  </>
+                )}
+              </PagedItems>
               {!visibleItems.length && <p className="mt-3">No questions match this filter.</p>}
               {dirty && (
                 <p className="mt-3 text-sm" role="status">

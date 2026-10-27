@@ -1,3 +1,6 @@
+import { FilterBar } from '@/components/shared/FilterBar';
+import { directoryCache } from '@/lib/query-policy';
+import { usePagedQuery } from '@/components/shared/Pagination';
 import { schoolApi } from '@/features/school/api';
 import { formatEatDateTime } from '@/lib/ethiopian-date';
 import { useEffect, useState } from 'react';
@@ -30,6 +33,7 @@ export function AdminExamsPage() {
     return () => clearTimeout(timer);
   }, [filters]);
   const classes = useQuery({
+    ...directoryCache,
     queryKey: ['exam-filter-classes', ...scope],
     queryFn: async ({ signal }) => {
       let page = await schoolApi(client).classes(null, signal);
@@ -62,7 +66,8 @@ export function AdminExamsPage() {
       api.list(pageParam, signal, requestFilters),
     getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
-  const rows = query.data?.pages.flatMap((p) => p.items) ?? [];
+  const pagination = usePagedQuery(query, JSON.stringify([scope, requestFilters]));
+  const rows = pagination.page?.items ?? [];
   return (
     <div className="space-y-6">
       <div className="page-intro flex flex-wrap items-start justify-between gap-4">
@@ -99,20 +104,42 @@ export function AdminExamsPage() {
           ? 'Oldest submission first across all grades. Resubmitted papers use their latest submission time.'
           : 'Browse by grade. Newest created papers appear first within each grade.'}
       </p>
-      <section className={`${panel} grid gap-4 sm:grid-cols-2`} aria-label="Exam filters">
-        {(['search', 'subject', 'teacher'] as const).map((key) => (
-          <label key={key} className="block capitalize">
-            {key === 'search' ? 'Search exams' : `Filter ${key}`}
-            <input
-              className="mt-2 min-h-11 w-full rounded border bg-background p-2"
-              value={filters[key]}
-              onChange={(e) => setFilters({ ...filters, [key]: e.target.value })}
-              placeholder={key === 'search' ? 'Exam, subject name/code, teacher or class' : ''}
+      <FilterBar
+        label="Exam filters"
+        inlineMore
+        more={
+          <>
+            {(['subject', 'teacher'] as const).map((key) => (
+              <label key={key} className="block capitalize">
+                <span className="field-label">Filter {key}</span>
+                <input
+                  className="min-h-11 w-full rounded border bg-background p-2"
+                  value={filters[key]}
+                  onChange={(e) => setFilters({ ...filters, [key]: e.target.value })}
+                />
+              </label>
+            ))}
+            <EthiopianDateTimeField
+              label="Submitted from"
+              value={from}
+              onChange={setFrom}
+              optional
             />
-          </label>
-        ))}
+            <EthiopianDateTimeField label="Submitted until" value={to} onChange={setTo} optional />
+          </>
+        }
+      >
+        <label className="block">
+          <span className="field-label">Search exams</span>
+          <input
+            className="mt-2 min-h-11 w-full rounded border bg-background p-2"
+            value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+            placeholder="Exam, subject, teacher or class"
+          />
+        </label>
         <label>
-          Grade
+          <span className="field-label">Grade</span>
           <select
             aria-label="Filter grade"
             className="mt-2 min-h-11 w-full rounded border p-2"
@@ -128,7 +155,7 @@ export function AdminExamsPage() {
           </select>
         </label>
         <label>
-          Class / section
+          <span className="field-label">Class / section</span>
           <select
             aria-label="Filter class"
             className="mt-2 min-h-11 w-full rounded border p-2"
@@ -150,8 +177,6 @@ export function AdminExamsPage() {
         {classes.error && (
           <Button onClick={() => void classes.refetch()}>Retry class filters</Button>
         )}
-        <EthiopianDateTimeField label="Submitted from" value={from} onChange={setFrom} optional />
-        <EthiopianDateTimeField label="Submitted until" value={to} onChange={setTo} optional />
         <Button
           variant="outline"
           onClick={() => {
@@ -162,7 +187,7 @@ export function AdminExamsPage() {
         >
           Clear filters
         </Button>
-      </section>
+      </FilterBar>
       {query.isPending && <p role="status">Loading school papers…</p>}
       <Failure error={query.error} />
       {!query.isPending && !query.error && !rows.length && (
@@ -224,11 +249,7 @@ export function AdminExamsPage() {
             </div>
           </section>
         ))}
-      {query.hasNextPage && (
-        <Button disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
-          Load more papers
-        </Button>
-      )}
+      {pagination.controls}
     </div>
   );
 }

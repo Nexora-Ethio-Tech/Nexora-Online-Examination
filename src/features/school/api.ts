@@ -131,12 +131,19 @@ export function schoolApi(client: ApiClient) {
       body.set('classId', classId);
       return write('/students/import', previewSchema, body, key);
     },
-    commit: (id: string, revision: number, reason: string, key: string) =>
-      write(
+    commit: (id: string, revision: number, reason: string, key: string, issueCredentials = false) =>
+      client.request(
         `/students/import/${encodeURIComponent(id)}/commit`,
-        importResultSchema,
-        { revision, reason },
-        key,
+        issueCredentials
+          ? importResultSchema.extend({ loginDetails: credentialIssueSchema })
+          : importResultSchema,
+        {
+          method: 'POST',
+          body: { revision, reason, ...(issueCredentials ? { issueCredentials: true } : {}) },
+          idempotencyKey: key,
+          // Large rosters hash a separate salted password per student before committing.
+          ...(issueCredentials ? { timeoutMs: 15 * 60_000 } : {}),
+        },
       ),
     generate: (targets: { userId: string; revision: number }[], reason: string, key: string) =>
       write('/students/generate-credentials', credentialIssueSchema, { targets, reason }, key),

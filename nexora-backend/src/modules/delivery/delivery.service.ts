@@ -725,7 +725,7 @@ export class DeliveryService {
   ) {
     parse(resourceIdSchema, attemptId);
     parse(idempotencyKeySchema, idempotencyKey);
-    body = parse(finalBody.extend({ reason: z.string().trim().min(1).max(2000) }), body);
+    body = parse(finalBody.extend({ reason: z.string().trim().max(2000).default('') }), body);
     const serverNow = this.clock.now();
 
     const student = req.sessionUser;

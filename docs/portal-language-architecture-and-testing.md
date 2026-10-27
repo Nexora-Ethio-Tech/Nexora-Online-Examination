@@ -2,6 +2,8 @@
 
 Implemented locally on 21 October 2026. This change replaces technical screen wording with instructions for students, teachers and school administrators.
 
+The Portal guide opens from the question-mark help button beside the account menu in the workspace header. Its accessible name and hover title remain “Portal guide.” On phones the account menu also uses its icon to keep both controls beside the school identity. The guide and workspace header remain absent during the active student runner. Verify keyboard activation, reopening after dismissal and header fit at 360px.
+
 ## Architecture and scope
 
 This is a presentation change. API field names, database values, encryption, download checks, answer persistence, submission confirmation, permissions and timing rules remain unchanged. The runner engine has message-string edits only. The typed `authoring/import-status.ts` map translates every import state into a readable label without changing worker behavior.
@@ -53,3 +55,7 @@ Existing integrity, offline submission, permissions and stale-monitor assertions
 - `npm run build` passed. The existing large-bundle advisory remains.
 - Full Playwright run: 32 passed; three viewport variants initially failed because one assertion still expected the old demo-readiness sentence. That assertion was updated to the equivalent plain-language warning; all three passed on the targeted rerun. All 35 cases therefore have passing evidence, including accessibility, offline answers, confirmed submission, production reload, teacher imports and admin reviews.
 - `git diff --check` passed. No live database, AI-provider or production deployment validation was performed for this presentation-only change.
+
+## 26 October 2026 — compact forms and connection feedback
+
+See [compact portal forms and lists](compact-portal-forms-and-lists.md) for the shared connection banner, red required markers, compact filters, cached pagination and contextual edit dialogs. Background connectivity errors are consolidated at the top; failed explicit actions and exam-save/submission distinctions remain visible. Reviewed roster saves now create the login details and show one private download; Accounts is the optional editing/reset path. Onboarding follows these changes. This roster change requires the matching backend source, unlike the earlier wording-only changes.

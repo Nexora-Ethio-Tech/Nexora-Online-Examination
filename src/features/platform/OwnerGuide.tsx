@@ -13,7 +13,7 @@ export const ownerSteps = [
   },
   {
     title: 'Manage school access',
-    body: 'Open a school card. Manage subscription changes its plan; Suspend school stops school access. Edit administrator information updates names and contact details. Recover school administrator resets access after you verify their identity. Each change needs your authenticator code and a reason.',
+    body: 'Open a school card. Manage subscription changes its plan; Suspend school stops school access. Edit administrator information updates names and contact details. Recover school administrator resets access after you verify their identity. Changes need your authenticator code. Suspension, reactivation and administrator recovery also require a reason. Subscription notes are optional; creating schools or administrators and editing contact details need no reason.',
     target: '#owner-schools h2',
   },
   {

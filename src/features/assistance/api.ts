@@ -10,6 +10,7 @@ const requestSchema = z.object({
 });
 const studentSchema = z.object({ paused: z.boolean(), request: requestSchema.nullable() });
 const staffSchema = z.object({
+  reasonRequired: z.boolean(),
   staff: z.array(
     z.object({
       id: z.string().uuid(),

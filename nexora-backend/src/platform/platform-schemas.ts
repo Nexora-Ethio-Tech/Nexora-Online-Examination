@@ -1,5 +1,6 @@
 import { z } from 'zod';
 const reason = z.string().trim().min(5).max(500);
+const optionalNote = z.string().trim().max(500).default('');
 const id = z.string().uuid();
 const shared = { requestId: id, reason, code: z.string().regex(/^\d{6}$/) };
 const profile = {
@@ -19,6 +20,7 @@ export const actionSchema = z.discriminatedUnion('action', [
     .object({
       ...shared,
       ...profile,
+      reason: optionalNote,
       action: z.literal('edit_admin'),
       schoolId: id,
       adminId: id,
@@ -28,6 +30,7 @@ export const actionSchema = z.discriminatedUnion('action', [
   z
     .object({
       ...shared,
+      reason: optionalNote,
       action: z.literal('create_admin'),
       schoolId: id,
       loginId: z.string().trim().min(1).max(100),
@@ -37,6 +40,7 @@ export const actionSchema = z.discriminatedUnion('action', [
   z
     .object({
       ...shared,
+      reason: optionalNote,
       action: z.literal('provision'),
       name: z.string().trim().min(1).max(150),
       slug: z
@@ -76,6 +80,7 @@ export const actionSchema = z.discriminatedUnion('action', [
   z
     .object({
       ...shared,
+      reason: optionalNote,
       action: z.literal('subscription'),
       schoolId: id,
       state: z.enum(['trial', 'active', 'restricted']),
@@ -84,7 +89,7 @@ export const actionSchema = z.discriminatedUnion('action', [
     })
     .strict(),
 ]);
-export const inspectSchema = z.object({ reason }).strict();
+export const inspectSchema = z.object({ reason: optionalNote }).strict();
 export const loginSchema = z
   .object({
     loginId: z.string().trim().min(1).max(100),

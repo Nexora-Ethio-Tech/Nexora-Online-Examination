@@ -254,3 +254,31 @@
   outline-offset: 3px;
   border-radius: 0.5rem;
 }
+
+/* Native required semantics determine the visible marker, including conditional fields. */
+label:has(input:required, select:required, textarea:required) > .field-label::after {
+  content: ' *' / '';
+  color: var(--destructive);
+}
+.field-label {
+  display: inline-block;
+}
+.filter-bar > label {
+  flex: 1 1 9rem;
+  min-width: 0;
+}
+.filter-bar > label:first-child {
+  flex-grow: 2;
+}
+.filter-bar > label > .field-label {
+  font-size: 0.75rem;
+}
+.filter-bar input,
+.filter-bar select {
+  margin-top: 0.25rem;
+}
+
+.required-marker::after {
+  content: ' *' / '';
+  color: var(--destructive);
+}

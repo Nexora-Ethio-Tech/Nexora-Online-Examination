@@ -1,3 +1,5 @@
+import { generateAccountPassword } from '../../common/crypto/account-password';
+import { hashPassword } from '../../common/crypto/password';
 import { Injectable } from '@nestjs/common';
 import { Request } from 'express';
 import { createHash, randomUUID } from 'crypto';
@@ -150,7 +152,8 @@ export class RosterService {
       z
         .object({
           revision: z.number().int().positive(),
-          reason: z.string().trim().min(1).max(2000),
+          reason: z.string().trim().max(2000).default(''),
+          issueCredentials: z.boolean().optional(),
         })
         .strict(),
       input,
@@ -173,89 +176,141 @@ export class RosterService {
         )
       ).rows[0];
       if (!row) throw DomainException.notFound();
-      return mutate(c, school.id, user.id, `roster:${id}:commit`, key, body, async () => {
-        const preview = previewSchema.parse(row.preview);
-        if (
-          row.committed_result ||
-          row.revision !== body.revision ||
-          row.expires_at <= this.clock.now() ||
-          !preview.canCommit
-        )
-          throw DomainException.conflict('REVISION_CONFLICT', 'Create a new valid roster preview');
-        const cls = (
-          await c.query<{ revision: number; code_or_year: string }>(
-            'SELECT revision,code_or_year FROM classes WHERE school_id=$1 AND id=$2 AND active FOR SHARE',
-            [school.id, row.class_id],
+      return mutate(
+        c,
+        school.id,
+        user.id,
+        `roster:${id}:commit`,
+        key,
+        body,
+        async () => {
+          const preview = previewSchema.parse(row.preview);
+          if (
+            row.committed_result ||
+            row.revision !== body.revision ||
+            row.expires_at <= this.clock.now() ||
+            !preview.canCommit
           )
-        ).rows[0];
-        if (!cls || cls.revision !== row.class_revision)
-          throw DomainException.conflict(
-            'REVISION_CONFLICT',
-            'Class changed; preview the roster again',
-          );
-        const refs = preview.rows.map((r) => r.studentRef.toLowerCase());
-        if (
-          (
-            await c.query(
-              'SELECT id FROM users WHERE school_id=$1 AND lower(student_ref)=ANY($2::text[]) LIMIT 1',
-              [school.id, refs],
+            throw DomainException.conflict(
+              'REVISION_CONFLICT',
+              'Create a new valid roster preview',
+            );
+          const cls = (
+            await c.query<{ revision: number; code_or_year: string }>(
+              'SELECT revision,code_or_year FROM classes WHERE school_id=$1 AND id=$2 AND active FOR SHARE',
+              [school.id, row.class_id],
             )
-          ).rowCount
-        )
-          throw DomainException.conflict(
-            'REVISION_CONFLICT',
-            'A student reference was added since preview',
-          );
-        const schoolNumber = (
-          await c.query<{ account_number: number }>(
-            'SELECT account_number FROM schools WHERE id=$1',
-            [school.id],
+          ).rows[0];
+          if (!cls || cls.revision !== row.class_revision)
+            throw DomainException.conflict(
+              'REVISION_CONFLICT',
+              'Class changed; preview the roster again',
+            );
+          const refs = preview.rows.map((r) => r.studentRef.toLowerCase());
+          if (
+            (
+              await c.query(
+                'SELECT id FROM users WHERE school_id=$1 AND lower(student_ref)=ANY($2::text[]) LIMIT 1',
+                [school.id, refs],
+              )
+            ).rowCount
           )
-        ).rows[0].account_number;
-        const userIds: string[] = [];
-        let studentNumber = await allocateStudentNumbers(c, school.id, preview.rows.length);
-        for (const student of preview.rows) {
-          const userId = randomUUID();
-          userIds.push(userId);
+            throw DomainException.conflict(
+              'REVISION_CONFLICT',
+              'A student reference was added since preview',
+            );
+          const schoolNumber = (
+            await c.query<{ account_number: number }>(
+              'SELECT account_number FROM schools WHERE id=$1',
+              [school.id],
+            )
+          ).rows[0].account_number;
+          const userIds: string[] = [];
+          const credentials: {
+            userId: string;
+            displayName: string;
+            loginId: string;
+            password: string;
+          }[] = [];
+          let studentNumber = await allocateStudentNumbers(c, school.id, preview.rows.length);
+          for (const student of preview.rows) {
+            const userId = randomUUID();
+            userIds.push(userId);
+            const loginId = studentLoginId(schoolNumber, studentNumber++, this.clock.now());
+            const password = body.issueCredentials ? generateAccountPassword() : null;
+            const passwordHash = password ? await hashPassword(password) : null;
+            if (password)
+              credentials.push({ userId, displayName: student.displayName, loginId, password });
+            await c.query(
+              "INSERT INTO users(id,school_id,display_name,student_ref,login_id,role,password_hash,credentials_issued,first_name,father_name,grandfather_name,roll_number) VALUES($1,$2,$3,$4,$5,'student',$6,$7,$8,$9,$10,$11)",
+              [
+                userId,
+                school.id,
+                student.displayName,
+                student.studentRef,
+                loginId,
+                passwordHash,
+                !!body.issueCredentials,
+                student.firstName ?? null,
+                student.fatherName ?? null,
+                student.grandfatherName ?? null,
+                student.rollNumber || null,
+              ],
+            );
+            await c.query(
+              'INSERT INTO enrollments(school_id,student_id,class_id,academic_year) VALUES($1,$2,$3,$4)',
+              [school.id, userId, row.class_id, cls.code_or_year],
+            );
+          }
+          const loginDetails = body.issueCredentials
+            ? {
+                issueId: randomUUID(),
+                issuedCount: credentials.length,
+                issuedAt: this.clock.now().toISOString(),
+                accounts: credentials.map(({ userId, displayName, loginId }) => ({
+                  userId,
+                  displayName,
+                  loginId,
+                })),
+                credentials,
+              }
+            : undefined;
+          const result = {
+            importId: id,
+            createdCount: userIds.length,
+            userIds,
+            ...(loginDetails ? { loginDetails } : {}),
+          };
+          const retained = {
+            ...result,
+            ...(loginDetails ? { loginDetails: { ...loginDetails, credentials: null } } : {}),
+          };
           await c.query(
-            "INSERT INTO users(id,school_id,display_name,student_ref,login_id,role,password_hash,credentials_issued,first_name,father_name,grandfather_name,roll_number) VALUES($1,$2,$3,$4,$5,'student',NULL,false,$6,$7,$8,$9)",
+            'UPDATE directory_imports SET committed_result=$1,revision=revision+1 WHERE school_id=$2 AND id=$3',
+            [JSON.stringify(retained), school.id, id],
+          );
+          await c.query(
+            'INSERT INTO audit_events(school_id,actor_id,action,resource_id,reason,server_at,target_label,actor_name) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
             [
-              userId,
               school.id,
-              student.displayName,
-              student.studentRef,
-              studentLoginId(schoolNumber, studentNumber++, this.clock.now()),
-              student.firstName ?? null,
-              student.fatherName ?? null,
-              student.grandfatherName ?? null,
-              student.rollNumber || null,
+              user.id,
+              'directory:roster:commit',
+              id,
+              body.reason,
+              this.clock.now(),
+              `${preview.className}: ${userIds.length} students`,
+              user.displayName,
             ],
           );
-          await c.query(
-            'INSERT INTO enrollments(school_id,student_id,class_id,academic_year) VALUES($1,$2,$3,$4)',
-            [school.id, userId, row.class_id, cls.code_or_year],
-          );
-        }
-        const result = { importId: id, createdCount: userIds.length, userIds };
-        await c.query(
-          'UPDATE directory_imports SET committed_result=$1,revision=revision+1 WHERE school_id=$2 AND id=$3',
-          [JSON.stringify(result), school.id, id],
-        );
-        await c.query(
-          'INSERT INTO audit_events(school_id,actor_id,action,resource_id,reason,server_at,target_label,actor_name) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
-          [
-            school.id,
-            user.id,
-            'directory:roster:commit',
-            id,
-            body.reason,
-            this.clock.now(),
-            `${preview.className}: ${userIds.length} students`,
-            user.displayName,
-          ],
-        );
-        return result;
-      });
+          return result;
+        },
+        (result) => ({
+          ...result,
+          ...(result.loginDetails
+            ? { loginDetails: { ...result.loginDetails, credentials: null } }
+            : {}),
+        }),
+      );
     });
   }
 }

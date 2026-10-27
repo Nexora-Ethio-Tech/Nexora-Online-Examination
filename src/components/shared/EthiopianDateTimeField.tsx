@@ -54,7 +54,15 @@ export function EthiopianDateTimeField({
       aria-invalid={!!error}
       className="min-w-0 space-y-3 self-start rounded border bg-background p-4"
     >
-      <legend className="px-1 text-sm font-medium">{label}</legend>
+      <legend className="px-1 text-sm font-medium">
+        {label}
+        {!optional && (
+          <span aria-hidden="true" className="text-destructive">
+            {' '}
+            *
+          </span>
+        )}
+      </legend>
       <p id={`${id}-hint`} className="text-xs text-muted-foreground">
         {calendar === 'ethiopian' ? 'Ethiopian' : 'Gregorian'} calendar ·{' '}
         {dateOnly ? 'EAT' : 'East Africa Time (EAT) · AM/PM'}
