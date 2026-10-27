@@ -106,9 +106,19 @@ export function AdminExamsPage() {
       </p>
       <FilterBar
         label="Exam filters"
+        inlineMore
         more={
           <>
-            {' '}
+            {(['subject', 'teacher'] as const).map((key) => (
+              <label key={key} className="block capitalize">
+                <span className="field-label">Filter {key}</span>
+                <input
+                  className="min-h-11 w-full rounded border bg-background p-2"
+                  value={filters[key]}
+                  onChange={(e) => setFilters({ ...filters, [key]: e.target.value })}
+                />
+              </label>
+            ))}
             <EthiopianDateTimeField
               label="Submitted from"
               value={from}
@@ -119,19 +129,15 @@ export function AdminExamsPage() {
           </>
         }
       >
-        {(['search', 'subject', 'teacher'] as const).map((key) => (
-          <label key={key} className="block capitalize">
-            <span className="field-label">
-              {key === 'search' ? 'Search exams' : `Filter ${key}`}
-            </span>
-            <input
-              className="mt-2 min-h-11 w-full rounded border bg-background p-2"
-              value={filters[key]}
-              onChange={(e) => setFilters({ ...filters, [key]: e.target.value })}
-              placeholder={key === 'search' ? 'Exam, subject name/code, teacher or class' : ''}
-            />
-          </label>
-        ))}
+        <label className="block">
+          <span className="field-label">Search exams</span>
+          <input
+            className="mt-2 min-h-11 w-full rounded border bg-background p-2"
+            value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+            placeholder="Exam, subject, teacher or class"
+          />
+        </label>
         <label>
           <span className="field-label">Grade</span>
           <select

@@ -14,7 +14,7 @@ EditDialog uses the existing Radix dialog, focus containment, Escape/X dismissal
 
 Assignment activation stays inside its row. Full question authoring, approval/scheduling, result publication, recovery evidence and device-transfer review retain their full-page context. Question navigation is paginated so it does not push the selected editor far down the page.
 
-Assignment filters use a compact wrapping toolbar with Clear filters, replacing duplicate grade/class button rows. Admin exam filters use the same toolbar; submitted date fields are under More filters. Controls wrap on narrow screens and retain touch targets.
+Assignment filters use a compact wrapping toolbar with Clear filters, replacing duplicate grade/class button rows. Admin exam filters keep search, grade, class, Clear filters and More filters in one row on wider screens. Teacher, subject and submitted date fields expand below only when More filters is opened. The disclosure exposes its expanded state to assistive technology; collapsing it preserves selected filters. Controls wrap on narrow screens and retain touch targets.
 
 ## Pagination and cache policy
 
