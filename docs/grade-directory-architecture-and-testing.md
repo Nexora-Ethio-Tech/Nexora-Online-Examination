@@ -43,3 +43,9 @@ Invigilator assignment changes require confirmation and the current revision, wi
 Platform owner provisioning, adding administrators, editing administrator information and inspecting the administrator directory require no reason. Subscription notes are optional. School suspension/reactivation and administrator recovery retain mandatory reasons and authenticator verification. Reading administrator details continues to produce an audit event.
 
 Verification: create/import/issue credentials with no reason; save ordinary edits with blank notes; confirm that active-status changes, deletion and password reset remain blocked without a reason. Approve a paper without a note, then separately confirm returning requires corrections. Check invigilator assignment both before start and exactly at start. Optional notes must accept blank input and preserve entered notes in history. Backend unit tests and frontend/demo tests support this policy; database integration and production rollout require separate evidence.
+
+## Compact assignment form
+
+Teacher, Class and Subject share one row from tablet widths; the save button joins that row on wide screens. Phones keep full-width stacked fields and a 44px minimum save target. Per-directory refresh controls and truthful last-successful-update times remain available under “Refresh options & update times”. Initial loading and directory errors remain visible outside the disclosure. Class changes still clear the selected subject and retain grade compatibility filtering.
+
+Verify the form at 360px and desktop widths, keyboard access to the disclosure and selectors, refresh failure feedback, and selecting a different class before saving. Existing school workflow tests cover assignment creation and grade filtering; synthetic checks do not establish production API acceptance.

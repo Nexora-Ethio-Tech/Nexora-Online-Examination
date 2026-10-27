@@ -1081,8 +1081,15 @@ function AssignmentsPage() {
           void op.run(JSON.stringify(body), (key) => api.assign(body, key));
         }}
       >
-        <h2 className="text-xl font-semibold">Assign a teacher</h2>
-        <fieldset data-saving={op.pending} disabled={op.pending} className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <h2 className="text-lg font-semibold">Assign a teacher</h2>
+          <p className="text-sm text-muted-foreground">Choose a teacher, class and subject.</p>
+        </div>
+        <fieldset
+          data-saving={op.pending}
+          disabled={op.pending}
+          className="grid min-w-0 items-end gap-3 md:grid-cols-3 xl:grid-cols-[1fr_1fr_1fr_auto] [&>label]:min-w-0"
+        >
           <Field label="Teacher">
             <select
               className={control}
@@ -1100,7 +1107,6 @@ function AssignmentsPage() {
                 ))}
             </select>
           </Field>
-          {teachers.controls}
           <Field label="Class">
             <select
               className={control}
@@ -1121,7 +1127,6 @@ function AssignmentsPage() {
                 ))}
             </select>
           </Field>
-          {classes.controls}
           <Field label="Subject">
             <select
               className={control}
@@ -1144,11 +1149,42 @@ function AssignmentsPage() {
                 ))}
             </select>
           </Field>
-          {subjects.controls}
 
-          <Button disabled={!teacherId || !classId || !subjectId}>Save assignment</Button>
+          <Button
+            className="min-h-11 md:col-span-3 md:justify-self-end xl:col-span-1"
+            disabled={!teacherId || !classId || !subjectId}
+          >
+            {op.pending ? 'Saving…' : 'Save assignment'}
+          </Button>
         </fieldset>
+        {(teachers.query.isPending || classes.query.isPending || subjects.query.isPending) && (
+          <p role="status" className="text-sm text-muted-foreground">
+            Loading assignment options…
+          </p>
+        )}
+        <Failure error={teachers.query.error} />
+        <Failure error={classes.query.error} />
+        <Failure error={subjects.query.error} />
         {op.feedback}
+        <details className="border-t pt-2 text-sm">
+          <summary className="min-h-11 cursor-pointer content-center text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+            Refresh options &amp; update times
+          </summary>
+          <div className="grid gap-4 pt-2 md:grid-cols-3">
+            <div className="space-y-2">
+              <p className="font-medium">Teachers</p>
+              {teachers.controls}
+            </div>
+            <div className="space-y-2">
+              <p className="font-medium">Classes</p>
+              {classes.controls}
+            </div>
+            <div className="space-y-2">
+              <p className="font-medium">Subjects</p>
+              {subjects.controls}
+            </div>
+          </div>
+        </details>
       </form>
       <FilterBar label="Assignment filters">
         <Field label="Search assignments">
