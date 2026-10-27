@@ -84,7 +84,7 @@ export const guides: Record<Role, GuideStep[]> = {
     {
       title: 'Prepare for your exam',
       targets: ['[data-tour="download-exam"]', '[data-tour="exam-current"]'],
-      body: 'Use Current exams, Upcoming exams and Past exams in My exams. Exams are ordered A–Z within each category; use Previous page and Next page for further papers. Returning to a page reuses its cached records. The top bar shows connection status; saved-on-device and school-received answers remain separate. Past exams can be filtered by published grades, awaiting results, or no grade. Needs attention keeps unfinished submissions visible. Check the Ethiopian calendar date. Times use AM/PM in EAT, even if your device uses another timezone. Choose Download exam when preparation opens. Follow the download progress, keep this page open and stay connected until the exam starts.',
+      body: 'Use Current exams, Upcoming exams and Past exams in My exams. Exams are ordered A–Z within each category; use Previous page and Next page for further papers. Returning to a page reuses its cached records. The top bar shows connection status; saved-on-device and school-received answers remain separate. Past exams can be filtered by published grades, awaiting results, or no grade. Needs attention keeps unfinished submissions visible. Check the Ethiopian calendar date. Times use AM/PM in EAT, even if your device uses another timezone. Choose Download exam when preparation opens. After a successful download, the control shows Downloaded and cannot be clicked again on this page. Follow the download progress, keep this page open and stay connected until the exam starts.',
       path: '/student',
     },
     {

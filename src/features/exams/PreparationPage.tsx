@@ -111,6 +111,8 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
     exam &&
     ['preparing', 'open'].includes(exam.phase) &&
     (!exam.attemptState || exam.attemptState === 'preparing');
+  const downloaded =
+    preparation.isSuccess && preparation.data.attempt.scheduleRevision === exam?.scheduleRevision;
   const deviceError =
     preparation.error instanceof ApiError && preparation.error.code === 'DEVICE_REPLACED';
   return (
@@ -181,16 +183,14 @@ function PreparationContent({ sessionId }: { sessionId: string }) {
                 <Button
                   data-tour="download-exam"
                   className="mt-5 h-auto min-h-11 whitespace-normal py-3"
-                  disabled={preparation.isPending || !!query.error}
+                  disabled={downloaded || preparation.isPending || !!query.error}
                   onClick={() => preparation.mutate()}
                 >
                   {preparation.isPending
                     ? 'Getting your exam ready…'
-                    : preparation.data
-                      ? 'Download again'
-                      : preparation.isError
-                        ? 'Try download again'
-                        : 'Download exam'}
+                    : downloaded
+                      ? 'Downloaded'
+                      : 'Download exam'}
                 </Button>
               </>
             ) : null}
