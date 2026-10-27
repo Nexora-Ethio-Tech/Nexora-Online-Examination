@@ -144,7 +144,7 @@ export function DashboardLayout() {
       {!focused && (
         <header ref={header} className="sticky top-8 z-20 border-b bg-background px-4 sm:px-8">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 py-3">
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
                 <SheetTrigger asChild>
                   <Button data-tour-navigation variant="outline" className="min-h-11 lg:hidden">
@@ -180,28 +180,36 @@ export function DashboardLayout() {
                 </p>
               </div>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="min-h-11" aria-label="Open account menu">
-                  <UserCircle aria-hidden="true" />
-                  <span className="hidden max-w-48 truncate sm:inline">{user.displayName}</span>
-                  <span className="sm:hidden">Account</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-w-80">
-                <DropdownMenuLabel>
-                  <p>{user.displayName}</p>
-                  <p className="text-xs font-normal">
-                    {roleLabel[user.role]} · {school.name}
-                  </p>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled={auth.logout.isPending} onSelect={() => void logout()}>
-                  <LogOut aria-hidden="true" />
-                  {auth.logout.isPending ? 'Signing out…' : 'Sign out'}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex shrink-0 items-center gap-2">
+              <PortalGuide
+                key={`${school.id}:${user.id}:${user.role}`}
+                schoolId={school.id}
+                userId={user.id}
+                role={user.role}
+                iconOnly
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="min-h-11" aria-label="Open account menu">
+                    <UserCircle aria-hidden="true" />
+                    <span className="hidden max-w-48 truncate sm:inline">{user.displayName}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-w-80">
+                  <DropdownMenuLabel>
+                    <p>{user.displayName}</p>
+                    <p className="text-xs font-normal">
+                      {roleLabel[user.role]} · {school.name}
+                    </p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem disabled={auth.logout.isPending} onSelect={() => void logout()}>
+                    <LogOut aria-hidden="true" />
+                    {auth.logout.isPending ? 'Signing out…' : 'Sign out'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </header>
       )}
@@ -241,14 +249,6 @@ export function DashboardLayout() {
             </div>
           ) : null}
           <Suspense fallback={<p role="status">Opening this page…</p>}>
-            {!focused && (
-              <PortalGuide
-                key={`${school.id}:${user.id}:${user.role}`}
-                schoolId={school.id}
-                userId={user.id}
-                role={user.role}
-              />
-            )}
             <Outlet />
           </Suspense>
         </main>

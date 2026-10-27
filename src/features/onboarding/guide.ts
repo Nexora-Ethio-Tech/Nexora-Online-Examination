@@ -110,4 +110,8 @@ export const guides: Record<Role, GuideStep[]> = {
   ],
 };
 export const guideRevision = (role: Role) =>
-  JSON.stringify({ presentation: tourPresentation, steps: guides[role] });
+  JSON.stringify({
+    presentation: tourPresentation,
+    access: 'Help icon beside the account menu; hidden during active exams.',
+    steps: guides[role],
+  });

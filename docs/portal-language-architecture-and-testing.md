@@ -2,6 +2,8 @@
 
 Implemented locally on 21 October 2026. This change replaces technical screen wording with instructions for students, teachers and school administrators.
 
+The Portal guide opens from the question-mark help button beside the account menu in the workspace header. Its accessible name and hover title remain “Portal guide.” On phones the account menu also uses its icon to keep both controls beside the school identity. The guide and workspace header remain absent during the active student runner. Verify keyboard activation, reopening after dismissal and header fit at 360px.
+
 ## Architecture and scope
 
 This is a presentation change. API field names, database values, encryption, download checks, answer persistence, submission confirmation, permissions and timing rules remain unchanged. The runner engine has message-string edits only. The typed `authoring/import-status.ts` map translates every import state into a readable label without changing worker behavior.

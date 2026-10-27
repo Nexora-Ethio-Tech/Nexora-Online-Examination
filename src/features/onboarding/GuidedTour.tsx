@@ -5,6 +5,7 @@ import { tourTail } from './tour-tail';
 import { tourPosition } from './tour-position';
 import { tourTarget, type TourTarget } from './tour-target';
 import { Button } from '@/components/ui/button';
+import { CircleHelp } from 'lucide-react';
 
 export type TourStep = { title: string; body: string } & TourTarget;
 type Progress = { revision: string; index: number; completed: boolean; paused: boolean };
@@ -13,11 +14,13 @@ export function GuidedTour({
   revision,
   steps,
   label = 'Portal guide',
+  iconOnly = false,
 }: {
   storageKey: string;
   revision: string;
   steps: TourStep[];
   label?: string;
+  iconOnly?: boolean;
 }) {
   const [progress, setProgress] = useState<Progress>(() => {
     try {
@@ -174,7 +177,9 @@ export function GuidedTour({
     <>
       <Button
         variant="outline"
-        className="mb-4"
+        className={iconOnly ? 'size-11 shrink-0' : 'mb-4'}
+        aria-label={iconOnly ? label : undefined}
+        title={iconOnly ? label : undefined}
         onClick={() =>
           update({
             ...progress,
@@ -184,7 +189,7 @@ export function GuidedTour({
           })
         }
       >
-        {label}
+        {iconOnly ? <CircleHelp className="size-5" aria-hidden="true" /> : label}
       </Button>
       {open &&
         step &&
