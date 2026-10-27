@@ -1,6 +1,9 @@
 {
   "name": "exam-frontend",
   "private": true,
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  },
   "version": "0.0.0",
   "type": "module",
   "engines": {
