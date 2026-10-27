@@ -27,3 +27,9 @@ Demo supports layout and navigation checks. Browser fixtures and frontend tests 
 ## Verification
 
 Typecheck, ESLint, formatting, 262 frontend tests and 14 tooling checks passed. Production build passed with existing bundle-size and third-party annotation warnings. Six Chromium browser journeys passed across desktop, 360px mobile and landscape, including accessibility, exact desktop alignment, small-screen gap assertions and student filters. Desktop/mobile scheduling screenshots were inspected. Browser timezone was America/Los_Angeles while UI values remained EAT. Real backend/database publication cases were not run in this UI-only task.
+
+## Scheduled sitting summary
+
+Saved sittings use a responsive date grid (one column on phones, two on small screens, three on wide screens) with distinct labels and EAT timestamps. Monitor and extra-time actions are spaced, wrapping 44px controls beside the heading. The latest student deadline stays visible even when equal to the common end. “Scheduled results” replaces the obsolete publication-approval requirement, matching automatic release after submission windows close; this UI change does not verify hosted release behavior.
+
+Check all five timestamps, keyboard access to both actions, long Ethiopian dates at 360px, rescheduling and extra-time deadlines. Admin workflow tests retain schedule creation and revision assertions.

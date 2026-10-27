@@ -84,9 +84,7 @@ describe('admin review and schedule screens', () => {
     expect(sitting?.session.preparationVisibleAt).toBe('2026-10-17T06:30:00.000Z');
     expect(sitting?.session.startsAt).toBe('2026-10-17T06:40:00.000Z');
     expect(store.drafts.get(id)?.status).toBe('approved');
-    expect(
-      screen.getByText('Planned results (publication approval still required)'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Scheduled results')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Change schedule' }));
     selectEatDateTime('Preparation date and time (EAT)', '2026-10-17T09:40');
     await user.type(screen.getByLabelText('Note (optional)'), 'Room change.');

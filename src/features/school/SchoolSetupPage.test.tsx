@@ -88,20 +88,21 @@ describe('school setup UI', () => {
     ).toBeInTheDocument();
     expect(name).toHaveValue('Adama School');
   });
-  it('saves AI generation settings without requiring an optional note', async () => {
+  it('saves AI generation with a compact switch and no note or refresh controls', async () => {
     const { user, store } = setup();
     await user.click(await screen.findByRole('tab', { name: 'Settings' }));
-    expect(
-      await screen.findByText('AI exam generation is off for this school.'),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Turn on AI exam generation' })).toBeEnabled();
-    expect(screen.getByLabelText('Note (optional)')).toHaveValue('');
-    await user.click(screen.getByRole('button', { name: 'Turn on AI exam generation' }));
-    expect(
-      await screen.findByText('AI exam generation is on for this school.'),
-    ).toBeInTheDocument();
+    const toggle = await screen.findByRole('switch', { name: 'AI exam generation' });
+    await waitFor(() => expect(toggle).toBeEnabled());
+    expect(toggle).not.toBeChecked();
+    expect(screen.queryByLabelText('Note (optional)')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Refresh/ })).not.toBeInTheDocument();
+    await user.click(toggle);
+    await waitFor(() => expect(toggle).toBeChecked());
     expect(store.directory.aiExamSettings).toEqual({ aiExamGenerationEnabled: true, revision: 2 });
-    expect(screen.getByRole('button', { name: 'Turn off AI exam generation' })).toBeEnabled();
+    await waitFor(() => expect(toggle).toBeEnabled());
+    await user.click(toggle);
+    await waitFor(() => expect(toggle).not.toBeChecked());
+    expect(store.directory.aiExamSettings).toEqual({ aiExamGenerationEnabled: false, revision: 3 });
   });
   it('creates a class and subject and records who changed them', async () => {
     const { user, store } = setup();

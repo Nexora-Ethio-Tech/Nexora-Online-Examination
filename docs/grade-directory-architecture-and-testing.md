@@ -49,3 +49,9 @@ Verification: create/import/issue credentials with no reason; save ordinary edit
 Teacher, Class and Subject share one row from tablet widths; the save button joins that row on wide screens. Phones keep full-width stacked fields and a 44px minimum save target. Per-directory refresh controls and truthful last-successful-update times remain available under “Refresh options & update times”. Initial loading and directory errors remain visible outside the disclosure. Class changes still clear the selected subject and retain grade compatibility filtering.
 
 Verify the form at 360px and desktop widths, keyboard access to the disclosure and selectors, refresh failure feedback, and selecting a different class before saving. Existing school workflow tests cover assignment creation and grade filtering; synthetic checks do not establish production API acceptance.
+
+## Compact school settings
+
+Settings shows one labelled school-name input with its save action alongside it on wider screens. AI exam generation uses an accessible, immediately saved On/Off switch without a note field, explanatory paragraphs or refresh buttons. The switch reflects server-confirmed data, is disabled during loading/saving, and retains visible failure feedback. School-name failures remain visible; reducing the form does not resolve a backend error.
+
+Verify keyboard toggle, both saved states, failed saves retaining the confirmed state, and name editing at 360px. School workflow tests exercise both toggle directions and school-name updates.

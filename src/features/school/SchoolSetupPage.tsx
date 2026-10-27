@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useBeforeUnload, useBlocker, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -49,7 +50,7 @@ export function Reason({
     </Field>
   );
 }
-export function useSchoolOperation() {
+export function useSchoolOperation({ showSuccess = true }: { showSuccess?: boolean } = {}) {
   const cache = useQueryClient();
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
@@ -88,7 +89,7 @@ export function useSchoolOperation() {
     feedback: (
       <>
         <Failure action error={error} />
-        {message && <p role="status">{message}</p>}
+        {showSuccess && message && <p role="status">{message}</p>}
       </>
     ),
   };
@@ -1363,21 +1364,11 @@ function SchoolNameSettings() {
   const [name, setName] = useState<string | null>(null);
   const value = name ?? query.data?.name ?? '';
   return (
-    <section className={`${panel} space-y-4`}>
-      <h2 className="text-xl font-semibold">School name</h2>
-      <p>This name appears throughout your school portal.</p>
-      <Button
-        type="button"
-        variant="outline"
-        disabled={query.isFetching || op.pending}
-        onClick={() => void query.refetch()}
-      >
-        Refresh school name
-      </Button>
+    <section className={`${panel} space-y-3`}>
       {query.isPending && <p role="status">Loading school name…</p>}
       <Failure error={query.error} />
       <form
-        className="space-y-4"
+        className="grid items-end gap-3 sm:grid-cols-[1fr_auto] [&>label]:min-w-0"
         onSubmit={(event) => {
           event.preventDefault();
           if (!query.data) return;
@@ -1403,6 +1394,7 @@ function SchoolNameSettings() {
           />
         </Field>
         <Button
+          className="min-h-11"
           disabled={
             !query.data ||
             !!query.error ||
@@ -1425,61 +1417,45 @@ function AiExamSettings() {
     queryKey: ['school', ...scope, 'ai-exam-settings'],
     queryFn: ({ signal }) => api.aiSettings(signal),
   });
-  const op = useSchoolOperation();
-  const [reason, setReason] = useState('');
+  const op = useSchoolOperation({ showSuccess: false });
   return (
-    <section className={`${panel} space-y-4`}>
-      <h2 className="text-xl font-semibold">AI exam generation</h2>
-      <p>
-        Allow teachers in this school to generate entire exam drafts with AI. Uploading question
-        papers is always available. Every generated paper still requires teacher review and
-        administrator approval.
-      </p>
-      {query.isPending && <p role="status">Loading AI setting…</p>}
-      <Failure error={query.error} />
-      <Button
-        variant="outline"
-        disabled={query.isFetching || op.pending}
-        onClick={() => void query.refetch()}
-      >
-        Refresh AI setting
-      </Button>
-      {query.data && !query.error && (
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!query.data) return;
-            const body = {
-              revision: query.data.revision,
-              aiExamGenerationEnabled: !query.data.aiExamGenerationEnabled,
-              reason: reason.trim(),
-            };
-            void op.run(
-              JSON.stringify(body),
-              (key) => api.saveAiSettings(body, key),
-              () => setReason(''),
-            );
-          }}
-        >
-          <p role="status">
-            AI exam generation is {query.data.aiExamGenerationEnabled ? 'on' : 'off'} for this
-            school.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Turning this off prevents new generation and stops pending output from replacing draft
-            questions. Existing papers remain available.
-          </p>
-          <fieldset data-saving={op.pending} disabled={op.pending} className="space-y-4">
-            <Reason optional value={reason} onChange={setReason} />
-            <Button>
-              {query.data.aiExamGenerationEnabled
-                ? 'Turn off AI exam generation'
-                : 'Turn on AI exam generation'}
-            </Button>
-          </fieldset>
-        </form>
+    <section className={`${panel} space-y-2`}>
+      <div className="flex min-h-11 items-center justify-between gap-4">
+        <h2 id="ai-generation-label" className="text-base font-medium">
+          AI exam generation
+        </h2>
+        <div className="flex shrink-0 items-center gap-3 pr-3">
+          <span aria-hidden="true" className="text-sm text-muted-foreground">
+            {op.pending
+              ? 'Saving…'
+              : query.data
+                ? query.data.aiExamGenerationEnabled
+                  ? 'On'
+                  : 'Off'
+                : '…'}
+          </span>
+          <Switch
+            aria-labelledby="ai-generation-label"
+            checked={query.data?.aiExamGenerationEnabled ?? false}
+            disabled={!query.data || !!query.error || query.isFetching || op.pending}
+            onCheckedChange={(enabled) => {
+              if (!query.data) return;
+              const body = {
+                revision: query.data.revision,
+                aiExamGenerationEnabled: enabled,
+                reason: '',
+              };
+              void op.run(JSON.stringify(body), (key) => api.saveAiSettings(body, key));
+            }}
+          />
+        </div>
+      </div>
+      {query.isPending && (
+        <p role="status" className="text-sm">
+          Loading AI setting…
+        </p>
       )}
+      <Failure error={query.error} />
       {op.feedback}
     </section>
   );

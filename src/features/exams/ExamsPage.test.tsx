@@ -55,6 +55,8 @@ it('downloads and verifies a paper without claiming offline readiness or submiss
     screen.getByText(/your school has not been notified that you are ready/),
   ).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Start exam' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Downloaded' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: 'Download again' })).not.toBeInTheDocument();
 });
 it('shows an empty assignment state', async () => {
   const demo = createDemoTransport('student');
@@ -87,7 +89,7 @@ it('shows the failed integrity step, hides readiness and allows a successful ret
   ).not.toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: 'Ready for your exam' })).not.toBeInTheDocument();
   corrupt = false;
-  await user.click(screen.getByRole('button', { name: 'Try download again' }));
+  await user.click(screen.getByRole('button', { name: 'Download exam' }));
   await screen.findByRole('heading', { name: 'Exam saved for this demo' });
   expect(screen.getByText('Exam downloaded. Keep this page open.')).toBeInTheDocument();
   expect(screen.queryByText(/Check that you can keep working/)).not.toBeInTheDocument();

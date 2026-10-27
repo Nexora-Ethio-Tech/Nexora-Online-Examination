@@ -19,3 +19,9 @@ The same preparation pipeline still validates attempt/package identity, verifies
 ## Automated evidence
 
 Stream tests cover split UTF-8 bytes, byte totals, compressed/unknown lengths, invalid JSON and aborting a stalled download. The existing corrupt-package UI test proves verification still fails and a valid retry succeeds with the simplified display. Existing readiness tests preserve reporting gates.
+
+## Download action state
+
+After successful preparation for the current schedule revision, the action reads **Downloaded** and is disabled. Before completion or after a failed download it reads **Download exam**. A changed schedule revision makes the action available again. This state uses the completed preparation operation on the current page; reopening still runs the existing online preparation/revalidation flow. Failed shell/readiness steps remain retryable; a saved package alone does not establish readiness or submission.
+
+The preparation-page tests check the disabled completed action and corrupt-package retry.
