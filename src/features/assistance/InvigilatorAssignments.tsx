@@ -17,7 +17,6 @@ import { assistanceApi } from './api';
 export function InvigilatorAssignments({ id }: { id: string }) {
   const client = useApiClient();
   const { session } = useAuth();
-  const [reason, setReason] = useState('');
   const [selected, setSelected] = useState<{
     id: string;
     displayName: string;
@@ -37,10 +36,9 @@ export function InvigilatorAssignments({ id }: { id: string }) {
     setBusy(true);
     setMessage('');
     try {
-      await assistanceApi(client).assign(id, { staffId, active, expectedRevision, reason });
+      await assistanceApi(client).assign(id, { staffId, active, expectedRevision, reason: '' });
       setMessage('Staff assignment saved.');
       setSelected(null);
-      setReason('');
     } catch (failure) {
       setMessage(errorMessage(failure));
     } finally {
@@ -75,7 +73,6 @@ export function InvigilatorAssignments({ id }: { id: string }) {
             disabled={busy}
             onClick={() => {
               setSelected(s);
-              setReason('');
               setMessage('');
             }}
           >
@@ -96,26 +93,11 @@ export function InvigilatorAssignments({ id }: { id: string }) {
               {selected?.active ? 'Remove invigilator assignment' : 'Assign invigilator'}
             </DialogTitle>
             <DialogDescription>
-              {selected?.displayName}. Confirm this assignment change.{' '}
-              {staff.data?.reasonRequired && 'The exam has started; explain this change.'}
+              {selected?.displayName}. Confirm this assignment change.
             </DialogDescription>
           </DialogHeader>
-          {staff.data?.reasonRequired && (
-            <label>
-              <span className="field-label">Assignment change reason</span>
-              <input
-                className="mt-1 min-h-11 w-full rounded border bg-background p-2"
-                value={reason}
-                maxLength={500}
-                disabled={busy}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </label>
-          )}
           <Button
-            disabled={
-              busy || !staff.data || !!staff.error || (staff.data.reasonRequired && !reason.trim())
-            }
+            disabled={busy || !staff.data || !!staff.error}
             onClick={() =>
               selected && void assign(selected.id, !selected.active, selected.revision)
             }

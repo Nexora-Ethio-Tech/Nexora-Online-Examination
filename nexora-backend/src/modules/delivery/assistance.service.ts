@@ -180,10 +180,6 @@ export class AssistanceService {
             'REVISION_CONFLICT',
             'Refresh staff assignments before changing them',
           );
-        if (this.clock.now().getTime() >= sitting.starts_at.getTime() && !command.reason.trim())
-          throw DomainException.validationError(
-            'Enter a reason for changing invigilators after the exam starts',
-          );
         await c.query(
           `INSERT INTO sitting_staff_assignments(school_id,session_id,staff_id,active,revision) VALUES($1,$2,$3,$4,1)
            ON CONFLICT(school_id,session_id,staff_id) DO UPDATE
@@ -212,7 +208,7 @@ export class AssistanceService {
       );
       return {
         staff: rows.rows,
-        reasonRequired: this.clock.now().getTime() >= sitting.starts_at.getTime(),
+        reasonRequired: false,
       };
     });
   }

@@ -364,7 +364,7 @@ it('does not let an assigned staff member without enrolled MFA approve a request
   expect(mocks.decrypt).not.toHaveBeenCalled();
 });
 
-it('requires an explanation for invigilator changes at exam start', async () => {
+it('allows invigilator changes without an explanation at exam start', async () => {
   mocks.query.mockImplementation(async (sql: string) => {
     if (sql.includes('FROM users'))
       return { rows: [{ role: 'school_admin', mfa_enrolled_at: now }] };
@@ -377,10 +377,10 @@ it('requires an explanation for invigilator changes at exam start', async () => 
       active: true,
       expectedRevision: 0,
     }),
-  ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  ).resolves.toMatchObject({ reasonRequired: false });
   expect(
     mocks.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO sitting_staff_assignments')),
-  ).toBe(false);
+  ).toBe(true);
 });
 it('requires a reason to reject reopening before consuming an authenticator code', async () => {
   await expect(
@@ -389,7 +389,7 @@ it('requires a reason to reject reopening before consuming an authenticator code
   expect(mocks.rate).not.toHaveBeenCalled();
 });
 
-it('rechecks invigilator reason requirements after waiting for an assignment lock', async () => {
+it('allows reason-free invigilator changes when the exam starts while waiting for the lock', async () => {
   const start = new Date(now.getTime() + 1000);
   mocks.query.mockImplementation(async (sql: string) => {
     if (sql.includes('FROM users'))
@@ -404,8 +404,8 @@ it('rechecks invigilator reason requirements after waiting for an assignment loc
       active: true,
       expectedRevision: 0,
     }),
-  ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  ).resolves.toMatchObject({ reasonRequired: false });
   expect(
     mocks.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO sitting_staff_assignments')),
-  ).toBe(false);
+  ).toBe(true);
 });

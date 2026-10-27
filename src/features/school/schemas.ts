@@ -121,3 +121,8 @@ export type DirectoryAudit = z.infer<typeof auditSchema>;
 export type RosterPreview = z.infer<typeof previewSchema>;
 export type CredentialIssue = z.infer<typeof credentialIssueSchema>;
 export type AccountEdit = z.infer<typeof accountEditSchema>;
+
+export {
+  schoolProfileSchema,
+  schoolProfileInputSchema,
+} from '../../../nexora-backend/src/modules/directory/school-profile-schemas';

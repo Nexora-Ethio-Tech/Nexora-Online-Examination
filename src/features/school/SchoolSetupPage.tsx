@@ -10,6 +10,7 @@ import { useBeforeUnload, useBlocker, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { useApiClient } from '@/lib/ApiProvider';
 import { control, Failure, panel, useTeacherScope } from '@/features/exams/authoring/TeacherPage';
 import { eatTime } from '@/features/exams/ExamsPage';
@@ -1314,6 +1315,73 @@ function AuditPage() {
     </div>
   );
 }
+function SchoolNameSettings() {
+  const api = schoolApi(useApiClient());
+  const scope = useTeacherScope();
+  const auth = useAuth();
+  const query = useQuery({
+    queryKey: ['school', ...scope, 'profile'],
+    queryFn: ({ signal }) => api.profile(signal),
+  });
+  const op = useSchoolOperation();
+  const [name, setName] = useState<string | null>(null);
+  const value = name ?? query.data?.name ?? '';
+  return (
+    <section className={`${panel} space-y-4`}>
+      <h2 className="text-xl font-semibold">School name</h2>
+      <p>This name appears throughout your school portal.</p>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={query.isFetching || op.pending}
+        onClick={() => void query.refetch()}
+      >
+        Refresh school name
+      </Button>
+      {query.isPending && <p role="status">Loading school name…</p>}
+      <Failure error={query.error} />
+      <form
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!query.data) return;
+          const body = { name: value.trim(), expectedName: query.data.name };
+          void op.run(
+            JSON.stringify(body),
+            (key) => api.saveProfile(body, key),
+            () => {
+              setName(null);
+              void auth.retrySession();
+            },
+          );
+        }}
+      >
+        <Field label="School name">
+          <input
+            className={control}
+            value={value}
+            maxLength={200}
+            required
+            disabled={!query.data || op.pending}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Field>
+        <Button
+          disabled={
+            !query.data ||
+            !!query.error ||
+            op.pending ||
+            !value.trim() ||
+            value.trim() === query.data.name
+          }
+        >
+          Save school name
+        </Button>
+      </form>
+      {op.feedback}
+    </section>
+  );
+}
 function AiExamSettings() {
   const api = schoolApi(useApiClient());
   const scope = useTeacherScope();
@@ -1425,7 +1493,7 @@ export function SchoolSetupPage() {
             ['assignments', 'Assignments'],
             ['roster', 'Roster import'],
             ['activity', 'Activity'],
-            ['ai', 'AI settings'],
+            ['ai', 'Settings'],
           ].map(([value, label]) => (
             <TabsTrigger
               data-tour={`school-${value}`}
@@ -1456,7 +1524,8 @@ export function SchoolSetupPage() {
         <TabsContent value="roster">
           <RosterImport showIssue={setIssue} onSaving={setImportSaving} />
         </TabsContent>
-        <TabsContent value="ai">
+        <TabsContent value="ai" className="space-y-4">
+          <SchoolNameSettings />
           <AiExamSettings />
         </TabsContent>
         <TabsContent value="activity">

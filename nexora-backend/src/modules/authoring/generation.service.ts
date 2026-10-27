@@ -1,3 +1,4 @@
+import { schoolProfileInputSchema } from '../directory/school-profile-schemas';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { Request } from 'express';
 import { randomUUID } from 'crypto';
@@ -37,6 +38,45 @@ export class GenerationService {
     private readonly authoring: AuthoringService,
     private readonly imports: ImportService,
   ) {}
+  async profile(req: Request) {
+    const { school } = identity(req, 'school_admin');
+    return this.db.withTenantTransaction(
+      school.id,
+      async (c) => {
+        const row = (
+          await c.query<{ name: string }>('SELECT name FROM schools WHERE id=$1', [school.id])
+        ).rows[0];
+        if (!row) throw DomainException.notFound();
+        return row;
+      },
+      true,
+    );
+  }
+  async saveProfile(req: Request, input: unknown, key: unknown) {
+    const { school, user } = identity(req, 'school_admin');
+    const body = parse(schoolProfileInputSchema, input);
+    return this.db.withTenantTransaction(school.id, async (c) => {
+      await c.query('SELECT id FROM schools WHERE id=$1 FOR UPDATE', [school.id]);
+      return mutate(c, school.id, user.id, 'school:profile', key, body, async () => {
+        const row = (
+          await c.query<{ name: string }>(
+            'UPDATE schools SET name=$1 WHERE id=$2 AND name=$3 RETURNING name',
+            [body.name, school.id, body.expectedName],
+          )
+        ).rows[0];
+        if (!row)
+          throw DomainException.conflict(
+            'REVISION_CONFLICT',
+            'School name changed; refresh before saving',
+          );
+        await c.query(
+          'INSERT INTO audit_events(school_id,actor_id,action,resource_id,reason,target_label,actor_name) VALUES($1,$2,$3,$1::text,$4,$5,$6)',
+          [school.id, user.id, 'directory:school_name', '', body.name, user.displayName],
+        );
+        return row;
+      });
+    });
+  }
   async settings(req: Request) {
     if (!req.sessionUser || !req.school) throw DomainException.authRequired();
     if (!['teacher', 'school_admin'].includes(req.sessionUser.role))
