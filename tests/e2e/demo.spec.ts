@@ -67,7 +67,8 @@ test('portal management: class cards, unused record deletion and reopenable onbo
   await page.getByRole('button', { name: 'Add class', exact: true }).click();
   await page.getByLabel('Grade', { exact: true }).fill('8');
   await page.getByLabel('Section', { exact: true }).fill('Z');
-  await page.getByLabel('Academic year', { exact: true }).fill('2026');
+  await expect(page.getByLabel('Academic year', { exact: true })).toHaveValue('2026/27');
+  await page.getByLabel('Academic year', { exact: true }).selectOption('2026/27');
   await expect(page.getByLabel('Reason', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Save class', exact: true }).click();
   await page.getByRole('button', { name: 'Delete class: Grade 8 Z', exact: true }).click();

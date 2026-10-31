@@ -109,14 +109,16 @@ describe('school setup UI', () => {
     await user.click(await screen.findByRole('button', { name: 'Add class' }, { timeout: 5000 }));
     await user.type(await screen.findByLabelText('Grade'), '9');
     await user.type(screen.getByLabelText('Section'), 'B');
-    await user.type(screen.getByLabelText('Academic year'), '2026');
+    const academicYearSelect = screen.getByLabelText('Academic year');
+    expect(academicYearSelect).toHaveValue('2026/27');
+    await user.selectOptions(academicYearSelect, '2026/27');
     expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save class' }));
     expect(await screen.findByRole('heading', { name: 'Grade 9 B' })).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Subjects' }));
     await user.click(screen.getByRole('button', { name: 'Add subject' }));
     await user.type(screen.getByLabelText('Subject name'), 'Physics');
-    await user.type(screen.getByLabelText('Grade'), '10');
+    await user.selectOptions(screen.getByLabelText('Grade'), '10');
     await user.type(screen.getByLabelText('Subject code'), 'PHY');
     expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save subject' }));
@@ -128,6 +130,30 @@ describe('school setup UI', () => {
       targetLabel: 'Physics',
       reason: '',
     });
+  });
+  it('defaults academic year to current year (2026/27) and allows selection with dropdown', async () => {
+    const { user } = setup();
+    await user.click(await screen.findByRole('button', { name: 'Add class' }, { timeout: 5000 }));
+    const select = screen.getByLabelText('Academic year');
+    expect(select).toHaveValue('2026/27');
+
+    // Dropdown contains options with Ethiopian calendar references
+    expect(screen.getByRole('option', { name: '2026/27 (2019 ዓ.ም.)' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '2027/28 (2020 ዓ.ም.)' })).toBeInTheDocument();
+
+    // Changing dropdown updates academic year value
+    await user.selectOptions(select, '2027/28');
+    expect(select).toHaveValue('2027/28');
+  });
+  it('selects grade from available classes in Add subject', async () => {
+    const { user } = setup();
+    await user.click(await screen.findByRole('tab', { name: 'Subjects' }));
+    await user.click(await screen.findByRole('button', { name: 'Add subject' }));
+    const gradeSelect = screen.getByLabelText('Grade');
+    expect(gradeSelect.tagName).toBe('SELECT');
+    expect(screen.getByRole('option', { name: 'Grade 10' })).toBeInTheDocument();
+    await user.selectOptions(gradeSelect, '10');
+    expect(gradeSelect).toHaveValue('10');
   });
   it('blocks invalid imports and issues valid roster credentials only after explicit confirmation', async () => {
     const { user, store, cache, router } = setup();

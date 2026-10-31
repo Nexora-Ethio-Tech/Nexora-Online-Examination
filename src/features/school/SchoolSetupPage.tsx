@@ -4,7 +4,7 @@ import { FilterBar } from '@/components/shared/FilterBar';
 import { searchCache, directoryCache } from '@/lib/query-policy';
 import { useDebounced } from '@/lib/use-debounced';
 import { RefreshControl } from '@/components/shared/RefreshControl';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useBeforeUnload, useBlocker, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ import { credentialsCsv } from './csv';
 import type { Account, CredentialIssue, SchoolClass, Subject } from './schemas';
 import { RosterImport } from './RosterImport';
 import { RemoveRecord } from './RemoveRecord';
+import type { EthiopianDate } from 'kenat';
+import { ethiopianFromGregorianDate, toEatInput } from '@/lib/ethiopian-date';
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -248,7 +250,7 @@ export function CredentialPanel({ issue, close }: { issue: CredentialIssue; clos
 }
 function StructurePage({ kind }: { kind: 'class' | 'subject' }) {
   const api = schoolApi(useApiClient());
-  const classes = useSchoolPage(['classes'], api.classes);
+  const classes = useSchoolPage(['classes'], api.classes, true);
   const subjects = useSchoolPage(['subjects'], api.subjects);
   const list = kind === 'class' ? classes : subjects;
   const [selected, setSelected] = useState<SchoolClass | Subject | null>(null);
@@ -272,6 +274,7 @@ function StructurePage({ kind }: { kind: 'class' | 'subject' }) {
             key={`${kind}:${selected && ('classId' in selected ? selected.classId : selected.subjectId)}:${selected?.revision}`}
             kind={kind}
             selected={selected}
+            classes={classes.rows}
             onDone={() => {
               setSelected(null);
               setAdding(false);
@@ -315,15 +318,63 @@ function StructurePage({ kind }: { kind: 'class' | 'subject' }) {
     </div>
   );
 }
+export function ethiopianYearToAcademicYear(ethYear: number): string {
+  const startGregYear = ethYear + 7;
+  const endGregYearShort = String((ethYear + 8) % 100).padStart(2, '0');
+  return `${startGregYear}/${endGregYearShort}`;
+}
+
+export function academicYearToEthiopianYear(academicYear: string): number {
+  const match = academicYear.match(/^(\d{4})/);
+  if (match && match[1]) {
+    const startGregYear = parseInt(match[1], 10);
+    return startGregYear - 7;
+  }
+  return 2019;
+}
+
+function getCurrentEthiopianDate(): EthiopianDate {
+  try {
+    const nowEat = toEatInput(new Date().toISOString());
+    return ethiopianFromGregorianDate(nowEat);
+  } catch {
+    return { year: 2019, month: 2, day: 21 };
+  }
+}
+
 function StructureForm({
   kind,
   selected,
+  classes = [],
   onDone,
 }: {
   kind: 'class' | 'subject';
   selected: SchoolClass | Subject | null;
+  classes?: SchoolClass[];
   onDone: () => void;
 }) {
+  const availableGrades = useMemo(() => {
+    const fromClasses = classes
+      .map((c) => c.grade?.trim() || c.name.match(/^Grade\s+([^\s]+)/i)?.[1]?.trim())
+      .filter((g): g is string => !!g);
+    const set = new Set(fromClasses);
+    if (selected?.grade) {
+      set.add(selected.grade.trim());
+    }
+    if (set.size === 0) {
+      ['9', '10', '11', '12'].forEach((g) => set.add(g));
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [classes, selected?.grade]);
+  const initialEthDate = useMemo(() => {
+    if (selected && 'academicYear' in selected && selected.academicYear) {
+      const ey = academicYearToEthiopianYear(selected.academicYear);
+      return { year: ey, month: 1, day: 1 };
+    }
+    return getCurrentEthiopianDate();
+  }, [selected]);
+
+  const currentAcademicYear = ethiopianYearToAcademicYear(initialEthDate.year);
   const api = schoolApi(useApiClient());
   const op = useSchoolOperation();
   const [name, setName] = useState(selected?.name ?? '');
@@ -332,10 +383,41 @@ function StructureForm({
     selected && 'section' in selected ? (selected.section ?? '') : '',
   );
   const [detail, setDetail] = useState(
-    selected ? ('academicYear' in selected ? selected.academicYear : selected.code) : '',
+    selected
+      ? 'academicYear' in selected
+        ? selected.academicYear
+        : selected.code
+      : kind === 'class'
+        ? currentAcademicYear
+        : '',
   );
   const [active, setActive] = useState(selected?.active ?? true);
   const [reason, setReason] = useState('');
+
+  const academicYearOptions = useMemo(() => {
+    const baseEthYear = initialEthDate.year;
+    const years = Array.from({ length: 11 }, (_, i) => baseEthYear - 5 + i);
+    const opts = years.map((ey) => {
+      const ay = ethiopianYearToAcademicYear(ey);
+      return {
+        value: ay,
+        label: `${ay} (${ey} ዓ.ም.)`,
+      };
+    });
+    if (detail && !opts.some((o) => o.value === detail)) {
+      opts.push({
+        value: detail,
+        label: `${detail} (${academicYearToEthiopianYear(detail)} ዓ.ም.)`,
+      });
+    }
+    if (!opts.some((o) => o.value === '2026')) {
+      opts.push({
+        value: '2026',
+        label: '2026 (2019 ዓ.ም.)',
+      });
+    }
+    return opts;
+  }, [initialEthDate.year, detail]);
   return (
     <form
       className={`${panel} space-y-4`}
@@ -376,16 +458,34 @@ function StructureForm({
         {selected ? 'Edit' : 'Add'} {kind}
       </h2>
       <fieldset className="space-y-4" disabled={op.pending}>
-        <Field label="Grade">
-          <input
-            className={control}
-            required={!selected}
-            maxLength={40}
-            value={grade}
-            onChange={(e) => setGrade(e.target.value)}
-            placeholder="9, 10, 11, 12…"
-          />
-        </Field>
+        {kind === 'subject' ? (
+          <Field label="Grade">
+            <select
+              className={control}
+              required={!selected}
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+            >
+              <option value="">Choose a grade</option>
+              {availableGrades.map((g) => (
+                <option key={g} value={g}>
+                  Grade {g}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <Field label="Grade">
+            <input
+              className={control}
+              required={!selected}
+              maxLength={40}
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+              placeholder="9, 10, 11, 12…"
+            />
+          </Field>
+        )}
         {kind === 'class' && (
           <Field label="Section">
             <input
@@ -414,16 +514,33 @@ function StructureForm({
             />
           </Field>
         )}
-        <Field label={kind === 'class' ? 'Academic year' : 'Subject code'}>
-          <input
-            className={control}
-            required
-            maxLength={30}
-            pattern={kind === 'subject' ? '[A-Za-z0-9_-]+' : undefined}
-            value={detail}
-            onChange={(e) => setDetail(e.target.value)}
-          />
-        </Field>
+        {kind === 'class' ? (
+          <Field label="Academic year">
+            <select
+              className={control}
+              required
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+            >
+              {academicYearOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <Field label="Subject code">
+            <input
+              className={control}
+              required
+              maxLength={30}
+              pattern="[A-Za-z0-9_-]+"
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+            />
+          </Field>
+        )}
         {selected && (
           <label className="flex gap-3">
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
@@ -436,7 +553,8 @@ function StructureForm({
             className="min-h-11"
             disabled={
               (!(kind === 'class' && grade.trim() && section.trim()) && !name.trim()) ||
-              !detail.trim()
+              !detail.trim() ||
+              (kind === 'subject' && !selected && !grade.trim())
             }
           >
             Save {kind}
