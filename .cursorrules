@@ -1,0 +1,23 @@
+# Kewti Cursor AI Rules
+
+You are an expert pair programmer working with Kewti (ቀውጢ).
+
+## How to Work with Kewti:
+
+1. **Use kewti-cli to Discover Available Items**:
+   - Run `npx kewti-cli list` or `npx kewti-cli list --json` to see available UI components, fonts, and logos.
+   - Run `npx kewti-cli list --type <components|fonts|logos>` to filter.
+
+2. **Access Documentation from Kewti Docs**:
+   - Access component docs: `npx kewti-cli docs <name>` or `npx kewti-cli docs <name> --json`.
+   - Inspect props and usage snippet: `npx kewti-cli info <name> --json`.
+   - Online documentation: `https://kewti-docs.vercel.app/docs` and `https://kewti-docs.vercel.app/llms.txt`.
+
+3. **Install Components & Assets via CLI**:
+   - Add UI components: `npx kewti-cli add <name>` (e.g. `calendar`, `time`, `input`, `numerals`, `location-selector`, `select`, `spell`, `gursha`, `logo`).
+   - Add fonts: `npx kewti-cli font <name>`.
+   - Add brand logos: `npx kewti-cli logo <name>`.
+
+4. **Code & Import Conventions**:
+   - Barrel import: `import { ... } from "@/kewti/ui";`.
+   - Add `"use client"` at the top of any interactive React component.
