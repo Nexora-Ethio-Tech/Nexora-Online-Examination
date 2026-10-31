@@ -56,9 +56,8 @@ export function RosterImport({
         <h2 className="text-xl font-semibold">Import a student roster</h2>
         <p>
           Choose a class and upload Excel or CSV with First name, Father's name and Grandfather's
-          name. Roll number is optional and goes first. Nexora generates login IDs; roll numbers are
-          not login IDs. Without roll numbers, check Accounts before importing a changed file again
-          to avoid duplicate students.
+          name. Roll numbers are automatically generated when importing students. Nexora generates
+          login IDs; roll numbers are not login IDs.
         </p>
         <a
           className="inline-flex min-h-11 items-center underline"
@@ -128,7 +127,7 @@ export function RosterImport({
               <thead>
                 <tr>
                   <th className="p-2">Row</th>
-                  <th className="p-2">Roll number (optional)</th>
+                  <th className="p-2">Roll number</th>
                   <th className="p-2">Student name</th>
                   <th className="p-2">Validation</th>
                 </tr>

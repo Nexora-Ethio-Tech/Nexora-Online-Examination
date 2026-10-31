@@ -89,10 +89,39 @@ export class RosterService {
               )
             ).rows.map((r) => r.student_ref),
           );
-          const prepared = parsedRows.map((row) => ({
-            ...row,
-            studentRef: rosterReference(classId, row, hash),
-          }));
+          const existingRolls = (
+            await c.query<{ roll_number: string }>(
+              `SELECT u.roll_number 
+               FROM users u 
+               JOIN enrollments e ON e.student_id=u.id AND e.school_id=u.school_id 
+               WHERE e.school_id=$1 AND e.class_id=$2 AND u.roll_number IS NOT NULL`,
+              [school.id, classId],
+            )
+          ).rows.map((r) => r.roll_number);
+          let currentRoll = 0;
+          for (const roll of existingRolls) {
+            const num = parseInt(roll, 10);
+            if (!isNaN(num) && String(num) === roll.trim() && num > currentRoll) {
+              currentRoll = num;
+            }
+          }
+          const prepared = parsedRows.map((row) => {
+            let rollNumber = row.rollNumber;
+            if (!row.legacy) {
+              if (rollNumber) {
+                const num = parseInt(rollNumber, 10);
+                if (!isNaN(num) && num > currentRoll) currentRoll = num;
+              } else {
+                currentRoll++;
+                rollNumber = String(currentRoll);
+              }
+            }
+            const rowWithRoll = { ...row, rollNumber };
+            return {
+              ...rowWithRoll,
+              studentRef: rosterReference(classId, rowWithRoll, hash),
+            };
+          });
           const counts = new Map<string, number>();
           for (const row of prepared)
             counts.set(

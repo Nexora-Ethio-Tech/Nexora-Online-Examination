@@ -199,14 +199,14 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
           )
             .map((b) => b.toString(16).padStart(2, '0'))
             .join('');
-          if (digest !== 'fa06c181e768d3d6e034dfa9f455aa180211127663606de760692f17d5fd3895')
+          if (digest !== '406348875901c3d053e88c891ef1cefa9b8c6ff83fa3a80d8e8fa38eb87dd4cb')
             return fail(
               'Demo mode supports the supplied Excel example only. Use the integrated backend for other Excel rosters.',
               'VALIDATION_ERROR',
               422,
             );
           csv =
-            "Roll number,First name,Father's name,Grandfather's name\n1,Hana,Dawit,Getachew\n,Samuel,Abebe,Tesfaye\n3,Mekdes,Kebede,Tadesse";
+            "First name,Father's name,Grandfather's name\nHana,Dawit,Getachew\nSamuel,Abebe,Tesfaye\nMekdes,Kebede,Tadesse";
         } else csv = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
       } catch {
         return fail('The CSV must use UTF-8 text.', 'VALIDATION_ERROR', 422);
@@ -314,17 +314,38 @@ export function createSchoolDemo(store: AuthoringStore, clock = Date.now) {
         records[0]?.join(',') !== "First name,Father's name,Grandfather's name"
       )
         return fail('Use the downloadable roster headers.', 'VALIDATION_ERROR', 422);
-      const rollNumbers = records.slice(1).map((r) => (roll ? (r[0] ?? '').trim() : ''));
+      const existingInClass = [...d.accounts.values()].filter(
+        (a) => a.classId === schoolClass.classId && a.role === 'student',
+      );
+      let currentRoll = 0;
+      for (const a of existingInClass) {
+        const match = /_(\d+)$/.exec(a.studentRef ?? '');
+        if (match && match[1]) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > currentRoll) currentRoll = num;
+        }
+      }
+      if (currentRoll === 0) {
+        currentRoll = existingInClass.length;
+      }
+      const rollNumbers = records.slice(1).map((r) => {
+        const explicit = roll ? (r[0] ?? '').trim() : '';
+        if (explicit) {
+          const num = parseInt(explicit, 10);
+          if (!isNaN(num) && num > currentRoll) currentRoll = num;
+          return explicit;
+        }
+        if (!legacy) {
+          currentRoll++;
+          return String(currentRoll);
+        }
+        return '';
+      });
       if (!legacy) {
-        const digest = Array.from(
-          new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(csv))),
-        )
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join('');
         records = [
           ['studentRef', 'displayName'],
           ...records.slice(1).map((r, i) => [
-            'roster_' + schoolClass.classId + '_' + (rollNumbers[i] || digest + '_' + i),
+            'roster_' + schoolClass.classId + '_' + rollNumbers[i],
             r
               .slice(roll ? 1 : 0)
               .map((n) => n.trim())

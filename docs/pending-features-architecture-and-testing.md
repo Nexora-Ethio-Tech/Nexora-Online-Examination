@@ -40,17 +40,17 @@ Migration 032 stores invitations with forced RLS and a restricted hash-lookup fu
 
 Download the new Excel example from School setup → Roster import. The Students worksheet contains these columns, in order:
 
-| Roll number | First name | Father's name | Grandfather's name |
-| --- | --- | --- | --- |
-| Optional | Required | Required | Required |
+| First name | Father's name | Grandfather's name |
+| --- | --- | --- |
+| Required | Required | Required |
 
-The roll column may be blank or removed entirely. Select the destination class in the portal. Nexora generates the student login ID using the existing school-wide number allocation and Ethiopian year. Generate credentials through the existing explicit private distribution action. No imported column supplies the login ID or password.
+Roll numbers are auto-generated when importing students. Select the destination class in the portal. Nexora generates the student login ID using the existing school-wide number allocation and Ethiopian year. Generate credentials through the existing explicit private distribution action. No imported column supplies the login ID or password.
 
 The XLSX parser rejects formulas, macros, external relationships and unsupported embedded objects. CSV with matching headers is supported. Existing legacy two-column CSV imports remain readable for compatibility; their reference is still not a login ID.
 
 A roll number is a class-scoped duplicate-detection reference. Without one, repeating the exact file and row is detected. A changed file without roll numbers may contain existing students; check Accounts before importing it. Matching names are never automatically merged because two students can have the same names.
 
-Test: preview/import the downloaded example, including its blank roll cell. Check the three stored names and generated STU/SID/NNNN/YY ID. Repeat the same file and confirm duplicate errors. Import a three-column CSV without roll number. Try the same roll in a different class and verify separate generated IDs. A missing name must block commitment. A malformed file must create no accounts. Demo mode supports the supplied Excel example and CSV; arbitrary Excel files require the real backend.
+Test: preview/import the downloaded example. Check the three stored names and generated STU/SID/NNNN/YY ID. Repeat the same file and confirm duplicate errors. Import a three-column CSV without roll number. Try the same student in a different class and verify separate generated IDs. A missing name must block commitment. A malformed file must create no accounts. Demo mode supports the supplied Excel example and CSV; arbitrary Excel files require the real backend.
 
 ## Automatic worker coverage
 

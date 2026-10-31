@@ -219,6 +219,33 @@ describe('school setup UI', () => {
       screen.queryByRole('checkbox', { name: 'Select Test Student for login details' }),
     ).not.toBeInTheDocument();
   });
+  it('auto-generates sequential roll numbers when importing roster without roll number column', async () => {
+    const { user } = setup();
+    await user.click(await screen.findByRole('tab', { name: 'Roster import' }));
+    await user.selectOptions(await screen.findByLabelText('Roster class'), 'demo-class-10a');
+    await user.upload(
+      screen.getByLabelText('Student roster file'),
+      csvFile(
+        "First name,Father's name,Grandfather's name\nHana,Dawit,Getachew\nSamuel,Abebe,Tesfaye",
+      ),
+    );
+    submitRosterPreview();
+    await screen.findByText(/All rows passed validation/);
+    expect(screen.getByRole('columnheader', { name: 'Roll number' })).toBeInTheDocument();
+    const rows = screen.getAllByRole('row');
+    // Header is rows[0]. Student 1 (Hana) is rows[1]. Student 2 (Samuel) is rows[2].
+    // Existing student Samira is student 1 in demo-class-10a, so auto-generated roll numbers start at 2
+    if (!rows[1] || !rows[2]) throw new Error('Expected at least 3 rows in preview table');
+    const hanaCells = within(rows[1]).getAllByRole('cell');
+    expect(hanaCells[0]).toHaveTextContent('2'); // Row index
+    expect(hanaCells[1]).toHaveTextContent('2'); // Roll number
+    expect(hanaCells[2]).toHaveTextContent('Hana Dawit Getachew');
+
+    const samuelCells = within(rows[2]).getAllByRole('cell');
+    expect(samuelCells[0]).toHaveTextContent('3'); // Row index
+    expect(samuelCells[1]).toHaveTextContent('3'); // Roll number
+    expect(samuelCells[2]).toHaveTextContent('Samuel Abebe Tesfaye');
+  });
   it('requires reset acknowledgment and invalidates an existing signed-in session', async () => {
     const { user, store } = setup();
     const studentAuth = createAuthApi(

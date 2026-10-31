@@ -3,11 +3,19 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { rosterRows, rosterReference } from '../../src/modules/directory/roster-format';
 describe('system-generated roster identities', () => {
-  it('reads the actual downloadable Excel template including a blank roll number', async () => {
+  it('reads the actual downloadable Excel template without roll number column', async () => {
     const rows = await rosterRows(
       readFileSync(resolve(process.cwd(), '../public/templates/nexora-student-roster.xlsx')),
     );
     expect(rows).toHaveLength(3);
+    expect(rows[0]).toMatchObject({
+      firstName: 'Hana',
+      fatherName: 'Dawit',
+      grandfatherName: 'Getachew',
+      rollNumber: '',
+      studentRef: '',
+      errors: [],
+    });
     expect(rows[1]).toMatchObject({
       firstName: 'Samuel',
       fatherName: 'Abebe',
