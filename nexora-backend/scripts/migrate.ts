@@ -40,12 +40,30 @@ async function runMigrations() {
         continue;
       }
 
+      if (file >= '030') {
+        await client.query(`
+          DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nexora_platform_ops') THEN
+              GRANT CREATE ON SCHEMA public, platform TO nexora_platform_ops;
+            END IF;
+          END $$;
+        `);
+      }
+
       logger.log(`[Migrate] Applying migration: ${file}...`);
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
       await client.query(sql);
       await client.query(`INSERT INTO schema_migrations (version) VALUES ($1)`, [file]);
       logger.log(`[Migrate] Applied: ${file}`);
     }
+
+    await client.query(`
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nexora_platform_ops') THEN
+          REVOKE CREATE ON SCHEMA public, platform FROM nexora_platform_ops;
+        END IF;
+      END $$;
+    `);
 
     await client.query('COMMIT');
     logger.log('[Migrate] All migrations applied successfully.');

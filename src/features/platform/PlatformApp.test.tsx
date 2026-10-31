@@ -83,4 +83,133 @@ describe('owner portal', () => {
     expect(sent[1]?.requestId).toBe(sent[0]?.requestId);
     expect(sent[1]?.code).toBe('987654');
   });
+
+  it('auto-generates a short first administrator ID reflecting the school name without typing and displays it after creation', async () => {
+    const sent: Record<string, unknown>[] = [];
+    const client = new ApiClient('/platform-api/v1', async (url, init) => {
+      if (url.endsWith('/auth/csrf')) return Response.json({ csrfToken: 'owner-csrf' });
+      if (url.endsWith('/auth/me')) return Response.json({ displayName: 'Owner' });
+      if (url.endsWith('/schools')) return Response.json({ schools: [], nextCursor: null });
+      if (url.endsWith('/health'))
+        return Response.json({
+          database: 'reachable',
+          sampledAt: '2030-01-01T00:00:00Z',
+          queues: [],
+        });
+      if (url.endsWith('/audit')) return Response.json({ events: [], nextCursor: null });
+      if (url.endsWith('/actions')) {
+        const payload = JSON.parse(String(init.body));
+        sent.push(payload);
+        return Response.json({
+          schoolId,
+          adminId: schoolId,
+          loginId: payload.loginId,
+          message: 'School created. Admin is inactive until protected MFA enrollment is confirmed.',
+          credential: 'temp-password-123',
+          replayed: false,
+        });
+      }
+      return failure();
+    });
+    render(<PlatformApp client={client} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add school' }));
+
+    // Type only school name: First administrator ID should be automatically generated!
+    await user.type(screen.getByLabelText('School name'), 'Bole Secondary School');
+    const adminIdInput = screen.getByLabelText('First administrator ID') as HTMLInputElement;
+    expect(adminIdInput.value).toMatch(/^ADM-BOLE-[2-9A-HJ-NP-Z]{4}$/);
+    const generatedId = adminIdInput.value;
+    expect(generatedId.length).toBeLessThanOrEqual(16);
+
+    // Clicking "Generate new ID" regenerates a unique suffix
+    await user.click(screen.getByRole('button', { name: 'Generate new ID' }));
+    const regeneratedId = (screen.getByLabelText('First administrator ID') as HTMLInputElement)
+      .value;
+    expect(regeneratedId).toMatch(/^ADM-BOLE-[2-9A-HJ-NP-Z]{4}$/);
+    expect(regeneratedId).not.toBe(generatedId);
+
+    // Complete the rest of required fields without typing into First administrator ID
+    await user.type(screen.getByLabelText('School short name'), 'Bole School');
+    await user.type(screen.getByLabelText('First name'), 'Abebe');
+    await user.type(screen.getByLabelText("Father's name"), 'Kebede');
+    await user.type(screen.getByLabelText("Grandfather's name"), 'Tesfaye');
+    await user.type(screen.getByLabelText('Authentication code'), '123456');
+
+    await user.click(screen.getByRole('button', { name: 'Confirm owner action' }));
+
+    // Confirm that the auto-generated ID was submitted
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.loginId).toBe(regeneratedId);
+
+    // And verify that after creating the school, First administrator ID is displayed
+    await screen.findByText(
+      'School created. Admin is inactive until protected MFA enrollment is confirmed.',
+    );
+    expect(screen.getAllByText(regeneratedId).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('First administrator ID').length).toBeGreaterThan(0);
+  });
+
+  it('auto-generates a short first administrator ID reflecting the school name without typing and displays it after creation', async () => {
+    const sent: Record<string, unknown>[] = [];
+    const client = new ApiClient('/platform-api/v1', async (url, init) => {
+      if (url.endsWith('/auth/csrf')) return Response.json({ csrfToken: 'owner-csrf' });
+      if (url.endsWith('/auth/me')) return Response.json({ displayName: 'Owner' });
+      if (url.endsWith('/schools')) return Response.json({ schools: [], nextCursor: null });
+      if (url.endsWith('/health'))
+        return Response.json({
+          database: 'reachable',
+          sampledAt: '2030-01-01T00:00:00Z',
+          queues: [],
+        });
+      if (url.endsWith('/audit')) return Response.json({ events: [], nextCursor: null });
+      if (url.endsWith('/actions')) {
+        const payload = JSON.parse(String(init.body));
+        sent.push(payload);
+        return Response.json({
+          schoolId,
+          adminId: schoolId,
+          loginId: payload.loginId,
+          message: 'School created. Admin is inactive until protected MFA enrollment is confirmed.',
+          credential: 'temp-password-123',
+          replayed: false,
+        });
+      }
+      return failure();
+    });
+    render(<PlatformApp client={client} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add school' }));
+
+    // Type only school name: First administrator ID should be automatically generated!
+    await user.type(screen.getByLabelText('School name'), 'Bole Secondary School');
+    const adminIdInput = screen.getByLabelText('First administrator ID') as HTMLInputElement;
+    expect(adminIdInput.value).toMatch(/^ADM-BOLE-[2-9A-HJ-NP-Z]{4}$/);
+    const generatedId = adminIdInput.value;
+    expect(generatedId.length).toBeLessThanOrEqual(16);
+
+    // Clicking "Generate new ID" regenerates a unique suffix
+    await user.click(screen.getByRole('button', { name: 'Generate new ID' }));
+    const regeneratedId = (screen.getByLabelText('First administrator ID') as HTMLInputElement).value;
+    expect(regeneratedId).toMatch(/^ADM-BOLE-[2-9A-HJ-NP-Z]{4}$/);
+    expect(regeneratedId).not.toBe(generatedId);
+
+    // Complete the rest of required fields without typing into First administrator ID
+    await user.type(screen.getByLabelText('School short name'), 'Bole School');
+    await user.type(screen.getByLabelText('First name'), 'Abebe');
+    await user.type(screen.getByLabelText("Father's name"), 'Kebede');
+    await user.type(screen.getByLabelText("Grandfather's name"), 'Tesfaye');
+    await user.type(screen.getByLabelText('Authentication code'), '123456');
+
+    await user.click(screen.getByRole('button', { name: 'Confirm owner action' }));
+
+    // Confirm that the auto-generated ID was submitted
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.loginId).toBe(regeneratedId);
+
+    // And verify that after creating the school, First administrator ID is displayed
+    await screen.findByText('School created. Admin is inactive until protected MFA enrollment is confirmed.');
+    expect(screen.getAllByText(regeneratedId).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('First administrator ID').length).toBeGreaterThan(0);
+  });
 });

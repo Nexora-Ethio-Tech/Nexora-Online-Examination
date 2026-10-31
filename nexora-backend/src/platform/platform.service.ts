@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { PlatformDb, platformKey } from './platform-db';
 import { actionSchema, loginSchema, inspectSchema, cursorSchema } from './platform-schemas';
+import { generateAdminLoginId } from './admin-id';
 import { DomainException } from '../common/errors/domain.exception';
 import { allowedOrigins } from '../common/security/origins';
 import {
@@ -382,12 +383,22 @@ export class PlatformService {
           schoolId = randomUUID();
           const adminId = randomUUID();
           credential = generateOpaqueToken(24);
+          let adminLoginId = body.loginId.trim() || generateAdminLoginId(body.name);
+          let attempts = 0;
+          while (attempts < 5) {
+            const existing = await c.query('SELECT 1 FROM public.users WHERE login_id = $1', [
+              adminLoginId,
+            ]);
+            if (!existing.rows.length) break;
+            adminLoginId = generateAdminLoginId(body.name);
+            attempts++;
+          }
           await c.query('SELECT platform.provision_school($1,$2,$3,$4,$5,$6,$7)', [
             schoolId,
             adminId,
             body.name,
             body.slug,
-            body.loginId,
+            adminLoginId,
             [body.firstName, body.fatherName, body.grandfatherName].join(' '),
             await hashPassword(credential),
           ]);
@@ -398,7 +409,7 @@ export class PlatformService {
           result = {
             schoolId,
             adminId,
-            loginId: body.loginId,
+            loginId: adminLoginId,
             message:
               'School created. Admin is inactive until protected MFA enrollment is confirmed.',
           };

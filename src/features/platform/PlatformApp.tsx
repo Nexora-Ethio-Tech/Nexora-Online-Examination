@@ -14,6 +14,7 @@ import { platformApi, type School, type Admin, type ActionResult } from './api';
 import { OwnerGuide } from './OwnerGuide';
 import { processingLabel } from './language';
 import { administratorEnrollmentLink } from './enrollment-link';
+import { generateAdminLoginId } from './admin-id';
 
 const inputClass = 'mt-1 min-h-11 w-full rounded border bg-background p-2';
 export function PlatformApp({ client: provided }: { client?: ApiClient }) {
@@ -291,6 +292,8 @@ function OwnerActions({
   const [name, setName] = useState(''),
     [slug, setSlug] = useState(''),
     [loginId, setLoginId] = useState(''),
+    [loginIdCustomized, setLoginIdCustomized] = useState(false),
+    [createdAdminId, setCreatedAdminId] = useState(''),
     [firstName, setFirstName] = useState(''),
     [fatherName, setFatherName] = useState(''),
     [grandfatherName, setGrandfatherName] = useState(''),
@@ -304,6 +307,26 @@ function OwnerActions({
     [adminId, setAdminId] = useState(''),
     [result, setResult] = useState<ActionResult | null>(null);
   const retry = useRef<{ fingerprint: string; id: string } | null>(null);
+
+  const handleNameChange = (newName: string) => {
+    setName(newName);
+    if (!school && !loginIdCustomized) {
+      setLoginId(generateAdminLoginId(newName || slug));
+    }
+  };
+
+  const handleSlugChange = (newSlug: string) => {
+    setSlug(newSlug);
+    if (!school && !loginIdCustomized && !name.trim()) {
+      setLoginId(generateAdminLoginId(newSlug));
+    }
+  };
+
+  const handleRegenerateLoginId = () => {
+    const freshId = generateAdminLoginId(name || slug || 'School');
+    setLoginId(freshId);
+    setLoginIdCustomized(false);
+  };
   useEffect(() => {
     if (!result?.credential) return;
     const timer = setTimeout(
@@ -321,19 +344,25 @@ function OwnerActions({
     setResult(null);
     try {
       let command: Record<string, unknown> = { action, reason };
-      if (!school)
+      if (!school) {
+        let effectiveLoginId = loginId.trim();
+        if (!effectiveLoginId) {
+          effectiveLoginId = generateAdminLoginId(name || slug || 'School');
+          setLoginId(effectiveLoginId);
+        }
+        setCreatedAdminId(effectiveLoginId);
         command = {
           ...command,
           name,
           slug,
-          loginId,
+          loginId: effectiveLoginId,
           firstName,
           fatherName,
           grandfatherName,
           phoneNumber,
           recoveryEmail,
         };
-      else if (action === 'create_admin')
+      } else if (action === 'create_admin')
         command = {
           ...command,
           schoolId: school.id,
@@ -449,7 +478,7 @@ function OwnerActions({
                 maxLength={150}
                 placeholder="Eagle School"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => handleNameChange(e.target.value)}
               />
             </label>
             <label>
@@ -462,23 +491,44 @@ function OwnerActions({
                 aria-describedby="school-short-name-help"
                 placeholder="Eagle School"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
+                onChange={(e) => handleSlugChange(e.target.value)}
               />
               <span id="school-short-name-help" className="block text-sm text-muted-foreground">
                 Uppercase letters and spaces are welcome. We save “Eagle School” as “eagle-school”.
                 This is not a street address or the automatically generated school code.
               </span>
             </label>
-            <label>
-              <span className="field-label">First administrator ID</span>
+            <div className="sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="owner-first-admin-id" className="field-label">
+                  Login ID
+                </label>
+                <button
+                  type="button"
+                  className="text-xs text-primary underline hover:text-primary/80"
+                  onClick={handleRegenerateLoginId}
+                >
+                  Generate new ID
+                </button>
+              </div>
               <input
+                id="owner-first-admin-id"
+                aria-label="First administrator ID"
+                aria-describedby="first-admin-id-help"
                 className={inputClass}
                 required
                 maxLength={100}
+                placeholder="Auto-generated from school name"
                 value={loginId}
-                onChange={(e) => setLoginId(e.target.value)}
+                onChange={(e) => {
+                  setLoginId(e.target.value);
+                  setLoginIdCustomized(e.target.value.trim().length > 0);
+                }}
               />
-            </label>
+              <span id="first-admin-id-help" className="block text-sm text-muted-foreground">
+                Auto-generated from the school name. Short and unique to prevent conflicts.
+              </span>
+            </div>
 
             <p className="text-sm sm:col-span-2">
               Creates a 30-day trial. The administrator can sign in after completing authenticator
@@ -502,6 +552,9 @@ function OwnerActions({
             <p>The new administrator can sign in after completing authenticator setup.</p>
           </div>
         )}
+        <div className="space-y-3">
+          <span className='font-bold'>Adminstrator Details</span>
+        </div>
         {(!school || action === 'create_admin' || action === 'edit_admin') && (
           <div className="grid gap-3 sm:grid-cols-2">
             {[
@@ -734,10 +787,23 @@ function OwnerActions({
       {result && (
         <div className="space-y-3 rounded border p-4" role="status">
           <p>{result.message}</p>
+          {(result.loginId || createdAdminId) && (
+            <div className="rounded border bg-muted/40 p-3 space-y-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                Login ID
+              </span>
+              <p className="text-base font-bold font-mono select-all">
+                {result.loginId || createdAdminId}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Share this login ID with the school administrator to sign in or complete enrollment.
+              </p>
+            </div>
+          )}
           <p className="break-all text-sm">
-            {result.loginId && (
+            {(result.loginId || createdAdminId) && (
               <>
-                Administrator login ID: <strong>{result.loginId}</strong>
+                Administrator login ID: <strong>{result.loginId || createdAdminId}</strong>
               </>
             )}
           </p>
